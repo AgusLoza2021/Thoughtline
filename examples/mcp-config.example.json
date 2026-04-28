@@ -1,0 +1,13 @@
+{
+  "$schema": "https://modelcontextprotocol.io/schemas/mcp-config.json",
+  "mcpServers": {
+    "thoughtline": {
+      "command": "thoughtline",
+      "args": [],
+      "env": {
+        "THOUGHTLINE_HOME": "${HOME}/.thoughtline",
+        "THOUGHTLINE_LOG_LEVEL": "info"
+      }
+    }
+  }
+}
