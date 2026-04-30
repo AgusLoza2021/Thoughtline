@@ -6,7 +6,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Go Version](https://img.shields.io/badge/Go-1.25%2B-00ADD8?logo=go)](go.mod)
-[![Status](https://img.shields.io/badge/status-M3%20done-yellow)](docs/PROGRESS.md)
+[![Status](https://img.shields.io/badge/status-M4%20done-brightgreen)](docs/PROGRESS.md)
 [![MCP](https://img.shields.io/badge/MCP-stdio-7C3AED)](#install-planned)
 
 *Save your project's lore. Recall it from any session. Forever.*
@@ -21,7 +21,7 @@ Thoughtline is an **MCP (Model Context Protocol) server** that gives AI assistan
 
 Thoughtline stands on the shoulders of [**Engram**](https://github.com/Gentleman-Programming/engram) by Alan Buscaglia — we deliberately reuse Engram's MCP shape, storage layout, and the clever bits like **FTS5 full-text search** and **`topic_key` upserts**. What we add is a **gamedev-first memory taxonomy** and a vocabulary tuned for engines like PlayCanvas, Unity, Unreal, and Godot.
 
-> **Status: M3 done.** Six tools live: `tl_save`, `tl_search`, `tl_get_observation`, `tl_context`, `tl_update`, `tl_delete`. The session bookends land in M4. See [`docs/PROGRESS.md`](docs/PROGRESS.md).
+> **Status: M4 done.** Eight tools live, the full session-aware memory API: `tl_save`, `tl_search`, `tl_get_observation`, `tl_context`, `tl_update`, `tl_delete`, `tl_session_start`, `tl_session_summary`. M5 (semantic embeddings) remains deferred per [ADR 0002](docs/decisions/0002-search-strategy-fts5-first.md) — schema reserved, opt-in. See [`docs/PROGRESS.md`](docs/PROGRESS.md).
 
 ---
 
@@ -106,7 +106,7 @@ The work is sliced into milestones. Each one has a definition of done, so progre
 | **M1 Save**      | `tl_save` end-to-end with SQLite, FTS5 schema, topic-key upsert               | 🟢 done         |
 | **M2 Search**    | `tl_search` with FTS5 + BM25 ranking, paginated, filterable by type/scope/project; `tl_get_observation` companion | 🟢 done         |
 | **M3 Context**   | `tl_context` (recent activity), `tl_update` (patch by id), `tl_delete` (soft delete) | 🟢 done         |
-| **M4 Sessions**  | `tl_session_start` + `tl_session_summary` to bookend coding sessions          | 🟡 next         |
+| **M4 Sessions**  | `tl_session_start` + `tl_session_summary`; `tl_save` learns optional `session_id`    | 🟢 done         |
 | **M5 Smarts**    | Optional embeddings layer for semantic recall — **schema reserved from M1**   | 🔵 deferred     |
 
 See [`docs/PROGRESS.md`](docs/PROGRESS.md) for the live milestone status and pre-publish TODOs.
@@ -115,7 +115,7 @@ See [`docs/PROGRESS.md`](docs/PROGRESS.md) for the live milestone status and pre
 
 ## Install
 
-> ✅ As of M3, six tools are live: `tl_save`, `tl_search`, `tl_get_observation`, `tl_context`, `tl_update`, `tl_delete`. Session bookends (`tl_session_*`) come in M4.
+> ✅ As of M4, eight tools are live: `tl_save`, `tl_search`, `tl_get_observation`, `tl_context`, `tl_update`, `tl_delete`, `tl_session_start`, `tl_session_summary`. The full session-aware API ships now.
 
 ### From source
 
@@ -172,8 +172,8 @@ All MCP tools share the `tl_` prefix.
 | `tl_context`          | Recent memories for the active project, ordered by `updated_at DESC`                     | ✅ M3  |
 | `tl_update`           | Patch `title` / `content` / `tags` of an existing memory by id                           | ✅ M3  |
 | `tl_delete`           | Soft-delete a memory by id; frees its `topic_key` for reuse                              | ✅ M3  |
-| `tl_session_start`    | Mark the start of a coding session, anchor a session id                                  | ⏳ M4  |
-| `tl_session_summary`  | Save a structured end-of-session digest                                                  | ⏳ M4  |
+| `tl_session_start`    | Open a session; returns a UUIDv7 you thread through subsequent `tl_save` calls           | ✅ M4  |
+| `tl_session_summary`  | Close a session; persists a structured end-of-session digest. Append-once.               | ✅ M4  |
 
 Full architecture in [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md). Memory taxonomy in [`docs/design/memory-domain.md`](docs/design/memory-domain.md).
 
@@ -188,6 +188,7 @@ Full architecture in [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md). Memory taxo
 | `topic_key` | no       | Stable key for evolving topics. Re-saves on the same key upsert (lowercase / `[a-z0-9/_-]`)    |
 | `project`   | no       | Defaults to the working-directory basename (or `THOUGHTLINE_PROJECT` if set)                   |
 | `tags`      | no       | Lowercase tags, optionally `key:value` (e.g. `engine:playcanvas`, `platform:android`)          |
+| `session_id` | no      | Optional UUIDv7 returned by `tl_session_start`. Attaches the memory to that session. Must belong to the same project as the save. Sticky on upsert (omitting it preserves prior linkage). |
 
 ### `tl_search` parameters
 
@@ -238,6 +239,24 @@ Identity-defining fields (`type`, `topic_key`, `project`, `scope`) cannot be cha
 | `id`  | yes      | The local row id of the memory to soft-delete                                  |
 
 Sets `deleted_at` and hides the row from `tl_search` / `tl_context` / `tl_get_observation`. The `topic_key` (if any) is freed for a fresh `tl_save`. This is **soft** — the row remains on disk and can be recovered manually. A second `tl_delete` on the same id returns "not found".
+
+### `tl_session_start` parameters
+
+| Param         | Required | Notes                                                                                   |
+|---------------|----------|-----------------------------------------------------------------------------------------|
+| `project`     | no       | Defaults to the working-directory basename                                              |
+| `agent_label` | no       | Tag like `claude-code`, `cursor`, `zed`. ≤ 64 chars. Useful for cross-session forensics |
+
+Returns a UUIDv7 session id. Multiple open sessions per project are allowed — the server is stateless and does not track an "active" session. Thread the returned `session_id` through subsequent `tl_save` calls until you close the session with `tl_session_summary`.
+
+### `tl_session_summary` parameters
+
+| Param     | Required | Notes                                                                                       |
+|-----------|----------|---------------------------------------------------------------------------------------------|
+| `id`      | yes      | The session id from `tl_session_start`                                                      |
+| `summary` | yes      | Structured end-of-session digest (markdown). Recommended: `## Goal / ## Discoveries / ## Accomplished / ## Next Steps / ## Relevant Files`. ≤ 64 KB |
+
+Closes a session **once** — a second `tl_session_summary` on the same id returns "already ended". The digest is durable plain text written for a future session that has no other context.
 
 ---
 
@@ -411,6 +430,85 @@ After this:
 - A second `tl_delete` on the same id reports "not found"
 
 This is intentionally **soft** so a misclick is recoverable manually from the SQLite file. Hard delete is admin work, off-band.
+
+### 9. Bookend a coding session (`tl_session_start` + `tl_session_summary`)
+
+Open a session at the start of a working block:
+
+```jsonc
+// tl_session_start
+{ "agent_label": "claude-code" }
+```
+
+Response:
+
+```
+Session opened.
+Session ID: 019dde…-7585-a286-fcb6bf225f45
+Project: enchanted-inn
+Agent: claude-code
+Started: 2026-04-30 14:00:00 UTC
+
+Thread this Session ID through subsequent tl_save calls (session_id arg) to attach memories. Close the session with tl_session_summary when work is done.
+```
+
+Then thread that id through every `tl_save` while the session is open:
+
+```jsonc
+{
+  "title": "Lantern bake notes",
+  "content": "raised bloom threshold to 1.2 on Android",
+  "type": "perf-gotcha",
+  "topic_key": "perf/android/bloom",
+  "session_id": "019dde…-7585-a286-fcb6bf225f45"
+}
+```
+
+**Sticky `session_id`**: if you re-save the same `topic_key` later without passing `session_id`, the prior linkage is preserved. To overwrite, pass an explicit (different) `session_id`. By design, there is no path to "detach" a memory from its session — once attached, it stays attached historically.
+
+When the working block is done, close with a structured digest:
+
+```jsonc
+// tl_session_summary
+{
+  "id": "019dde…-7585-a286-fcb6bf225f45",
+  "summary": "## Goal\nBake lanterns and tame bloom on Android.\n## Accomplished\n- Lantern emissive 4.0 → 1.6\n- Bloom threshold 1.0 → 1.2\n## Next Steps\n- Verify on Pixel 6"
+}
+```
+
+Response:
+
+```
+Session closed.
+Session ID: 019dde…-7585-a286-fcb6bf225f45
+Project: enchanted-inn
+Agent: claude-code
+Started:  2026-04-30 14:00:00 UTC
+Ended:    2026-04-30 14:42:18 UTC
+Duration: 42m18s
+
+Next session can recover this digest via tl_search or by reading sessions directly. Open a new session with tl_session_start when ready.
+```
+
+A session can only be closed **once**. Calling `tl_session_summary` again on the same id returns "already ended".
+
+### 10. Cross-project session attachment is rejected
+
+A session belongs to exactly one project. Trying to attach a memory in project A to a session in project B is rejected at save time:
+
+```jsonc
+// session was opened with project="alpha"
+// but this save is for project="beta" → rejected
+{
+  "title": "Mismatched save",
+  "content": "...",
+  "type": "convention",
+  "project": "beta",
+  "session_id": "<uuid for alpha session>"
+}
+```
+
+Returns an error: *"session_id … belongs to a different project than this save. Sessions are scoped to a single project."*
 
 ---
 

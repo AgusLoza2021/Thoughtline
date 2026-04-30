@@ -6,6 +6,26 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+### Added — M4 (Sessions)
+- **`tl_session_start` MCP tool** — opens a session, returns its UUIDv7 id. Optional `agent_label` for cross-session forensics ("claude-code", "cursor", "zed", ...). Project defaults to working directory basename.
+- **`tl_session_summary` MCP tool** — closes a session, persists the structured digest. Sessions are append-once: a second call returns "already ended". Summary required, ≤ 64 KB.
+- **`tl_save` learns an optional `session_id` argument** — when present, attaches the memory to that session. Empty = unattached (preserves M1 default behaviour exactly).
+- **Domain `Session` type** (`internal/memory/session.go`) — UUIDv7 id, project, optional agent_label (≤ 64 chars), started_at, optional ended_at, summary. `IsOpen()` and `Duration()` helpers. `ValidateSession` enforces UUIDv7 format, project required, label/summary size caps, ended_at >= started_at.
+- **`memory.SessionID` field** added to `Memory` with UUIDv7 format validation in `memory.Validate`.
+- **Schema v2 migration** — bumped `currentSchemaVersion` from 1 to 2. Adds `sessions` table + `idx_sessions_recent` (CREATE IF NOT EXISTS) and adds `memories.session_id TEXT REFERENCES sessions(id) ON DELETE SET NULL` via idempotent `ALTER TABLE` guarded by a `PRAGMA table_info` check. Fresh DBs and existing v1 DBs both migrate cleanly on first Open.
+- **Storage CRUD for sessions** (`internal/storage/sessions.go`):
+  - `StartSession(ctx, project, agentLabel)` — assigns UUIDv7, persists, returns the Session.
+  - `EndSession(ctx, id, summary)` — sets ended_at and summary; rejects already-ended.
+  - `GetSession(ctx, id)` / `RecentSessions(ctx, project, limit)`.
+  - `ErrSessionNotFound`, `ErrSessionAlreadyEnded`, `ErrSessionProjectMismatch` exported sentinels.
+  - **Cross-table integrity**: `Save` now calls `validateSessionLink` before inserting. A non-empty `m.SessionID` must point to an existing session in the same project, otherwise `ErrSessionNotFound` or `ErrSessionProjectMismatch`.
+  - **Sticky session_id on upsert**: re-saving with the same `topic_key` and an empty `SessionID` PRESERVES the prior session linkage (`COALESCE(?, session_id)` in the UPDATE). To overwrite, pass an explicit `SessionID`. This prevents accidental session detachment.
+- **Tests added**:
+  - `internal/memory/session_test.go` — every validation rule.
+  - `internal/storage/sessions_test.go` — full CRUD coverage, regression guards for upsert-clobber-session, cross-project rejection, unknown-session rejection, schema v2 idempotency on reopen.
+  - `internal/server/tl_session_start_test.go`, `tl_session_summary_test.go`, `tl_save_session_test.go` — handler-level coverage for happy path, validation errors, not-found, already-closed.
+  - `internal/server/integration_session_test.go` — end-to-end: start → save (× 2) → upsert preserves session → close → second close rejected → post-mortem save allowed → cross-project session rejected.
+
 ### Added — M3 (Context, Update, Delete)
 - **`tl_context` MCP tool** — recent memories for the active project, ordered by `updated_at DESC`, soft-deleted rows excluded. Returns the same per-result envelope as `tl_search` so an AI parses both with one parser.
 - **`tl_update` MCP tool** — patch a memory by id. Mutable fields: `title`, `content`, `tags`. Identity-defining fields (`type`, `topic_key`, `project`, `scope`) are intentionally NOT mutable. Empty patch = noop. Real changes bump `revision_count`, refresh `updated_at`, preserve `id`/`sync_id`/`created_at`. Re-validates the merged memory before persisting.
@@ -46,6 +66,6 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 - CONTRIBUTING.md with PR and ADR conventions.
 
 ### Status
-- M0 (Bootstrap) complete. M1 (`tl_save`) complete. M2 (`tl_search` + `tl_get_observation`) complete. M3 (`tl_context` + `tl_update` + `tl_delete`) complete. M4 (`tl_session_*`) is next.
+- M0–M4 complete. Eight MCP tools live: `tl_save`, `tl_search`, `tl_get_observation`, `tl_context`, `tl_update`, `tl_delete`, `tl_session_start`, `tl_session_summary`. M5 (semantic embeddings) remains deferred per ADR 0002 — schema reserved, opt-in if/when needed.
 
 [Unreleased]: https://github.com/AgusLoza2021/Thoughtline/compare/HEAD...HEAD

@@ -70,8 +70,24 @@ CREATE TABLE IF NOT EXISTS schema_version (
     version    INTEGER PRIMARY KEY,
     applied_at INTEGER NOT NULL
 );
+
+-- v2: sessions bookend coding interactions. CREATE IF NOT EXISTS makes this
+-- safe to run on both fresh databases and ones that were initially v1.
+-- The session_id column on memories is added separately by migrateV2 because
+-- ALTER TABLE has no IF NOT EXISTS variant in SQLite.
+CREATE TABLE IF NOT EXISTS sessions (
+    id           TEXT    PRIMARY KEY,
+    project      TEXT    NOT NULL,
+    agent_label  TEXT    NOT NULL DEFAULT '',
+    started_at   INTEGER NOT NULL,
+    ended_at     INTEGER,
+    summary      TEXT    NOT NULL DEFAULT ''
+);
+
+CREATE INDEX IF NOT EXISTS idx_sessions_recent
+    ON sessions(project, started_at DESC);
 `
 
 // currentSchemaVersion is bumped whenever schemaSQL changes in a way that
-// requires a migration. M1 ships at version 1.
-const currentSchemaVersion = 1
+// requires a migration. v1: M1 baseline. v2: M4 sessions table + memories.session_id.
+const currentSchemaVersion = 2

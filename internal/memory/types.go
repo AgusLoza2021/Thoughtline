@@ -93,6 +93,10 @@ type Memory struct {
 	UpdatedAt time.Time
 	// DeletedAt is non-nil for soft-deleted memories.
 	DeletedAt *time.Time
+	// SessionID optionally associates this memory with a Session (UUIDv7).
+	// Empty when the memory was saved outside any session. Set via tl_save's
+	// optional session_id argument.
+	SessionID string
 }
 
 // Errors returned by Validate. Tests assert against these directly.

@@ -4,6 +4,8 @@ import (
 	"regexp"
 	"strings"
 	"unicode/utf8"
+
+	"github.com/google/uuid"
 )
 
 // topicKeyRe enforces the topic-key shape documented in
@@ -63,6 +65,15 @@ func Validate(m Memory) error {
 	for _, tag := range m.Tags {
 		if !tagRe.MatchString(tag) {
 			return ErrInvalidTag
+		}
+	}
+
+	// Optional session linkage. Empty = unattached. When set, must be a
+	// valid UUIDv7 — the same shape Session.ID takes.
+	if m.SessionID != "" {
+		parsed, err := uuid.Parse(m.SessionID)
+		if err != nil || parsed.Version() != 7 {
+			return ErrInvalidSessionID
 		}
 	}
 

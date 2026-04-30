@@ -18,13 +18,14 @@ import (
 // makes unit testing the save logic possible without spinning up the MCP
 // transport.
 type saveArgs struct {
-	Title    string
-	Content  string
-	Type     string
-	Scope    string
-	TopicKey string
-	Project  string
-	Tags     []string
+	Title     string
+	Content   string
+	Type      string
+	Scope     string
+	TopicKey  string
+	Project   string
+	Tags      []string
+	SessionID string
 }
 
 func registerTLSave(srv *server.MCPServer, s *storage.Storage, cfg Config) {
@@ -61,6 +62,9 @@ func registerTLSave(srv *server.MCPServer, s *storage.Storage, cfg Config) {
 				mcp.Description("Lowercase tags, optionally key:value (e.g. 'engine:playcanvas', 'platform:android')."),
 				mcp.Items(map[string]any{"type": "string"}),
 			),
+			mcp.WithString("session_id",
+				mcp.Description("Optional UUIDv7 returned by tl_session_start. Attaches this memory to that session for cross-session forensics. The session must belong to the same project as this save."),
+			),
 		),
 		func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 			args := decodeSaveArgs(req)
@@ -87,19 +91,21 @@ If the topic is likely to evolve, set topic_key — re-saves on the same key wil
 func decodeSaveArgs(req mcp.CallToolRequest) saveArgs {
 	a := req.GetArguments()
 	out := saveArgs{
-		Title:    asString(a, "title"),
-		Content:  asString(a, "content"),
-		Type:     asString(a, "type"),
-		Scope:    asString(a, "scope"),
-		TopicKey: asString(a, "topic_key"),
-		Project:  asString(a, "project"),
-		Tags:     asStringSlice(a, "tags"),
+		Title:     asString(a, "title"),
+		Content:   asString(a, "content"),
+		Type:      asString(a, "type"),
+		Scope:     asString(a, "scope"),
+		TopicKey:  asString(a, "topic_key"),
+		Project:   asString(a, "project"),
+		Tags:      asStringSlice(a, "tags"),
+		SessionID: asString(a, "session_id"),
 	}
 	out.Title = strings.TrimSpace(out.Title)
 	out.Type = strings.TrimSpace(out.Type)
 	out.Scope = strings.TrimSpace(out.Scope)
 	out.TopicKey = strings.TrimSpace(out.TopicKey)
 	out.Project = strings.TrimSpace(out.Project)
+	out.SessionID = strings.TrimSpace(out.SessionID)
 	return out
 }
 
@@ -122,13 +128,14 @@ func doSave(ctx context.Context, s *storage.Storage, cfg Config, args saveArgs) 
 	}
 
 	m := memory.Memory{
-		Project:  project,
-		Scope:    memory.Scope(scope),
-		Type:     memory.Type(args.Type),
-		TopicKey: args.TopicKey,
-		Title:    args.Title,
-		Content:  args.Content,
-		Tags:     args.Tags,
+		Project:   project,
+		Scope:     memory.Scope(scope),
+		Type:      memory.Type(args.Type),
+		TopicKey:  args.TopicKey,
+		Title:     args.Title,
+		Content:   args.Content,
+		Tags:      args.Tags,
+		SessionID: args.SessionID,
 	}
 
 	if err := memory.Validate(m); err != nil {
@@ -137,6 +144,15 @@ func doSave(ctx context.Context, s *storage.Storage, cfg Config, args saveArgs) 
 
 	saved, action, err := s.Save(ctx, m)
 	if err != nil {
+		// Cross-table errors (unknown session, project mismatch) come from
+		// storage.Save's preflight — surface them as user-facing messages
+		// rather than 500-style "save failed: ...".
+		if errors.Is(err, storage.ErrSessionNotFound) {
+			return mcp.NewToolResultError(fmt.Sprintf("session_id %q does not exist (or it was never started). Call tl_session_start first.", m.SessionID)), nil
+		}
+		if errors.Is(err, storage.ErrSessionProjectMismatch) {
+			return mcp.NewToolResultError(fmt.Sprintf("session_id %q belongs to a different project than this save. Sessions are scoped to a single project.", m.SessionID)), nil
+		}
 		return mcp.NewToolResultError(fmt.Sprintf("save failed: %v", err)), nil
 	}
 
@@ -156,6 +172,9 @@ func formatSaveResult(m memory.Memory, action storage.UpsertAction) string {
 	fmt.Fprintf(&b, "Scope: %s\n", m.Scope)
 	if m.TopicKey != "" {
 		fmt.Fprintf(&b, "Topic: %s\n", m.TopicKey)
+	}
+	if m.SessionID != "" {
+		fmt.Fprintf(&b, "Session: %s\n", m.SessionID)
 	}
 	fmt.Fprintf(&b, "Revision: %d\n", m.RevisionCount)
 	if action == storage.ActionNoop {
@@ -190,6 +209,8 @@ func formatValidationError(err error) string {
 		return "'topic_key' format invalid. Use lowercase letters/digits/'/'/'_'/'-', start with a letter or digit, max 129 chars."
 	case errors.Is(err, memory.ErrInvalidTag):
 		return "one of the 'tags' is invalid. Lowercase only, optional ':' for key:value, max 41 chars."
+	case errors.Is(err, memory.ErrInvalidSessionID):
+		return "'session_id' must be a valid UUIDv7 (returned by tl_session_start)."
 	default:
 		return fmt.Sprintf("validation failed: %v", err)
 	}

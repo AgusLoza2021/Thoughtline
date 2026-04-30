@@ -6,9 +6,67 @@ Single source of truth for "what's done, what's next, what's blocking publishing
 
 ## Current state — 2026-04-30
 
-**Milestone M3 (Context, Update, Delete): 🟢 done.** M0–M2 are also 🟢 done — see history below.
+**Milestone M4 (Sessions): 🟢 done.** M0–M3 are also 🟢 done — see history below. The full session-aware API ships now (8 MCP tools).
 
-### What got done this session (M3)
+### What got done this session (M4)
+
+- **Domain layer** (`internal/memory/session.go` + `session_test.go`):
+  - `Session` type: UUIDv7 id, project, optional agent_label (≤ 64 chars), started_at, optional ended_at, summary.
+  - `IsOpen()` / `Duration()` helpers.
+  - `ValidateSession` enforces UUIDv7 format, project required, label/summary size caps, ended_at >= started_at.
+  - `memory.SessionID` field on `Memory` with UUIDv7 format check inside `memory.Validate`.
+- **Storage layer** (schema bump + sessions CRUD + session-aware Save):
+  - `currentSchemaVersion` 1 → 2.
+  - `sessions` table + `idx_sessions_recent` (CREATE IF NOT EXISTS, runs on every Open — idempotent).
+  - `memories.session_id TEXT REFERENCES sessions(id) ON DELETE SET NULL` added via idempotent ALTER TABLE guarded by `PRAGMA table_info` introspection (`columnExists` helper). Fresh DBs and existing v1 DBs both migrate cleanly.
+  - `internal/storage/sessions.go`: `StartSession`, `EndSession`, `GetSession`, `RecentSessions`. Sentinels: `ErrSessionNotFound`, `ErrSessionAlreadyEnded`, `ErrSessionProjectMismatch`.
+  - `Save` runs `validateSessionLink` preflight: non-empty SessionID must reference an existing session in the same project, otherwise `ErrSessionNotFound` / `ErrSessionProjectMismatch`.
+  - **Sticky session_id**: `upsertByTopicKey` UPDATE uses `session_id = COALESCE(?, session_id)` so re-saves with empty SessionID preserve the prior linkage. The fetched-existing-state path now reads the row's session_id and propagates it into the returned struct so callers see what's actually in the DB.
+  - `nullIfEmpty(string) sql.NullString` helper for clean SQL parameter handling.
+  - **Tests**: full CRUD coverage, regression guards for upsert-clobber-session AND cross-project rejection AND unknown-session rejection AND schema v2 idempotency on reopen.
+- **Server layer**:
+  - `tl_session_start.go` — full MCP tool, default-project fallback, agent_label trimming, friendly errors for `ErrAgentLabelTooLong` / `ErrEmptySessionProject`.
+  - `tl_session_summary.go` — full MCP tool with id + summary trimming, friendly errors for `ErrSessionNotFound` / `ErrSessionAlreadyEnded` / `ErrSessionSummaryTooLong`. Output includes computed `Duration:`.
+  - `tl_save.go` — added `SessionID` to `saveArgs`, decoded from `session_id` JSON arg, surfaces `ErrSessionNotFound` and `ErrSessionProjectMismatch` as user-facing errors. `formatSaveResult` echoes `Session: <id>` when present.
+  - `formatValidationError` now handles `memory.ErrInvalidSessionID`.
+  - `server.New` registers both new tools alongside the existing six.
+  - **Handler tests**: `tl_session_start_test.go` (happy path, default project, missing project, optional agent_label, UUIDv7 verification of returned id), `tl_session_summary_test.go` (happy path, required id/summary, not-found, already-closed), `tl_save_session_test.go` (attaches session_id, rejects cross-project, rejects unknown session, rejects malformed UUIDv7).
+- **Integration scenario** (`internal/server/integration_session_test.go`):
+  - 6 steps: tl_session_start → 2 tl_save with session_id → upsert without session_id preserves linkage (regression guard at integration level) → tl_session_summary → second close rejected → post-mortem save on closed session allowed → cross-project session save rejected.
+- **Audit moment**: mid-sprint we paused, audited, found 3 issues (undefined `nullIfEmpty`, upsert clobber on session_id, missing cross-project validation) and fixed them with regression tests in place. **Discipline lesson**: re-established "tests rojos primero" pattern after drifting toward green-first.
+- **Verification**: `go vet ./...` clean; `go test ./...` all green across `memory`, `storage`, `server` packages.
+
+### What's NOT done (intentionally)
+
+- No `tl_session_list` / `tl_session_get` for browsing past sessions — the AI can use `tl_search` over session summaries that get saved into memories (or we can add a dedicated tool in M5+ if needed).
+- No auto-end of stale sessions — explicit close required.
+- No "detach memory from session" — once attached, historically attached. Add only if the user reports a real need.
+- LICENSE copyright already updated to "Agustín Lozano" pre-tag.
+- Pre-publish TODO still open: replace `_engram-research/` paths in `docs/research/*.md` with permalinks before going public.
+
+---
+
+## Next session — Milestone M5 (Smarts) — DEFERRED by default
+
+Per [ADR 0002](decisions/0002-search-strategy-fts5-first.md), M5 only happens if user feedback shows lexical recall failures dominate complaints. Engram has run in production without embeddings for months, so there's no urgency.
+
+**If/when M5 happens**, the ADR sketch is:
+- Add `embedding_dim` column (the only schema change needed; reserved BLOB columns already exist).
+- Optional companion table `memory_embeddings` (sync_id PK, vector BLOB, model, dim, created_at).
+- Provider-agnostic: store model name + dim per row so multiple providers can coexist during transition.
+- Hybrid ranking: BM25 score + vector score combined via reciprocal rank fusion (RRF) or tunable linear blend.
+- Behind a feature flag, off by default.
+- `tl_reindex` background tool to backfill embeddings for memories worth re-embedding.
+
+For now, **v0.0.1 ships with M0–M4 complete**. The 8-tool API is enough for daily use.
+
+---
+
+## Milestone history
+
+### 2026-04-30 — M3 Context, Update, Delete 🟢
+
+
 
 - **Storage layer**:
   - `internal/storage/recent.go` — `Recent(ctx, project, limit) → []SearchResult` using the existing `idx_memories_recent` index. Project required (refuses empty to prevent cross-project leak). Limit defaults 10, hard cap 50. Snippet = content prefix truncated to `SnippetMaxChars` runes (no FTS5 match centering since there's no query). Score = 0.
@@ -26,51 +84,6 @@ Single source of truth for "what's done, what's next, what's blocking publishing
   - Builds the full `MCPServer` via `New(st, cfg)`.
   - Drives an 11-step end-to-end flow with real `mcp.CallToolRequest` decoding: save → search (FTS + topic-key shortcut) → get_observation → context → update → search post-update → delete → search post-delete → context post-delete → get/update on deleted id (both not-found) → re-save reusing freed topic_key.
 - **Verification**: `go vet ./...` clean; `go test ./...` all green across `memory`, `storage`, `server` packages.
-
-### What's NOT done (intentionally)
-
-- No `tl_session_*` — that's M4.
-- No hard-delete tool. Recovery is admin work via SQLite directly.
-- No `tl_update` for `type` / `topic_key` / `project` / `scope` (identity-defining). The AI can `tl_delete` + `tl_save` if it really needs to re-cast a memory.
-- LICENSE copyright still says "Thoughtline contributors" — pre-publish TODO.
-
----
-
-## Next session — Milestone M4 (Sessions)
-
-**Goal**: bookend coding sessions so the AI has a stable narrative across compactions.
-
-### M4 definition of done
-
-- [ ] Domain layer:
-  - [ ] `Session` type with `id` (UUIDv7), `project`, `started_at`, `ended_at`, optional `summary`.
-  - [ ] Validation: project required, ended_at >= started_at, summary ≤ MaxContentBytes.
-- [ ] Storage layer:
-  - [ ] `sessions` table + index on `(project, started_at DESC)`.
-  - [ ] `StartSession(ctx, project) (Session, error)`.
-  - [ ] `EndSession(ctx, sessionID, summary) (Session, error)`.
-  - [ ] `GetSession(ctx, id) (Session, error)`.
-  - [ ] Tests: start, end without summary, end with summary, end-twice rejection, project filter.
-- [ ] Server layer:
-  - [ ] `tl_session_start` — returns the session id; AI prepends it to subsequent saves (or stores it client-side).
-  - [ ] `tl_session_summary` — takes session id + structured summary text, persists, returns confirmation.
-  - [ ] Decide: do we add `session_id` as a column on `memories` to associate saves to a session? Likely yes — opens future "what did we discuss in session X?" queries.
-- [ ] Docs:
-  - [ ] CHANGELOG entry.
-  - [ ] README tool catalogue + Examples (sections 9 and 10).
-  - [ ] Mark M4 done here, sketch M5 (embeddings) plan or close as deferred.
-
-### M4 open questions
-
-| # | Question | Plan to resolve |
-|---|----------|----------------|
-| 1 | Where does the AI store the session id between calls? | Tool response includes the id; the AI is expected to thread it through subsequent saves. We don't keep server-side per-client state. |
-| 2 | Should `memories.session_id` be a foreign key or a free-form text? | Foreign key with `ON DELETE SET NULL`. Sessions are durable; deleting a session shouldn't cascade-delete its memories. |
-| 3 | Auto-end stale sessions? | No in M4. If the AI doesn't call `tl_session_summary`, the row stays open. We can add an `auto_close_after` heuristic in M5+ if this gets messy. |
-
----
-
-## Milestone history
 
 ### 2026-04-30 — M2 Search 🟢
 

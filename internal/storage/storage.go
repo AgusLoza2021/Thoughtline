@@ -126,19 +126,75 @@ func (s *Storage) migrate(ctx context.Context) error {
 		return err
 	}
 
+	// v2 step: add memories.session_id column if it isn't already there.
+	// SQLite has no ALTER TABLE ... IF NOT EXISTS, so we introspect via
+	// PRAGMA table_info. This is idempotent — fresh DBs already pick up the
+	// column from the alter, v1 DBs get it added here.
+	hasSession, err := columnExists(ctx, s.db, "memories", "session_id")
+	if err != nil {
+		return fmt.Errorf("check session_id column: %w", err)
+	}
+	if !hasSession {
+		if _, err := s.db.ExecContext(ctx, `
+			ALTER TABLE memories ADD COLUMN session_id TEXT
+				REFERENCES sessions(id) ON DELETE SET NULL`); err != nil {
+			return fmt.Errorf("add session_id column: %w", err)
+		}
+	}
+	if _, err := s.db.ExecContext(ctx, `
+		CREATE INDEX IF NOT EXISTS idx_memories_session
+			ON memories(session_id)
+			WHERE session_id IS NOT NULL`); err != nil {
+		return fmt.Errorf("create session_id index: %w", err)
+	}
+
 	// Record / refresh the schema version. Using INSERT OR IGNORE keeps the
-	// first applied_at intact; a future bump would add a separate row.
-	_, err := s.db.ExecContext(ctx,
+	// first applied_at intact per row; bumping currentSchemaVersion to a new
+	// integer adds a separate row, leaving an audit trail of when each
+	// version was first applied.
+	_, err = s.db.ExecContext(ctx,
 		`INSERT OR IGNORE INTO schema_version(version, applied_at) VALUES (?, ?)`,
 		currentSchemaVersion, time.Now().UnixMilli(),
 	)
 	return err
 }
 
+// columnExists reports whether the given table has a column with the given
+// name. Used by migrate() to keep ALTER TABLE idempotent.
+func columnExists(ctx context.Context, db *sql.DB, table, column string) (bool, error) {
+	rows, err := db.QueryContext(ctx, fmt.Sprintf(`PRAGMA table_info(%q)`, table))
+	if err != nil {
+		return false, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var (
+			cid       int
+			name      string
+			typ       string
+			notnull   int
+			dflt      sql.NullString
+			pk        int
+		)
+		if err := rows.Scan(&cid, &name, &typ, &notnull, &dflt, &pk); err != nil {
+			return false, err
+		}
+		if name == column {
+			return true, nil
+		}
+	}
+	return false, rows.Err()
+}
+
 // Save persists m and returns the stored Memory (with id, sync_id, timestamps
 // populated) along with the action performed. It assumes m has already passed
-// memory.Validate; it does NOT re-validate.
+// memory.Validate; it does NOT re-validate the memory shape itself, but it DOES
+// enforce the cross-table invariants that domain validation can't see — namely
+// that an attached SessionID exists and belongs to the same project.
 func (s *Storage) Save(ctx context.Context, m memory.Memory) (memory.Memory, UpsertAction, error) {
+	if err := s.validateSessionLink(ctx, m); err != nil {
+		return memory.Memory{}, 0, err
+	}
 	if m.TopicKey == "" {
 		saved, err := s.insertNew(ctx, m)
 		if err != nil {
@@ -166,11 +222,12 @@ func (s *Storage) insertNew(ctx context.Context, m memory.Memory) (memory.Memory
 		INSERT INTO memories (
 			sync_id, project, scope, type, topic_key,
 			title, content, tags, normalized_hash, revision_count,
-			created_at, updated_at
-		) VALUES (?, ?, ?, ?, NULL, ?, ?, ?, ?, 0, ?, ?)`,
+			created_at, updated_at, session_id
+		) VALUES (?, ?, ?, ?, NULL, ?, ?, ?, ?, 0, ?, ?, ?)`,
 		syncID, m.Project, string(m.Scope), string(m.Type),
 		m.Title, m.Content, tagsJSON, hash,
 		now.UnixMilli(), now.UnixMilli(),
+		nullIfEmpty(m.SessionID),
 	)
 	if err != nil {
 		return memory.Memory{}, fmt.Errorf("insert memory: %w", err)
@@ -205,13 +262,14 @@ func (s *Storage) upsertByTopicKey(ctx context.Context, m memory.Memory) (memory
 		existingHash          string
 		existingRevision      int
 		existingCreatedAtMS   int64
+		existingSessionID     sql.NullString
 	)
 	err = tx.QueryRowContext(ctx, `
-		SELECT id, sync_id, normalized_hash, revision_count, created_at
+		SELECT id, sync_id, normalized_hash, revision_count, created_at, session_id
 		FROM memories
 		WHERE project = ? AND topic_key = ? AND deleted_at IS NULL`,
 		m.Project, m.TopicKey,
-	).Scan(&existingID, &existingSyncID, &existingHash, &existingRevision, &existingCreatedAtMS)
+	).Scan(&existingID, &existingSyncID, &existingHash, &existingRevision, &existingCreatedAtMS, &existingSessionID)
 
 	now := s.nowMillis()
 	tagsJSON, encErr := encodeTags(m.Tags)
@@ -230,11 +288,12 @@ func (s *Storage) upsertByTopicKey(ctx context.Context, m memory.Memory) (memory
 			INSERT INTO memories (
 				sync_id, project, scope, type, topic_key,
 				title, content, tags, normalized_hash, revision_count,
-				created_at, updated_at
-			) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?)`,
+				created_at, updated_at, session_id
+			) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?)`,
 			syncID, m.Project, string(m.Scope), string(m.Type), m.TopicKey,
 			m.Title, m.Content, tagsJSON, hash,
 			now.UnixMilli(), now.UnixMilli(),
+			nullIfEmpty(m.SessionID),
 		)
 		if ierr != nil {
 			return memory.Memory{}, 0, fmt.Errorf("insert memory: %w", ierr)
@@ -271,16 +330,23 @@ func (s *Storage) upsertByTopicKey(ctx context.Context, m memory.Memory) (memory
 		return stored, ActionNoop, nil
 	}
 
-	// Real update — bump revision_count and refresh updated_at.
+	// Real update — bump revision_count and refresh updated_at. session_id
+	// is sticky: an upsert that omits SessionID preserves the prior value
+	// (COALESCE returns the second arg when the first is NULL). To overwrite,
+	// the caller must pass an explicit SessionID. To clear, today there is no
+	// path — by design — once a memory is attached to a session it stays
+	// historically attached. (See M4 design notes in PROGRESS.md.)
 	_, uerr := tx.ExecContext(ctx, `
 		UPDATE memories
 		SET title = ?, content = ?, tags = ?, normalized_hash = ?,
 		    revision_count = revision_count + 1, updated_at = ?,
-		    type = ?, scope = ?
+		    type = ?, scope = ?,
+		    session_id = COALESCE(?, session_id)
 		WHERE id = ?`,
 		m.Title, m.Content, tagsJSON, hash,
 		now.UnixMilli(),
 		string(m.Type), string(m.Scope),
+		nullIfEmpty(m.SessionID),
 		existingID,
 	)
 	if uerr != nil {
@@ -296,6 +362,12 @@ func (s *Storage) upsertByTopicKey(ctx context.Context, m memory.Memory) (memory
 	m.RevisionCount = existingRevision + 1
 	m.CreatedAt = time.UnixMilli(existingCreatedAtMS)
 	m.UpdatedAt = now
+	// Mirror what COALESCE(?, session_id) wrote to the row: if the caller
+	// provided no SessionID, the existing one survives — propagate that into
+	// the returned struct so callers see what's actually in the DB.
+	if m.SessionID == "" && existingSessionID.Valid {
+		m.SessionID = existingSessionID.String
+	}
 	return m, ActionUpdated, nil
 }
 
@@ -312,11 +384,12 @@ func (s *Storage) getByID(ctx context.Context, id int64) (memory.Memory, error) 
 		createdAtMS    int64
 		updatedAtMS    int64
 		deletedAtMS    sql.NullInt64
+		sessionID      sql.NullString
 	)
 	row := s.db.QueryRowContext(ctx, `
 		SELECT id, sync_id, project, scope, type, topic_key,
 		       title, content, tags, normalized_hash, revision_count,
-		       created_at, updated_at, deleted_at
+		       created_at, updated_at, deleted_at, session_id
 		FROM memories
 		WHERE id = ?`,
 		id,
@@ -328,7 +401,7 @@ func (s *Storage) getByID(ctx context.Context, id int64) (memory.Memory, error) 
 	if err := row.Scan(
 		&m.ID, &m.SyncID, &m.Project, &scope, &typ, &topicKey,
 		&m.Title, &m.Content, &tagsJSON, &m.NormalizedHash, &m.RevisionCount,
-		&createdAtMS, &updatedAtMS, &deletedAtMS,
+		&createdAtMS, &updatedAtMS, &deletedAtMS, &sessionID,
 	); err != nil {
 		return memory.Memory{}, err
 	}
@@ -347,6 +420,9 @@ func (s *Storage) getByID(ctx context.Context, id int64) (memory.Memory, error) 
 	if deletedAtMS.Valid {
 		t := time.UnixMilli(deletedAtMS.Int64)
 		m.DeletedAt = &t
+	}
+	if sessionID.Valid {
+		m.SessionID = sessionID.String
 	}
 	return m, nil
 }
@@ -390,6 +466,17 @@ func normalizedHash(title, content string) string {
 	h.Write([]byte{0})
 	h.Write([]byte(strings.TrimSpace(content)))
 	return hex.EncodeToString(h.Sum(nil))
+}
+
+// nullIfEmpty maps "" → SQL NULL, anything else → a valid string. Used at
+// every Save/upsert site that handles the optional session_id column so the
+// SQL stays referentially honest (NULL for "no session", a valid UUIDv7
+// otherwise — the foreign key into sessions(id) requires that distinction).
+func nullIfEmpty(s string) sql.NullString {
+	if s == "" {
+		return sql.NullString{}
+	}
+	return sql.NullString{String: s, Valid: true}
 }
 
 func encodeTags(tags []string) (sql.NullString, error) {
