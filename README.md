@@ -6,7 +6,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Go Version](https://img.shields.io/badge/Go-1.25%2B-00ADD8?logo=go)](go.mod)
-[![Status](https://img.shields.io/badge/status-bootstrap-orange)](docs/PROGRESS.md)
+[![Status](https://img.shields.io/badge/status-M3%20done-yellow)](docs/PROGRESS.md)
 [![MCP](https://img.shields.io/badge/MCP-stdio-7C3AED)](#install-planned)
 
 *Save your project's lore. Recall it from any session. Forever.*
@@ -21,7 +21,7 @@ Thoughtline is an **MCP (Model Context Protocol) server** that gives AI assistan
 
 Thoughtline stands on the shoulders of [**Engram**](https://github.com/Gentleman-Programming/engram) by Alan Buscaglia — we deliberately reuse Engram's MCP shape, storage layout, and the clever bits like **FTS5 full-text search** and **`topic_key` upserts**. What we add is a **gamedev-first memory taxonomy** and a vocabulary tuned for engines like PlayCanvas, Unity, Unreal, and Godot.
 
-> **Status: bootstrap milestone.** The skeleton is in place; tools are registered in milestone M1. See [`docs/PROGRESS.md`](docs/PROGRESS.md).
+> **Status: M3 done.** Six tools live: `tl_save`, `tl_search`, `tl_get_observation`, `tl_context`, `tl_update`, `tl_delete`. The session bookends land in M4. See [`docs/PROGRESS.md`](docs/PROGRESS.md).
 
 ---
 
@@ -103,27 +103,39 @@ The work is sliced into milestones. Each one has a definition of done, so progre
 | Milestone        | Goal                                                                          | Status         |
 | ---------------- | ----------------------------------------------------------------------------- | -------------- |
 | **M0 Bootstrap** | Skeleton repo, full docs, ADRs, taxonomy design, research baseline            | 🟢 done         |
-| **M1 Save**      | `tl_save` end-to-end with SQLite, FTS5 schema, topic-key upsert               | 🟡 next         |
-| **M2 Search**    | `tl_search` with FTS5 + BM25 ranking, paginated, filterable by type/scope/project | ⏳ pending     |
-| **M3 Context**   | `tl_context` returning recent activity for the active project                 | ⏳ pending     |
-| **M4 Sessions**  | `tl_session_start` + `tl_session_summary` to bookend coding sessions          | ⏳ pending     |
+| **M1 Save**      | `tl_save` end-to-end with SQLite, FTS5 schema, topic-key upsert               | 🟢 done         |
+| **M2 Search**    | `tl_search` with FTS5 + BM25 ranking, paginated, filterable by type/scope/project; `tl_get_observation` companion | 🟢 done         |
+| **M3 Context**   | `tl_context` (recent activity), `tl_update` (patch by id), `tl_delete` (soft delete) | 🟢 done         |
+| **M4 Sessions**  | `tl_session_start` + `tl_session_summary` to bookend coding sessions          | 🟡 next         |
 | **M5 Smarts**    | Optional embeddings layer for semantic recall — **schema reserved from M1**   | 🔵 deferred     |
 
-See [`docs/PROGRESS.md`](docs/PROGRESS.md) for the live status of M0 and pre-publish TODOs.
+See [`docs/PROGRESS.md`](docs/PROGRESS.md) for the live milestone status and pre-publish TODOs.
 
 ---
 
-## Install (planned, not working yet)
+## Install
 
-> ⚠️ The current `main()` only prints a banner. Real installation lands with M1.
+> ✅ As of M3, six tools are live: `tl_save`, `tl_search`, `tl_get_observation`, `tl_context`, `tl_update`, `tl_delete`. Session bookends (`tl_session_*`) come in M4.
 
-### Once shipped
+### From source
+
+```bash
+git clone https://github.com/AgusLoza2021/Thoughtline.git
+cd Thoughtline
+go build ./cmd/thoughtline
+```
+
+This produces a `thoughtline` binary in the project root. Move it onto your `PATH` or reference it by absolute path in your MCP client config.
+
+### Once a release is tagged
 
 ```bash
 go install github.com/AgusLoza2021/Thoughtline/cmd/thoughtline@latest
 ```
 
-Then in your Claude Code MCP config (`.claude/mcp.json` or per-IDE equivalent):
+### Wire it into your MCP client
+
+Claude Code (`.claude/mcp.json` or per-IDE equivalent):
 
 ```jsonc
 {
@@ -136,35 +148,269 @@ Then in your Claude Code MCP config (`.claude/mcp.json` or per-IDE equivalent):
 }
 ```
 
-A working example lives at [`examples/mcp-config.example.json`](examples/mcp-config.example.json).
+A complete example lives at [`examples/mcp-config.example.json`](examples/mcp-config.example.json).
 
-### Build from source today
+### Configuration (env vars)
 
-```bash
-git clone https://github.com/AgusLoza2021/Thoughtline.git
-cd Thoughtline
-go build ./cmd/thoughtline
-./thoughtline    # prints skeleton banner and exits cleanly
-```
+| Variable | Purpose | Default |
+|----------|---------|---------|
+| `THOUGHTLINE_DB` | Full path to the SQLite file. Wins over `THOUGHTLINE_HOME` if set. | (unset) |
+| `THOUGHTLINE_HOME` | Directory holding the database file (`thoughtline.db`). | OS user-cache dir + `/thoughtline` |
+| `THOUGHTLINE_PROJECT` | Default project identifier when a tool call omits `project`. | basename of working directory |
 
 ---
 
-## Tool catalogue (planned)
+## Tool catalogue
 
 All MCP tools share the `tl_` prefix.
 
-| Tool                  | Purpose                                                                                  | Milestone |
-| --------------------- | ---------------------------------------------------------------------------------------- | --------- |
-| `tl_save`             | Persist a memory; upserts on `topic_key`                                                 | M1        |
-| `tl_search`           | FTS5 + BM25 search with optional filters (`type`, `scope`, `project`, `topic_key` glob) | M2        |
-| `tl_context`          | Recent activity for the current project (last N memories)                                | M3        |
-| `tl_get_observation`  | Fetch full untruncated content of a memory by id                                         | M2        |
-| `tl_session_start`    | Mark the start of a coding session, anchor a session id                                  | M4        |
-| `tl_session_summary`  | Save a structured end-of-session digest                                                  | M4        |
-| `tl_update`           | Update a specific memory by id                                                           | M2        |
-| `tl_delete`           | Soft-delete a memory                                                                     | M3        |
+| Tool                  | Purpose                                                                                  | Status |
+| --------------------- | ---------------------------------------------------------------------------------------- | ------ |
+| `tl_save`             | Persist a memory; upserts on `topic_key`; identical re-saves are noops                   | ✅ M1  |
+| `tl_search`           | FTS5 + BM25 search with optional filters (`type`, `scope`, `project`, `topic_key` glob) | ✅ M2  |
+| `tl_get_observation`  | Fetch full untruncated content of a memory by id                                         | ✅ M2  |
+| `tl_context`          | Recent memories for the active project, ordered by `updated_at DESC`                     | ✅ M3  |
+| `tl_update`           | Patch `title` / `content` / `tags` of an existing memory by id                           | ✅ M3  |
+| `tl_delete`           | Soft-delete a memory by id; frees its `topic_key` for reuse                              | ✅ M3  |
+| `tl_session_start`    | Mark the start of a coding session, anchor a session id                                  | ⏳ M4  |
+| `tl_session_summary`  | Save a structured end-of-session digest                                                  | ⏳ M4  |
 
-The full schema for each will be in [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) before M1 implementation.
+Full architecture in [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md). Memory taxonomy in [`docs/design/memory-domain.md`](docs/design/memory-domain.md).
+
+### `tl_save` parameters
+
+| Param       | Required | Notes                                                                                          |
+|-------------|----------|------------------------------------------------------------------------------------------------|
+| `title`     | yes      | Short, searchable headline (≤ 200 chars)                                                       |
+| `content`   | yes      | Markdown body. Recommended structure: **What** / **Why** / **Where** / **Learned**             |
+| `type`      | yes      | One of the 9 catalogued types — see [memory-domain.md](docs/design/memory-domain.md)           |
+| `scope`     | no       | `project` (default) or `personal`. The `preference` type auto-defaults to `personal`           |
+| `topic_key` | no       | Stable key for evolving topics. Re-saves on the same key upsert (lowercase / `[a-z0-9/_-]`)    |
+| `project`   | no       | Defaults to the working-directory basename (or `THOUGHTLINE_PROJECT` if set)                   |
+| `tags`      | no       | Lowercase tags, optionally `key:value` (e.g. `engine:playcanvas`, `platform:android`)          |
+
+### `tl_search` parameters
+
+| Param       | Required | Notes                                                                                          |
+|-------------|----------|------------------------------------------------------------------------------------------------|
+| `query`     | yes      | Keyword query. Each whitespace-delimited token is a literal phrase (implicit AND). Containing `/` triggers the topic-key GLOB shortcut |
+| `type`      | no       | Filter — exact match against one of the catalogued types                                       |
+| `scope`     | no       | Filter — `project` or `personal`                                                               |
+| `project`   | no       | Filter — defaults to the working-directory basename. Pass explicitly to query other projects   |
+| `topic_key` | no       | GLOB filter on `topic_key` (e.g. `design/auth/*`)                                              |
+| `limit`     | no       | Max results. Default 10, hard cap 50                                                           |
+| `offset`    | no       | Pagination offset; pair with `limit`                                                           |
+
+Results carry: `id`, `sync_id`, `title`, `snippet` (≤ 300 chars from FTS5 `snippet()`), `score` (BM25 — lower = better; topic-key shortcut hits get a synthetic `-1000`), plus all metadata. The response footer always points at `tl_get_observation` for full content.
+
+### `tl_get_observation` parameters
+
+| Param | Required | Notes                                                              |
+|-------|----------|--------------------------------------------------------------------|
+| `id`  | yes      | The local row id from a `tl_save` or `tl_search` response          |
+
+Returns the full untruncated content + every metadata field. Soft-deleted rows return a "not found" error.
+
+### `tl_context` parameters
+
+| Param     | Required | Notes                                                                                  |
+|-----------|----------|----------------------------------------------------------------------------------------|
+| `project` | no       | Defaults to the working-directory basename. Pass explicitly to peek at another project |
+| `limit`   | no       | Max recent memories. Default 10, hard cap 50                                            |
+
+Returns the most recently updated memories (by `updated_at DESC`) for the active project, soft-deleted rows excluded. Same per-result envelope as `tl_search` so an AI parses both with one parser.
+
+### `tl_update` parameters
+
+| Param     | Required | Notes                                                                                          |
+|-----------|----------|------------------------------------------------------------------------------------------------|
+| `id`      | yes      | The local row id of the memory to patch                                                         |
+| `title`   | no       | New title (≤ 200 chars). Omit to leave unchanged                                                |
+| `content` | no       | New markdown body. Omit to leave unchanged                                                      |
+| `tags`    | no       | New tag list. Pass an empty array (`[]`) to clear all tags. Omit to leave unchanged             |
+
+Identity-defining fields (`type`, `topic_key`, `project`, `scope`) cannot be changed. To "rename" a memory's identity, `tl_delete` the row and `tl_save` a fresh one. Empty patch (no fields supplied) is a noop. Real changes bump `revision_count`, refresh `updated_at`, preserve `id` / `sync_id` / `created_at`. The merged memory is re-validated before persisting.
+
+### `tl_delete` parameters
+
+| Param | Required | Notes                                                                          |
+|-------|----------|--------------------------------------------------------------------------------|
+| `id`  | yes      | The local row id of the memory to soft-delete                                  |
+
+Sets `deleted_at` and hides the row from `tl_search` / `tl_context` / `tl_get_observation`. The `topic_key` (if any) is freed for a fresh `tl_save`. This is **soft** — the row remains on disk and can be recovered manually. A second `tl_delete` on the same id returns "not found".
+
+---
+
+## Examples — end-to-end flow
+
+The shape your team will use day-to-day. Each example is the **JSON arguments** an MCP client (Claude Code, Cursor, Zed, ...) sends; the AI never types these by hand — it picks them automatically based on the tool descriptions.
+
+### 1. Save a scene-pattern with a stable topic key
+
+```jsonc
+// tl_save
+{
+  "title": "Inn cellar entity hierarchy",
+  "type": "scene-pattern",
+  "topic_key": "scene/playcanvas/inn-cellar",
+  "tags": ["engine:playcanvas", "platform:android"],
+  "content": "**What**: cellar split into world/static (chairs, walls) and world/interactive (cellar door).\n**Why**: keeps batching tight on Android.\n**Where**: scenes/inn-cellar.scene\n**Learned**: chairs were originally in interactive — caused 38 extra draw calls."
+}
+```
+
+Response (abridged):
+
+```
+Saved (action=created): "Inn cellar entity hierarchy"
+ID: 12
+Sync ID: 019dde…-7d70-9044-…
+Project: enchanted-inn
+Type: scene-pattern
+Scope: project
+Topic: scene/playcanvas/inn-cellar
+Revision: 0
+```
+
+A second `tl_save` with the same `topic_key` and identical content is a **noop** (no row mutation). Same key with changed content is an **update** that bumps `revision_count` and refreshes `updated_at` while keeping `id` and `sync_id` stable.
+
+### 2. Search by keyword — FTS5 + BM25
+
+```jsonc
+// tl_search
+{
+  "query": "lantern bloom android",
+  "type": "perf-gotcha",
+  "limit": 5
+}
+```
+
+Response sketch:
+
+```
+Found 2 result(s) for "lantern bloom android":
+
+Title: Lantern emissive blew out bloom on Android
+ID: 7
+Sync ID: 019dde…
+Project: enchanted-inn
+Type: perf-gotcha
+Topic: perf/android/lantern-bloom
+Revision: 1
+Score: -2.4173
+Snippet: …reduced lantern emissive intensity from 4.0 to 1.6; bloom threshold raised to 1.2 on Android…
+---
+Title: …
+…
+
+---
+Snippets above are previews (≤300 chars, may include '…' ellipses from FTS5). Call tl_get_observation(id: <ID>) to read the full untruncated content of a specific match.
+```
+
+### 3. Topic-key shortcut — exact lookup or GLOB
+
+A query containing `/` is matched against `topic_key` first. If any rows match, FTS5 does **not** run.
+
+```jsonc
+// Exact lookup → O(1)
+{ "query": "scene/playcanvas/inn-cellar" }
+
+// GLOB lookup → all auth design notes
+{ "query": "design/auth/*" }
+```
+
+If the shortcut returns zero rows, the query falls through to the FTS5 path automatically.
+
+### 4. Read the full content with `tl_get_observation`
+
+```jsonc
+// tl_get_observation
+{ "id": 7 }
+```
+
+Returns the full untruncated `content`, every metadata field, and the tags list. Use this whenever a `tl_search` snippet is a preview and the AI needs the rest.
+
+### 5. Cross-project lookup
+
+By default `tl_search` filters by the current working directory's project. To query a different project, pass `project` explicitly:
+
+```jsonc
+{ "query": "playcanvas batching", "project": "sort-factory-v4" }
+```
+
+### 6. Recover context after a session compaction (`tl_context`)
+
+```jsonc
+// tl_context — no args needed, defaults to the active project
+{}
+```
+
+Response sketch:
+
+```
+Recent 4 memorie(s) for project "enchanted-inn" (newest first):
+
+Title: Inn cellar entity hierarchy
+ID: 12
+Sync ID: 019dde…
+Project: enchanted-inn
+Type: scene-pattern
+Topic: scene/playcanvas/inn-cellar
+Revision: 0
+Updated: 2026-04-30 14:22:11 UTC
+Snippet: world/static for chairs; world/interactive for the cellar door…
+---
+Title: Lantern emissive blew out bloom on Android
+…
+```
+
+Use this at the start of a session, or right after a context compaction, to recover what was being worked on. Same envelope shape as `tl_search` so the AI parses both with one parser.
+
+### 7. Patch an existing memory (`tl_update`)
+
+```jsonc
+// Rename + add a tag
+{
+  "id": 12,
+  "title": "Inn cellar entity hierarchy (post-bake refactor)",
+  "tags": ["engine:playcanvas", "platform:android", "post-m4"]
+}
+```
+
+Response (abridged):
+
+```
+Saved (action=updated): "Inn cellar entity hierarchy (post-bake refactor)"
+ID: 12
+Sync ID: 019dde…   ← preserved
+Project: enchanted-inn
+Type: scene-pattern  ← cannot be changed via tl_update
+Topic: scene/playcanvas/inn-cellar  ← cannot be changed
+Revision: 1   ← bumped
+```
+
+Type, `topic_key`, `project`, and `scope` are intentionally NOT mutable — they define identity. To "rename" identity: `tl_delete` then `tl_save` fresh. Pass `"tags": []` (empty array) to clear all tags. Omit a field entirely to leave it unchanged.
+
+### 8. Soft-delete a memory (`tl_delete`)
+
+```jsonc
+// tl_delete
+{ "id": 12 }
+```
+
+Response:
+
+```
+Deleted memory id=12 (soft delete — row hidden from search/context, topic_key freed).
+```
+
+After this:
+- `tl_search` no longer returns the row
+- `tl_context` no longer lists it
+- `tl_get_observation` reports "not found"
+- The `topic_key` is available again — a new `tl_save` with the same key creates a fresh row (different `id`, fresh `created_at`)
+- A second `tl_delete` on the same id reports "not found"
+
+This is intentionally **soft** so a misclick is recoverable manually from the SQLite file. Hard delete is admin work, off-band.
 
 ---
 
