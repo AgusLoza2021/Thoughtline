@@ -36,6 +36,7 @@ func New(s *storage.Storage, cfg Config) *server.MCPServer {
 	registerTLDelete(srv, s)
 	registerTLSessionStart(srv, s, cfg)
 	registerTLSessionSummary(srv, s)
+	registerTLStats(srv, s, cfg)
 	return srv
 }
 

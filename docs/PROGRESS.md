@@ -6,51 +6,53 @@ Single source of truth for "what's done, what's next, what's blocking publishing
 
 ## Current state — 2026-04-30
 
-**Milestone M4 (Sessions): 🟢 done.** M0–M3 are also 🟢 done — see history below. The full session-aware API ships now (8 MCP tools).
+**Milestone M5 (Dashboard): 🟢 done.** M0–M4 are also 🟢 done — see history below. Nine MCP tools + interactive TUI ship now. M6 (Smarts / embeddings) is deferred per ADR 0002.
 
-### What got done this session (M4)
+### What got done this session (M5)
 
-- **Domain layer** (`internal/memory/session.go` + `session_test.go`):
-  - `Session` type: UUIDv7 id, project, optional agent_label (≤ 64 chars), started_at, optional ended_at, summary.
-  - `IsOpen()` / `Duration()` helpers.
-  - `ValidateSession` enforces UUIDv7 format, project required, label/summary size caps, ended_at >= started_at.
-  - `memory.SessionID` field on `Memory` with UUIDv7 format check inside `memory.Validate`.
-- **Storage layer** (schema bump + sessions CRUD + session-aware Save):
-  - `currentSchemaVersion` 1 → 2.
-  - `sessions` table + `idx_sessions_recent` (CREATE IF NOT EXISTS, runs on every Open — idempotent).
-  - `memories.session_id TEXT REFERENCES sessions(id) ON DELETE SET NULL` added via idempotent ALTER TABLE guarded by `PRAGMA table_info` introspection (`columnExists` helper). Fresh DBs and existing v1 DBs both migrate cleanly.
-  - `internal/storage/sessions.go`: `StartSession`, `EndSession`, `GetSession`, `RecentSessions`. Sentinels: `ErrSessionNotFound`, `ErrSessionAlreadyEnded`, `ErrSessionProjectMismatch`.
-  - `Save` runs `validateSessionLink` preflight: non-empty SessionID must reference an existing session in the same project, otherwise `ErrSessionNotFound` / `ErrSessionProjectMismatch`.
-  - **Sticky session_id**: `upsertByTopicKey` UPDATE uses `session_id = COALESCE(?, session_id)` so re-saves with empty SessionID preserve the prior linkage. The fetched-existing-state path now reads the row's session_id and propagates it into the returned struct so callers see what's actually in the DB.
-  - `nullIfEmpty(string) sql.NullString` helper for clean SQL parameter handling.
-  - **Tests**: full CRUD coverage, regression guards for upsert-clobber-session AND cross-project rejection AND unknown-session rejection AND schema v2 idempotency on reopen.
-- **Server layer**:
-  - `tl_session_start.go` — full MCP tool, default-project fallback, agent_label trimming, friendly errors for `ErrAgentLabelTooLong` / `ErrEmptySessionProject`.
-  - `tl_session_summary.go` — full MCP tool with id + summary trimming, friendly errors for `ErrSessionNotFound` / `ErrSessionAlreadyEnded` / `ErrSessionSummaryTooLong`. Output includes computed `Duration:`.
-  - `tl_save.go` — added `SessionID` to `saveArgs`, decoded from `session_id` JSON arg, surfaces `ErrSessionNotFound` and `ErrSessionProjectMismatch` as user-facing errors. `formatSaveResult` echoes `Session: <id>` when present.
-  - `formatValidationError` now handles `memory.ErrInvalidSessionID`.
-  - `server.New` registers both new tools alongside the existing six.
-  - **Handler tests**: `tl_session_start_test.go` (happy path, default project, missing project, optional agent_label, UUIDv7 verification of returned id), `tl_session_summary_test.go` (happy path, required id/summary, not-found, already-closed), `tl_save_session_test.go` (attaches session_id, rejects cross-project, rejects unknown session, rejects malformed UUIDv7).
-- **Integration scenario** (`internal/server/integration_session_test.go`):
-  - 6 steps: tl_session_start → 2 tl_save with session_id → upsert without session_id preserves linkage (regression guard at integration level) → tl_session_summary → second close rejected → post-mortem save on closed session allowed → cross-project session save rejected.
-- **Audit moment**: mid-sprint we paused, audited, found 3 issues (undefined `nullIfEmpty`, upsert clobber on session_id, missing cross-project validation) and fixed them with regression tests in place. **Discipline lesson**: re-established "tests rojos primero" pattern after drifting toward green-first.
-- **Verification**: `go vet ./...` clean; `go test ./...` all green across `memory`, `storage`, `server` packages.
+- **Storage layer** (`internal/storage/stats.go` + `stats_test.go`):
+  - `Stats(ctx, opts) (Stats, error)` — single-call snapshot returning total memories (active + soft-deleted), counts grouped by type / project / scope, open + closed session counts, recent memories + sessions.
+  - `StatsOptions{Project, RecentLimit}`. Project="" = cross-project counts. Limit defaults 10, capped at 50.
+  - Tests: empty DB, total + deleted counts, by-type / by-project / by-scope groupings, open/closed session counts, recent memories + limit + default, recent sessions, project filter.
+- **MCP tool** (`internal/server/tl_stats.go` + `tl_stats_test.go`):
+  - `tl_stats` registered alongside the existing 8 tools — tool count now 9.
+  - `statsArgs.Project` with `*` sentinel for "ignore default project, show everything".
+  - `formatStats` renders the Stats snapshot as readable text with deterministic ordering (alphabetical by project, taxonomy order by type).
+  - Tests: happy path, empty DB, project filter, default-project fallback, `*` wildcard, type breakdown, sessions section, recent activity inclusion.
+- **Dashboard package** (`internal/dashboard/`):
+  - `model.go` / `update.go` / `view.go` — Bubbletea Model with explicit Init / Update / View split. State: `loaded`, `loading`, `err`, `width`, `height`, `Quitting`. `loadStatsCmd` runs storage.Stats off the main goroutine and posts a `statsLoadedMsg`.
+  - `roadmap.go` — hardcoded `Roadmap()` returning M0–M6 statuses + `StatusGlyph`. Hardcoded so PR review covers milestone state changes alongside the corresponding code change.
+  - `view.go` — lipgloss styles + 4-panel layout: header, Stats panel, Recent Activity panel (side-by-side via `JoinHorizontal`), Roadmap panel, footer with key bindings.
+  - `run.go` — `Run(ctx, st, cfg)` boots a `tea.Program` with `WithAltScreen()` and `WithContext` for clean shutdown.
+  - Tests follow `~/.claude/skills/go-testing/SKILL.md` Pattern 2 (direct `Model.Update()`) — 11 tests covering Init / quit (q/ctrl+c/esc) / refresh on r / window resize / stats loaded clears loading / err propagation / View renders panels / Quitting view is empty / loading hint / Roadmap structure / StatusGlyph mapping.
+- **CLI subcommands** (`cmd/thoughtline/main.go`):
+  - `thoughtline` (no args) and `thoughtline serve` → MCP stdio server (default; what an MCP client launches).
+  - `thoughtline ui` (or `thoughtline dashboard`) → opens the TUI.
+  - `thoughtline version` (or `-v`/`--version`) → prints version.
+  - `thoughtline help` (or `-h`/`--help`) → prints usage.
+  - Unknown subcommand → friendly error + usage + exit 2.
+- **Dependencies added**:
+  - `github.com/charmbracelet/bubbletea v1.3.10`
+  - `github.com/charmbracelet/lipgloss v1.1.0`
+  - Plus their transitive dependencies (lucasb-eyer/go-colorful, mattn/go-runewidth, muesli/termenv, etc.) — all standard for Go TUIs.
+- **Roadmap renumbered**: M5 was previously "Smarts (embeddings)" deferred; now M5 is "Dashboard" (this release) and Smarts is M6, still deferred per ADR 0002.
+- **Verification**: `go vet ./...` clean; `go test ./...` all green across `memory`, `storage`, `server`, `dashboard` packages.
 
 ### What's NOT done (intentionally)
 
-- No `tl_session_list` / `tl_session_get` for browsing past sessions — the AI can use `tl_search` over session summaries that get saved into memories (or we can add a dedicated tool in M5+ if needed).
-- No auto-end of stale sessions — explicit close required.
-- No "detach memory from session" — once attached, historically attached. Add only if the user reports a real need.
-- LICENSE copyright already updated to "Agustín Lozano" pre-tag.
-- Pre-publish TODO still open: replace `_engram-research/` paths in `docs/research/*.md` with permalinks before going public.
+- **No interactive search / drill-down in the TUI**: the v1 dashboard is a status-at-a-glance read-only view. Search interactivo (presionás `s`, escribís query, ves resultados live) lo agregamos solo si lo extrañamos.
+- **No soft-deleted recovery view**: `DeletedMemories` count is shown but there's no UI to restore. Recovery is admin work via SQLite directly (or `UPDATE memories SET deleted_at = NULL WHERE id = ?`).
+- **No tag breakdown panel**: tags by frequency would be a nice future addition. Trivial to add to `Stats` if requested.
+- **No live polling**: TUI loads stats once on Init and only re-polls on `r`. A live ticker (every N seconds) is easy to add but adds load on the SQLite file for an unclear win.
+- **No pre-publish TODO closed**: `_engram-research/` paths in research docs still need permalink replacement before going public.
 
 ---
 
-## Next session — Milestone M5 (Smarts) — DEFERRED by default
+## Next session — Milestone M6 (Smarts) — DEFERRED by default
 
-Per [ADR 0002](decisions/0002-search-strategy-fts5-first.md), M5 only happens if user feedback shows lexical recall failures dominate complaints. Engram has run in production without embeddings for months, so there's no urgency.
+Per [ADR 0002](decisions/0002-search-strategy-fts5-first.md), M6 only happens if user feedback shows lexical recall failures dominate complaints. Engram has run in production without embeddings for months, so there's no urgency.
 
-**If/when M5 happens**, the ADR sketch is:
+**If/when M6 happens**, the ADR sketch is:
 - Add `embedding_dim` column (the only schema change needed; reserved BLOB columns already exist).
 - Optional companion table `memory_embeddings` (sync_id PK, vector BLOB, model, dim, created_at).
 - Provider-agnostic: store model name + dim per row so multiple providers can coexist during transition.
@@ -58,11 +60,20 @@ Per [ADR 0002](decisions/0002-search-strategy-fts5-first.md), M5 only happens if
 - Behind a feature flag, off by default.
 - `tl_reindex` background tool to backfill embeddings for memories worth re-embedding.
 
-For now, **v0.0.1 ships with M0–M4 complete**. The 8-tool API is enough for daily use.
+For now, **v0.0.1 ships with M0–M5 complete**. Nine MCP tools + interactive dashboard.
 
 ---
 
 ## Milestone history
+
+### 2026-04-30 — M4 Sessions 🟢
+
+- Domain `Session` type + UUIDv7 validation + `Memory.SessionID` field.
+- Storage: schema v2, sessions table, FK with `ON DELETE SET NULL`, idempotent migration via PRAGMA + ALTER, sessions CRUD (`StartSession`/`EndSession`/`GetSession`/`RecentSessions`), 3 sentinels (`ErrSessionNotFound`, `ErrSessionAlreadyEnded`, `ErrSessionProjectMismatch`), sticky session_id on upsert with regression tests.
+- Server: `tl_session_start` + `tl_session_summary` MCP tools, `tl_save` learned `session_id` arg, cross-table error surfacing.
+- Integration: 6-step scenario covering full lifecycle including upsert preserves session, post-mortem save allowed, cross-project rejection.
+- Audit-fix moment: paused mid-sprint, caught 3 bugs (undefined helper, upsert clobber, missing cross-project validation) and fixed with regression tests. Re-established TDD discipline.
+- Verification: `go vet ./...` clean; `go test ./...` all green.
 
 ### 2026-04-30 — M3 Context, Update, Delete 🟢
 

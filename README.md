@@ -6,7 +6,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Go Version](https://img.shields.io/badge/Go-1.25%2B-00ADD8?logo=go)](go.mod)
-[![Status](https://img.shields.io/badge/status-M4%20done-brightgreen)](docs/PROGRESS.md)
+[![Status](https://img.shields.io/badge/status-M5%20done-brightgreen)](docs/PROGRESS.md)
 [![MCP](https://img.shields.io/badge/MCP-stdio-7C3AED)](#install-planned)
 
 *Save your project's lore. Recall it from any session. Forever.*
@@ -21,7 +21,7 @@ Thoughtline is an **MCP (Model Context Protocol) server** that gives AI assistan
 
 Thoughtline stands on the shoulders of [**Engram**](https://github.com/Gentleman-Programming/engram) by Alan Buscaglia — we deliberately reuse Engram's MCP shape, storage layout, and the clever bits like **FTS5 full-text search** and **`topic_key` upserts**. What we add is a **gamedev-first memory taxonomy** and a vocabulary tuned for engines like PlayCanvas, Unity, Unreal, and Godot.
 
-> **Status: M4 done.** Eight tools live, the full session-aware memory API: `tl_save`, `tl_search`, `tl_get_observation`, `tl_context`, `tl_update`, `tl_delete`, `tl_session_start`, `tl_session_summary`. M5 (semantic embeddings) remains deferred per [ADR 0002](docs/decisions/0002-search-strategy-fts5-first.md) — schema reserved, opt-in. See [`docs/PROGRESS.md`](docs/PROGRESS.md).
+> **Status: M5 done.** Nine tools live + an interactive dashboard. Memory API: `tl_save`, `tl_search`, `tl_get_observation`, `tl_context`, `tl_update`, `tl_delete`, `tl_session_start`, `tl_session_summary`, `tl_stats`. Plus a Bubbletea TUI: `thoughtline ui`. M6 (semantic embeddings) remains deferred per [ADR 0002](docs/decisions/0002-search-strategy-fts5-first.md) — schema reserved, opt-in. See [`docs/PROGRESS.md`](docs/PROGRESS.md).
 
 ---
 
@@ -107,7 +107,8 @@ The work is sliced into milestones. Each one has a definition of done, so progre
 | **M2 Search**    | `tl_search` with FTS5 + BM25 ranking, paginated, filterable by type/scope/project; `tl_get_observation` companion | 🟢 done         |
 | **M3 Context**   | `tl_context` (recent activity), `tl_update` (patch by id), `tl_delete` (soft delete) | 🟢 done         |
 | **M4 Sessions**  | `tl_session_start` + `tl_session_summary`; `tl_save` learns optional `session_id`    | 🟢 done         |
-| **M5 Smarts**    | Optional embeddings layer for semantic recall — **schema reserved from M1**   | 🔵 deferred     |
+| **M5 Dashboard** | `thoughtline ui` interactive TUI + `tl_stats` MCP tool                              | 🟢 done         |
+| **M6 Smarts**    | Optional embeddings layer for semantic recall — **schema reserved from M1**   | 🔵 deferred     |
 
 See [`docs/PROGRESS.md`](docs/PROGRESS.md) for the live milestone status and pre-publish TODOs.
 
@@ -115,7 +116,7 @@ See [`docs/PROGRESS.md`](docs/PROGRESS.md) for the live milestone status and pre
 
 ## Install
 
-> ✅ As of M4, eight tools are live: `tl_save`, `tl_search`, `tl_get_observation`, `tl_context`, `tl_update`, `tl_delete`, `tl_session_start`, `tl_session_summary`. The full session-aware API ships now.
+> ✅ As of M5, nine MCP tools + an interactive dashboard ship: `tl_save`, `tl_search`, `tl_get_observation`, `tl_context`, `tl_update`, `tl_delete`, `tl_session_start`, `tl_session_summary`, `tl_stats`, plus `thoughtline ui`.
 
 ### From source
 
@@ -174,6 +175,7 @@ All MCP tools share the `tl_` prefix.
 | `tl_delete`           | Soft-delete a memory by id; frees its `topic_key` for reuse                              | ✅ M3  |
 | `tl_session_start`    | Open a session; returns a UUIDv7 you thread through subsequent `tl_save` calls           | ✅ M4  |
 | `tl_session_summary`  | Close a session; persists a structured end-of-session digest. Append-once.               | ✅ M4  |
+| `tl_stats`            | Snapshot of memory + session counts. Optional `project` filter (`*` for all)             | ✅ M5  |
 
 Full architecture in [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md). Memory taxonomy in [`docs/design/memory-domain.md`](docs/design/memory-domain.md).
 
@@ -509,6 +511,64 @@ A session belongs to exactly one project. Trying to attach a memory in project A
 ```
 
 Returns an error: *"session_id … belongs to a different project than this save. Sessions are scoped to a single project."*
+
+---
+
+## Interactive dashboard (`thoughtline ui`)
+
+When you want a visual at-a-glance view of what's stored — without firing up the AI — Thoughtline ships an interactive terminal dashboard (Bubbletea TUI):
+
+```bash
+thoughtline ui
+```
+
+You get four panels:
+
+```
+┌── Thoughtline 0.0.1 ────────────────────────────────────────────┐
+│ project: enchanted-inn · db: ~/.cache/thoughtline/thoughtline.db│
+├──────────────────┬──────────────────────────────────────────────┤
+│ Stats            │ Recent activity                              │
+│                  │                                              │
+│ Memories: 42     │ memories                                     │
+│ Sessions: 1 open │   · Lantern bake notes                       │
+│           3 closed│      [scene-pattern] enchanted-inn ·        │
+│                  │      scene/playcanvas/inn-cellar             │
+│ by type          │   · Bloom curve tweaks                       │
+│   scene-pattern  18│   ...                                      │
+│   perf-gotcha    11│ sessions                                   │
+│   bugfix          5│   · open · claude-code                     │
+│   ...            │     019dde…                                  │
+├──────────────────┴──────────────────────────────────────────────┤
+│ Roadmap                                                          │
+│   ✓ M0 — Bootstrap                                               │
+│   ✓ M1 — Save                                                    │
+│   ✓ M2 — Search                                                  │
+│   ✓ M3 — Context / Update / Delete                               │
+│   ✓ M4 — Sessions                                                │
+│   ✓ M5 — Dashboard (TUI + tl_stats)                              │
+│   · M6 — Smarts (embeddings)                                     │
+├──────────────────────────────────────────────────────────────────┤
+│ [r] refresh   [q] quit   ·   thoughtline ui                      │
+└──────────────────────────────────────────────────────────────────┘
+```
+
+**Keys**: `r` reloads stats, `q` / `ctrl+c` / `esc` quits. The dashboard is read-only — it never mutates the database.
+
+For programmatic access from the AI, use the equivalent **`tl_stats` MCP tool**:
+
+```jsonc
+// Default: scoped to current project
+{}
+
+// Cross-project: see counts across the whole DB
+{ "project": "*" }
+
+// Specific project
+{ "project": "sort-factory-v4" }
+```
+
+The text output mirrors the dashboard's stats panel so the AI can describe the state of memory back to you.
 
 ---
 

@@ -6,6 +6,15 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+### Added — M5 (Dashboard)
+- **`thoughtline ui` subcommand** — opens an interactive Bubbletea TUI with four panels: header (version + DB path + active project), stats (counts by type / project / scope), recent activity (last 10 memories + 5 sessions), and roadmap (M0–M6 status). Keys: `r` refresh, `q` / `ctrl+c` / `esc` quit. Reads from the same SQLite store the MCP server uses.
+- **`tl_stats` MCP tool** — programmatic access to the same stats snapshot. Optional `project` argument; pass `*` to see counts across all projects. Returns text-formatted breakdown the AI can read aloud or summarize.
+- **`storage.Stats(ctx, opts) (Stats, error)`** — single query interface returning total memories (active + soft-deleted), counts grouped by type / project / scope, open + closed session counts, and the most recent N memories + sessions. Supports project filter and configurable RecentLimit (default 10, capped at 50).
+- **CLI subcommands** — `thoughtline help`, `thoughtline version`, `thoughtline serve` (default), `thoughtline ui`. Friendly error message + usage on unknown subcommand.
+- **`internal/dashboard` package** — Bubbletea Model / Update / View split, lipgloss styling, hardcoded `Roadmap()` so PRs review milestone status changes alongside the corresponding code change.
+- **Tests** — `internal/storage/stats_test.go` covers every aggregation (totals, by type, by project, by scope, open/closed sessions, recent memories with limit + default, recent sessions, project filter). `internal/server/tl_stats_test.go` covers happy path, empty DB, project filter, default-project fallback, `*` wildcard, type breakdown, recent activity inclusion. `internal/dashboard/model_test.go` follows the SKILL.md patterns: direct `Model.Update()` tests for state transitions (q / ctrl+c / esc / r / window resize / stats loaded), and a basic View test pinning the panels render their headers + roadmap entries.
+- **Roadmap renumbered** — M5 is now Dashboard (this release). Smarts (semantic embeddings) moves to M6 and remains deferred per [ADR 0002](docs/decisions/0002-search-strategy-fts5-first.md). Schema reservation for embeddings is still in place from M1.
+
 ### Added — M4 (Sessions)
 - **`tl_session_start` MCP tool** — opens a session, returns its UUIDv7 id. Optional `agent_label` for cross-session forensics ("claude-code", "cursor", "zed", ...). Project defaults to working directory basename.
 - **`tl_session_summary` MCP tool** — closes a session, persists the structured digest. Sessions are append-once: a second call returns "already ended". Summary required, ≤ 64 KB.
@@ -66,6 +75,6 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 - CONTRIBUTING.md with PR and ADR conventions.
 
 ### Status
-- M0–M4 complete. Eight MCP tools live: `tl_save`, `tl_search`, `tl_get_observation`, `tl_context`, `tl_update`, `tl_delete`, `tl_session_start`, `tl_session_summary`. M5 (semantic embeddings) remains deferred per ADR 0002 — schema reserved, opt-in if/when needed.
+- M0–M5 complete. Nine MCP tools live: `tl_save`, `tl_search`, `tl_get_observation`, `tl_context`, `tl_update`, `tl_delete`, `tl_session_start`, `tl_session_summary`, `tl_stats`. Plus a `thoughtline ui` interactive dashboard. M6 (semantic embeddings) remains deferred per ADR 0002 — schema reserved, opt-in if/when needed.
 
 [Unreleased]: https://github.com/AgusLoza2021/Thoughtline/compare/HEAD...HEAD

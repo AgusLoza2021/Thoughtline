@@ -26,6 +26,7 @@ import (
 
 	mcpserver "github.com/mark3labs/mcp-go/server"
 
+	"github.com/AgusLoza2021/Thoughtline/internal/dashboard"
 	"github.com/AgusLoza2021/Thoughtline/internal/server"
 	"github.com/AgusLoza2021/Thoughtline/internal/storage"
 )
@@ -37,13 +38,58 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	if err := run(ctx); err != nil {
+	// Subcommand routing. With no args we default to the MCP stdio server
+	// (the path an MCP client takes when it spawns this binary).
+	cmd := ""
+	if len(os.Args) > 1 {
+		cmd = os.Args[1]
+	}
+
+	var err error
+	switch cmd {
+	case "", "serve":
+		err = runServer(ctx)
+	case "ui", "dashboard":
+		err = runDashboard(ctx)
+	case "version", "-v", "--version":
+		fmt.Printf("thoughtline %s\n", version)
+		return
+	case "help", "-h", "--help":
+		printUsage()
+		return
+	default:
+		fmt.Fprintf(os.Stderr, "thoughtline: unknown subcommand %q\n\n", cmd)
+		printUsage()
+		os.Exit(2)
+	}
+
+	if err != nil {
 		fmt.Fprintf(os.Stderr, "thoughtline: %v\n", err)
 		os.Exit(1)
 	}
 }
 
-func run(ctx context.Context) error {
+// printUsage prints a short subcommand reference. Kept tight on purpose —
+// the README is the comprehensive reference.
+func printUsage() {
+	fmt.Fprintln(os.Stderr, `Thoughtline — local-first persistent memory for AI assistants.
+
+Usage:
+  thoughtline              run the MCP stdio server (default; what your AI client launches)
+  thoughtline serve        same as no-arg invocation
+  thoughtline ui           open the interactive dashboard (TUI)
+  thoughtline version      print the binary version and exit
+  thoughtline help         print this help and exit
+
+Environment:
+  THOUGHTLINE_HOME    directory for the SQLite database
+  THOUGHTLINE_DB      override the database file path entirely
+  THOUGHTLINE_PROJECT default project identifier (otherwise auto-detected from cwd)
+
+See README.md for the full reference and per-tool examples.`)
+}
+
+func runServer(ctx context.Context) error {
 	dbPath, err := resolveDBPath()
 	if err != nil {
 		return fmt.Errorf("resolve db path: %w", err)
@@ -84,6 +130,30 @@ func run(ctx context.Context) error {
 		return fmt.Errorf("serve stdio: %w", err)
 	}
 	return nil
+}
+
+func runDashboard(ctx context.Context) error {
+	dbPath, err := resolveDBPath()
+	if err != nil {
+		return fmt.Errorf("resolve db path: %w", err)
+	}
+
+	st, err := storage.Open(ctx, dbPath)
+	if err != nil {
+		return fmt.Errorf("open storage at %s: %w", dbPath, err)
+	}
+	defer func() {
+		if cerr := st.Close(); cerr != nil {
+			fmt.Fprintf(os.Stderr, "thoughtline: close storage: %v\n", cerr)
+		}
+	}()
+
+	cfg := dashboard.Config{
+		Version: version,
+		DBPath:  dbPath,
+		Project: resolveDefaultProject(),
+	}
+	return dashboard.Run(ctx, st, cfg)
 }
 
 // resolveDBPath returns the SQLite file path to open. Order of precedence:
