@@ -1,0 +1,64 @@
+schema: spec-driven
+
+context: |
+  Tech stack: Go 1.25, MCP server (github.com/mark3labs/mcp-go), SQLite via modernc.org/sqlite (FTS5), Bubbletea TUI (charmbracelet/bubbletea + lipgloss)
+  Architecture: cmd/thoughtline/ entry point; internal/{server,storage,memory,dashboard}/ packages; hexagonal layering (server → memory → storage)
+  Testing: go test ./... — table-driven unit tests + integration tests, all colocated as *_test.go in same package
+  Style: go vet + gofmt (enforced in CI); no external linter config found; conventional commit messages
+
+strict_tdd: true
+
+testing:
+  strict_tdd: true
+  test_runner:
+    command: go test ./...
+    framework: go test (built-in)
+  layers:
+    unit:
+      available: true
+      tool: go test
+    integration:
+      available: true
+      tool: net/http/httptest (built-in) + integration_test.go files
+    e2e:
+      available: false
+      tool: —
+  coverage:
+    available: true
+    command: go test -cover ./...
+  quality_tools:
+    linter:
+      available: true
+      command: go vet ./...
+    type_checker:
+      available: true
+      command: go vet ./...
+    formatter:
+      available: true
+      command: gofmt
+
+rules:
+  proposal:
+    - Include rollback plan for risky changes
+    - Identify affected modules/packages (server, storage, memory, dashboard)
+  specs:
+    - Use Given/When/Then format for scenarios
+    - Use RFC 2119 keywords (MUST, SHALL, SHOULD, MAY)
+  design:
+    - Include sequence diagrams for complex flows
+    - Document architecture decisions with rationale
+  tasks:
+    - Group tasks by phase (infrastructure, implementation, testing)
+    - Use hierarchical numbering (1.1, 1.2, etc.)
+    - Keep tasks small enough to complete in one session
+  apply:
+    - Follow existing code patterns and conventions
+    - Load go-testing skill for all Go test work
+    tdd: true
+    test_command: go test ./...
+  verify:
+    test_command: go test ./...
+    build_command: go build ./...
+    coverage_threshold: 0
+  archive:
+    - Warn before merging destructive deltas (large removals)

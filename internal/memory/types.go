@@ -19,6 +19,8 @@ const (
 	TypeBugfix             Type = "bugfix"
 	TypeConvention         Type = "convention"
 	TypePreference         Type = "preference"
+	TypeDecision           Type = "decision"      // migrated from Engram; project-scoped
+	TypeArchitecture       Type = "architecture"  // migrated from Engram; project-scoped
 )
 
 // AllTypes returns the canonical type set in stable order.
@@ -33,6 +35,8 @@ func AllTypes() []Type {
 		TypeBugfix,
 		TypeConvention,
 		TypePreference,
+		TypeDecision,
+		TypeArchitecture,
 	}
 }
 

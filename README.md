@@ -90,9 +90,36 @@ The full taxonomy lives in [`docs/design/memory-domain.md`](docs/design/memory-d
 | `script-pattern`       | An engine-script idiom worth remembering                                 |
 | `bugfix`               | Bug + root cause + fix, with engine/platform tags                        |
 | `convention`           | Naming, structure, project-wide rules                                    |
-| `preference`           | Per-developer ergonomics                                                 |
+| `preference`           | Per-developer ergonomics (scope = personal)                              |
+| `decision`             | Technical or architectural decisions with rationale (project-scoped)     |
+| `architecture`         | System-level structural knowledge: packages, boundaries, contracts       |
 
 Each memory carries the same envelope: `topic_key`, `scope`, `project`, `created_at`, `revision_count`, free-form content.
+
+---
+
+## Migrating from Engram
+
+If you're already using [Engram](https://github.com/Gentleman-Programming/engram) and want to move your memories to Thoughtline, `cmd/migrate` is your tool.
+
+**Prerequisite — back up first:**
+```powershell
+Compress-Archive -Path "$env:USERPROFILE\.engram\*" -DestinationPath "$env:USERPROFILE\.engram-backup-$(Get-Date -Format 'yyyy-MM-dd').zip" -Force
+```
+
+**Three commands:**
+```bash
+# 1. Build the migrator
+go build -o migrate.exe ./cmd/migrate/cmd
+
+# 2. Dry run — verify counts without writing
+./migrate.exe --dry-run --verbose
+
+# 3. Production run
+./migrate.exe
+```
+
+See [`cmd/migrate/README.md`](cmd/migrate/README.md) for the full guide: type mapping table, error handling, idempotency guarantee, and log file location.
 
 ---
 
@@ -185,7 +212,7 @@ Full architecture in [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md). Memory taxo
 |-------------|----------|------------------------------------------------------------------------------------------------|
 | `title`     | yes      | Short, searchable headline (≤ 200 chars)                                                       |
 | `content`   | yes      | Markdown body. Recommended structure: **What** / **Why** / **Where** / **Learned**             |
-| `type`      | yes      | One of the 9 catalogued types — see [memory-domain.md](docs/design/memory-domain.md)           |
+| `type`      | yes      | One of the 11 catalogued types — see [memory-domain.md](docs/design/memory-domain.md)          |
 | `scope`     | no       | `project` (default) or `personal`. The `preference` type auto-defaults to `personal`           |
 | `topic_key` | no       | Stable key for evolving topics. Re-saves on the same key upsert (lowercase / `[a-z0-9/_-]`)    |
 | `project`   | no       | Defaults to the working-directory basename (or `THOUGHTLINE_PROJECT` if set)                   |
@@ -614,8 +641,10 @@ thoughtline/
 ---
 
 ## Credits and lineage
-
+m
 Thoughtline would not exist without **Engram** by [Alan Buscaglia](https://github.com/Gentleman-Programming) and the Gentleman-Programming community. We read its source carefully (see `docs/research/`), credit the design choices we keep, and stay MIT-compatible so improvements can flow back upstream.
+
+Thoughtline now ships a first-class migration path for users coming from Engram: the `cmd/migrate` binary reads your Engram database, maps types and columns to Thoughtline's format, and writes through the same `storage.Save()` path the MCP server uses — FTS5 indexing, `sync_id` preservation, and all validation included. See [`cmd/migrate/README.md`](cmd/migrate/README.md).
 
 If you are evaluating memory tools for a non-gamedev team, **use Engram directly** — it is more general and more battle-tested. Thoughtline is a gamedev-flavored sibling, not a competitor.
 

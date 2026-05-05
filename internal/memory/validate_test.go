@@ -190,6 +190,103 @@ func TestValidate_TopicKey(t *testing.T) {
 	}
 }
 
+// TestValidate_TypeRules_Extended covers the two new types added in
+// adopt-thoughtline-replace-engram (decision and architecture).
+func TestValidate_TypeRules_Extended(t *testing.T) {
+	t.Run("decision type with project scope passes", func(t *testing.T) {
+		m := validMemory()
+		m.Type = TypeDecision
+		m.Scope = ScopeProject
+		if err := Validate(m); err != nil {
+			t.Fatalf("decision/project should be valid; got %v", err)
+		}
+	})
+
+	t.Run("architecture type with personal scope rejected", func(t *testing.T) {
+		m := validMemory()
+		m.Type = TypeArchitecture
+		m.Scope = ScopePersonal
+		if err := Validate(m); !errors.Is(err, ErrNonPreferenceMustBeProject) {
+			t.Fatalf("architecture/personal should fail ErrNonPreferenceMustBeProject; got %v", err)
+		}
+	})
+
+	t.Run("AllTypes returns 11 values including decision and architecture", func(t *testing.T) {
+		types := AllTypes()
+		if len(types) != 11 {
+			t.Fatalf("expected 11 types, got %d: %v", len(types), types)
+		}
+		have := make(map[Type]bool, len(types))
+		for _, tp := range types {
+			have[tp] = true
+		}
+		if !have[TypeDecision] {
+			t.Fatalf("AllTypes missing TypeDecision: %v", types)
+		}
+		if !have[TypeArchitecture] {
+			t.Fatalf("AllTypes missing TypeArchitecture: %v", types)
+		}
+	})
+
+	t.Run("decision not accepted with personal scope", func(t *testing.T) {
+		m := validMemory()
+		m.Type = TypeDecision
+		m.Scope = ScopePersonal
+		if err := Validate(m); !errors.Is(err, ErrNonPreferenceMustBeProject) {
+			t.Fatalf("decision/personal should fail ErrNonPreferenceMustBeProject; got %v", err)
+		}
+	})
+
+	// Spec Requirement 1 — types outside the 11-value set are rejected.
+	t.Run("pattern type rejected", func(t *testing.T) {
+		m := validMemory()
+		m.Type = "pattern"
+		if err := Validate(m); !errors.Is(err, ErrInvalidType) {
+			t.Fatalf("\"pattern\" should fail ErrInvalidType; got %v", err)
+		}
+	})
+
+	t.Run("config type rejected", func(t *testing.T) {
+		m := validMemory()
+		m.Type = "config"
+		if err := Validate(m); !errors.Is(err, ErrInvalidType) {
+			t.Fatalf("\"config\" should fail ErrInvalidType; got %v", err)
+		}
+	})
+
+	t.Run("discovery type rejected", func(t *testing.T) {
+		m := validMemory()
+		m.Type = "discovery"
+		if err := Validate(m); !errors.Is(err, ErrInvalidType) {
+			t.Fatalf("\"discovery\" should fail ErrInvalidType; got %v", err)
+		}
+	})
+
+	t.Run("manual type rejected", func(t *testing.T) {
+		m := validMemory()
+		m.Type = "manual"
+		if err := Validate(m); !errors.Is(err, ErrInvalidType) {
+			t.Fatalf("\"manual\" should fail ErrInvalidType; got %v", err)
+		}
+	})
+
+	t.Run("Decision case-sensitive rejected", func(t *testing.T) {
+		m := validMemory()
+		m.Type = "Decision"
+		if err := Validate(m); !errors.Is(err, ErrInvalidType) {
+			t.Fatalf("\"Decision\" (capital D) should fail ErrInvalidType; got %v", err)
+		}
+	})
+
+	t.Run("ARCHITECTURE case-sensitive rejected", func(t *testing.T) {
+		m := validMemory()
+		m.Type = "ARCHITECTURE"
+		if err := Validate(m); !errors.Is(err, ErrInvalidType) {
+			t.Fatalf("\"ARCHITECTURE\" should fail ErrInvalidType; got %v", err)
+		}
+	})
+}
+
 func TestValidate_Tags(t *testing.T) {
 	cases := []struct {
 		name string

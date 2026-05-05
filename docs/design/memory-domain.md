@@ -151,14 +151,43 @@ Per-developer ergonomics. **`scope` MUST be `personal` for this type.**
 - **When to use**: editor settings, formatting preferences, individual workflow quirks that travel with you.
 - **Topic-key pattern**: `preference/<area>` — e.g. `preference/keybindings`
 
+### `decision`
+
+An architectural or product decision and the reasoning behind it. Added in the `adopt-thoughtline-replace-engram` migration — maps 1:1 from Engram's `decision` type.
+
+- **When to use**: any time a team or solo dev locks in a technical or design approach with a "why" that matters across sessions. Distinct from `game-design-decision` (which is gameplay-facing) — use this for infrastructure, tooling, and cross-cutting concerns.
+- **Required content sections**: *What*, *Why*, *Alternatives considered*, *Date*.
+- **Topic-key pattern**: `decision/<area>/<choice>` — e.g. `decision/auth/jwt-vs-session`
+- **Scope**: MUST be `project`.
+- **Example**:
+
+  > **Title**: Use WAL journal mode for all SQLite connections
+  > **Why**: WAL allows concurrent readers + one writer; eliminates the "database is locked" errors we saw with DELETE mode under the MCP server's concurrent tool calls.
+  > **Alternatives considered**: DELETE mode (rejected — lock contention), in-memory (rejected — no persistence).
+
+### `architecture`
+
+High-level structural decisions about the system — packages, boundaries, data flow, module contracts. Added in the `adopt-thoughtline-replace-engram` migration — maps 1:1 from Engram's `architecture` type.
+
+- **When to use**: system-level knowledge that every developer touching the project needs: package boundaries, interface contracts, deployment constraints, dependency rules.
+- **Required content sections**: *What*, *Why*, *Where* (affected packages/files), *Learned* (gotchas).
+- **Topic-key pattern**: `architecture/<area>` — e.g. `architecture/storage-layer`
+- **Scope**: MUST be `project`.
+- **Example**:
+
+  > **Title**: Storage layer owns all SQL; domain layer never imports `database/sql`
+  > **Why**: Keeps the domain (`internal/memory`) free of persistence concerns, testable without DB, and replaceable without touching business logic.
+  > **Where**: `internal/storage`, `internal/memory`
+  > **Learned**: `storage.Save()` must return the full populated `Memory` struct so callers never need to re-query.
+
 ---
 
 ## Validation rules
 
 Enforced by `internal/memory`:
 
-1. `type` must be one of the catalogue values above. Unknown types are rejected.
-2. `scope` must be `project` or `personal`. `preference` requires `personal`; everything else requires `project`.
+1. `type` must be one of the 11 catalogue values above. Unknown types are rejected.
+2. `scope` must be `project` or `personal`. `preference` requires `personal`; everything else — including the new `decision` and `architecture` types — requires `project`.
 3. `title` is non-empty and ≤ 200 chars.
 4. `content` is non-empty. There is no hard upper bound, but `internal/storage` returns a clear error (not silent truncation) if `len(content) > MaxContentBytes` (default 64 KiB, configurable).
 5. `topic_key`, when present, matches `^[a-z0-9][a-z0-9/_-]{1,128}$`. No spaces, no uppercase, no leading slash.
@@ -178,6 +207,17 @@ Enforced by `internal/memory`:
 7. Bump CHANGELOG.
 
 New types are minor additions (additive), not breaking changes. No ADR required unless the new type needs new schema columns.
+
+### Back-populating existing data from another tool
+
+If you are adding a type to mirror one from a legacy tool (e.g. `decision` and `architecture` were added to mirror Engram's types), use `cmd/migrate` as the canonical example:
+
+- Implement a standalone Go binary in `cmd/<migration-name>/` that reads the source DB read-only and writes through `storage.Save()` so FTS5 triggers, hashes, and validation all fire correctly.
+- Never write raw SQL into the destination — always go through the domain layer.
+- Preserve provenance via tags (`origin-type:<source-type>`) for types that are coerced rather than mapped 1:1.
+- The migrator must be **idempotent**: re-running it skips rows whose `sync_id` already exists in the destination.
+
+See `cmd/migrate/` and `docs/integrations/` for the full reference implementation.
 
 ---
 

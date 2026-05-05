@@ -1,4 +1,4 @@
-# Why Thoughtline — pitch & talking points
+d# Why Thoughtline — pitch & talking points
 
 > Cheat-sheet para explicar Thoughtline en 10 segundos, en una reu, o cuando te tiran una objeción.
 > No es documentación técnica. Para eso está el [README](../../README.md) y [ARCHITECTURE.md](../ARCHITECTURE.md).
