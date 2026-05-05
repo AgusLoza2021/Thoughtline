@@ -37,6 +37,42 @@ Built for: Unity, Unreal, Godot, PlayCanvas, Bevy, your custom engine. Works wit
 
 ## Quick start
 
+### Windows — one command (auto-installer)
+
+From **PowerShell** (recommended):
+
+```powershell
+irm https://raw.githubusercontent.com/AgusLoza2021/Thoughtline/main/scripts/install.ps1 | iex
+```
+
+From **classic `cmd.exe`**:
+
+```cmd
+powershell -NoProfile -ExecutionPolicy Bypass -Command "irm https://raw.githubusercontent.com/AgusLoza2021/Thoughtline/main/scripts/install.ps1 | iex"
+```
+
+The installer is **idempotent** and **does not need admin/UAC**. It will:
+
+1. Install Go via `winget` if missing
+2. Run `go install` for the `thoughtline` binary
+3. Add `%USERPROFILE%\go\bin` to your user PATH
+4. Register `thoughtline` as an MCP server in `%USERPROFILE%\.claude.json` (Claude Code CLI **and** the VS Code extension share this config — one entry covers both)
+5. Verify with `thoughtline version`
+
+After it finishes, **restart Claude Code** (or VS Code with the Claude Code extension) and the `tl_*` tools are live.
+
+Already cloned the repo? You can run the script locally:
+
+```powershell
+.\scripts\install.ps1                  # default
+.\scripts\install.ps1 -Version v0.0.1  # pin a version
+.\scripts\install.ps1 -Force           # overwrite an existing MCP entry
+```
+
+Flags: `-Version <ref>`, `-SkipPathSetup`, `-SkipMcp`, `-Force`. See [scripts/install.ps1](scripts/install.ps1).
+
+### Manual install (macOS / Linux / Windows)
+
 **Install** (Go 1.25+):
 
 ```bash
@@ -52,7 +88,7 @@ Or grab a prebuilt binary from the [latest release](https://github.com/AgusLoza2
   "mcpServers": {
     "thoughtline": {
       "command": "thoughtline",
-      "args": ["mcp"]
+      "args": ["serve"]
     }
   }
 }
