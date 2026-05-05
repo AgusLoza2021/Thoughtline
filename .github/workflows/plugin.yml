@@ -1,0 +1,65 @@
+name: plugin
+
+on:
+  push:
+    paths:
+      - "plugin/**"
+      - "cmd/thoughtline/protocol.go"
+      - ".github/workflows/plugin.yml"
+  pull_request:
+    paths:
+      - "plugin/**"
+      - "cmd/thoughtline/protocol.go"
+      - ".github/workflows/plugin.yml"
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.25"
+          cache: true
+
+      - name: Validate plugin JSON files
+        run: |
+          set -e
+          for f in $(find plugin -name "*.json"); do
+            echo "→ $f"
+            jq -e . "$f" > /dev/null
+          done
+
+      - name: Validate front-matter in commands & agents
+        run: |
+          set -e
+          for f in $(find plugin -path "*/commands/*.md" -o -path "*/agents/*.md"); do
+            echo "→ $f"
+            head -1 "$f" | grep -q '^---$' || { echo "missing front-matter in $f"; exit 1; }
+          done
+
+      - name: Build the binary (so `thoughtline protocol` exists)
+        run: go build -o bin/thoughtline ./cmd/thoughtline
+
+      - name: Smoke-test `thoughtline protocol`
+        run: |
+          set -e
+          out=$(./bin/thoughtline protocol --event session-start --project test-project)
+          echo "$out" | head -3
+          echo "$out" | grep -q "ACTIVE PROTOCOL"
+          echo "$out" | grep -q "test-project"
+
+          out=$(./bin/thoughtline protocol --event post-compaction --project test-project)
+          echo "$out" | grep -q "POST-COMPACTION"
+          echo "$out" | grep -q "tl_session_summary"
+
+      - name: Verify hooks.json references the binary, not bash
+        run: |
+          set -e
+          if grep -E '\.sh' plugin/claude-code/hooks/hooks.json; then
+            echo "hooks.json still references shell scripts"
+            exit 1
+          fi
+          grep -q "thoughtline protocol" plugin/claude-code/hooks/hooks.json

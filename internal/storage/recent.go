@@ -85,3 +85,11 @@ func (s *Storage) Recent(ctx context.Context, project string, limit int) ([]Sear
 	}
 	return out, nil
 }
+
+// RecentAll returns the most recently updated active memories. When project
+// is "" it returns hits from every project (scope-aware via FTS metadata).
+// This is the cross-project sibling of Recent, intended for the dashboard
+// Browse tab where the user wants a global feed.
+func (s *Storage) RecentAll(ctx context.Context, project string, limit int) ([]SearchResult, error) {
+	return s.recentMemoriesForStats(ctx, project, limit)
+}

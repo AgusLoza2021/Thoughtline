@@ -1,0 +1,29 @@
+{
+  "description": "Thoughtline persistent memory hooks — protocol injection and session lifecycle. Cross-platform: invokes the `thoughtline` binary directly so no bash/WSL is required on Windows.",
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup|clear|resume",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "thoughtline protocol --event session-start",
+            "timeout": 5,
+            "statusMessage": "Loading thoughtline memory..."
+          }
+        ]
+      },
+      {
+        "matcher": "compact",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "thoughtline protocol --event post-compaction",
+            "timeout": 5,
+            "statusMessage": "Recovering thoughtline context after compaction..."
+          }
+        ]
+      }
+    ]
+  }
+}

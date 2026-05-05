@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json.schemastore.org/claude-marketplace",
+  "name": "thoughtline",
+  "displayName": "Thoughtline — persistent memory",
+  "summary": "Local-first persistent memory for AI coding agents. Survives across sessions and compactions. Built for game-development workflows.",
+  "publisher": "AgusLoza2021",
+  "license": "MIT",
+  "homepage": "https://github.com/AgusLoza2021/Thoughtline#readme",
+  "repository": "https://github.com/AgusLoza2021/Thoughtline",
+  "category": "memory",
+  "tags": [
+    "mcp",
+    "memory",
+    "persistent-memory",
+    "agent-memory",
+    "gamedev",
+    "ai-tools",
+    "sqlite",
+    "fts5"
+  ],
+  "requirements": [
+    "Claude Code 0.5+",
+    "thoughtline binary on PATH (`go install github.com/AgusLoza2021/Thoughtline/cmd/thoughtline@latest`)"
+  ],
+  "screenshots": []
+}

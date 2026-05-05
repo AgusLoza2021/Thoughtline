@@ -6,6 +6,10 @@
 *.dylib
 /bin/
 /dist/
+# Local dev builds (bare-name binaries — release artifacts go in /dist via GoReleaser)
+/thoughtline
+/thoughtline-exe
+/thoughtline-*
 
 # Test binary, built with `go test -c`
 *.test

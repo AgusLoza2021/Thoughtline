@@ -1,0 +1,42 @@
+name: Feature request
+description: Propose a new memory type, tool, or workflow improvement.
+title: "[feature] "
+labels: ["enhancement", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thoughtline is opinionated about gamedev memory. New features should answer: *what real workflow does this unlock?*
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem are you trying to solve?
+      description: Describe the workflow pain — not the solution. Example "I keep losing track of which scene a behaviour script belongs to across sessions."
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: New memory type? New tool? Schema change? UI affordance?
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+    validations:
+      required: false
+  - type: dropdown
+    id: scope
+    attributes:
+      label: Scope
+      options:
+        - Storage / schema
+        - MCP tool
+        - Dashboard / TUI
+        - Memory taxonomy
+        - Documentation
+        - Other
+    validations:
+      required: true

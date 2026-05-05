@@ -1,0 +1,27 @@
+# Thoughtline roadmap — rendered by the dashboard Overview tab.
+#
+# Edit this file (NOT roadmap.go) when a milestone changes status. The Go
+# layer embeds it via //go:embed and parses on first call. Statuses must be
+# one of: done, in-progress, next, deferred. Anything else falls back to "?".
+milestones:
+  - id: M0
+    name: Bootstrap
+    status: done
+  - id: M1
+    name: Save
+    status: done
+  - id: M2
+    name: Search
+    status: done
+  - id: M3
+    name: Context / Update / Delete
+    status: done
+  - id: M4
+    name: Sessions
+    status: done
+  - id: M5
+    name: Dashboard (TUI + tl_stats)
+    status: done
+  - id: M6
+    name: Smarts (embeddings)
+    status: deferred

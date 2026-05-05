@@ -1,0 +1,25 @@
+{
+  "name": "thoughtline",
+  "description": "Local-first persistent memory for AI coding agents. Survives across sessions and compactions. Built for game-development workflows.",
+  "version": "0.0.1",
+  "author": {
+    "name": "Agustin Lozano",
+    "url": "https://github.com/AgusLoza2021"
+  },
+  "homepage": "https://github.com/AgusLoza2021/Thoughtline#readme",
+  "repository": "https://github.com/AgusLoza2021/Thoughtline",
+  "license": "MIT",
+  "keywords": [
+    "mcp",
+    "memory",
+    "persistent-memory",
+    "agent-memory",
+    "gamedev",
+    "game-development",
+    "ai-tools",
+    "claude-code",
+    "sqlite",
+    "fts5"
+  ],
+  "protocolVersion": "1"
+}

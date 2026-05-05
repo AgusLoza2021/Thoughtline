@@ -6,6 +6,62 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+### Added — Public-launch readiness
+
+This batch lands the work needed to flip the repo public: cross-platform plugin, Claude Code marketplace metadata, brand polish, distribution, and a Bubbletea TUI restyle.
+
+#### Distribution & repo hygiene
+- **GoReleaser config** (`.goreleaser.yaml`) — cross-compile for linux / darwin / windows × amd64 / arm64, tar.gz / zip archives, checksums, version + commit + date injected via ldflags.
+- **Release workflow** (`.github/workflows/release.yml`) — fires on `v*.*.*` tags, runs GoReleaser, publishes artifacts.
+- **`.gitignore` tightened** — explicit ignores for bare-name binaries (`/thoughtline`, `/thoughtline-exe`). The tracked Linux binary was untracked in the same change.
+- **Community files** — `SECURITY.md` (private vulnerability reporting), `.github/ISSUE_TEMPLATE/{bug_report.yml,feature_request.yml,config.yml}`, `.github/PULL_REQUEST_TEMPLATE.md`.
+
+#### Dashboard TUI overhaul
+- **Theme system** (`internal/dashboard/themes.go`) — three palettes shippable on day one:
+  - `brand` — violet + cyan, the original tech-SaaS look
+  - `zbrush` — warm tactile palette inspired by Pixologic ZBrush (`#D68A3C` amber on `#2D2A26` warm-dark, `#E8DCC4` cream text)
+  - `mono` — minimalist grayscale for screenshots and slides
+  Switchable at runtime with the `[t]` hotkey or via `--theme {brand|zbrush|mono}`. `ApplyTheme(t)` rebuilds every package-level style on swap.
+- **Cockpit status bar** (`renderStatusBar`) — single line at the top of every tab: `◆ THOUGHTLINE ONLINE · MEM N · SESSIONS N · vX.Y.Z`. When an update is available, an amber pill appears: `↑ vX.Y.Z available · [u] open release`.
+- **Background update check** (`internal/dashboard/updatecheck.go`) — non-blocking GitHub releases lookup with 3s timeout. `[u]` opens the release URL in the user's browser cross-platform (`rundll32` / `open` / `xdg-open`). Toggleable via `--no-update-check`.
+- **Engram-style stats** — right-aligned numerals in `renderStatsPanel`. Bold brand-colored numbers, muted labels.
+- **Animated header cube** (`internal/dashboard/cube.go`) — 3D wireframe ASCII cube that oscillates through 5 frames. Plain ASCII (CMD-safe) and "fancy" box-drawing modes. 220ms per frame default.
+- **Splash screen** (`internal/dashboard/splash.go`) — cube + ASCII wordmark + tagline, vertically centered with `lipgloss.Place`. Auto-dismiss after 1.5s (configurable). Skip with `--no-splash`.
+- **CLI flags** — `--theme`, `--no-splash`, `--no-update-check`, `--splash-ms N` on `thoughtline ui`.
+- **Help tab** — new rows for `[t]` (cycle theme) and `[u]` (open release).
+- **Hero composition** — Overview tab uses `lipgloss.JoinHorizontal` to stack the cube next to the brand pill, tagline, and breadcrumb metadata.
+
+#### Claude Code plugin
+- **`thoughtline protocol` subcommand** (`cmd/thoughtline/protocol.go`) — single source of truth for the active-protocol markdown. Replaces the duplicated heredocs in three different files. Cross-platform (Go binary, no shell needed). Flags: `--event {session-start|post-compaction}`, `--project NAME`, `-o FILE`. Versioned via `Protocol-Version: 1` header so plugins can detect drift.
+- **`plugin/claude-code/` overhaul** — the plugin now ships:
+  - `hooks/hooks.json` — calls `thoughtline protocol` directly, no bash. Adds `resume` to the matcher so re-opening a project re-injects the protocol.
+  - `commands/{tl-recent, tl-search, tl-stats, tl-ui, tl-export}.md` — slash commands surfaced in autocomplete.
+  - `agents/tl-archivist.md` — specialist subagent for memory hygiene (dedup, prune, audit). Read-mostly, never deletes without explicit confirmation.
+  - `examples/{saved-memory.md, session-transcript.md}` — calibration set for what "good" memories look like and what a real session flow looks like.
+  - `skills/memory/SKILL.md` — extended with `## Examples` block (save triggers, search triggers, NOT-a-trigger).
+  - `.claude-plugin/plugin.json` — bumped with `repository`, `homepage`, `keywords`, `protocolVersion`. Version synced to the binary's (`0.0.1`).
+  - `.claude-plugin/marketplace.json` — listing manifest for Claude Code plugin marketplaces (publisher, displayName, summary, tags, requirements).
+  - `LICENSE` — MIT, copied from the repo root so the plugin directory is legally self-contained.
+  - `README.md` — install, prerequisites, file layout, configuration, uninstall.
+- **Bash scripts removed** — `plugin/claude-code/scripts/{session-start.sh, post-compaction.sh, _helpers.sh}`. The binary subcommand replaces them; Windows users no longer need WSL or Git Bash.
+
+#### Plugin CI
+- **`.github/workflows/plugin.yml`** — JSON validation (`jq -e .` on every plugin JSON file), front-matter check on commands and agents, build of the binary, smoke test of `thoughtline protocol` for both events, and a guard that fails CI if `hooks.json` ever references a `.sh` script again.
+
+#### Repo presentation
+- **README.md hook section** — `Quick start` block at the top with `go install`, MCP JSON config, `thoughtline ui`, and a Claude Code plugin install one-liner.
+
+#### Game-dev launch polish
+- **"For game devs, in 60 seconds"** hook section above the fold — pain-point list (re-explaining hierarchies, import settings, batching gotchas) followed by the value prop in three lines.
+- **Comparison table** — Thoughtline vs Engram vs Cursor memories vs ChatGPT memory vs manual notes. Honest tradeoffs; explicit "use Engram if you don't ship games" callout.
+- **`docs/TOOLS.md`** — full parameter reference + 10 end-to-end examples extracted from README (the README dropped from 704 → ~330 lines).
+- **`docs/design/tag-conventions.md`** — canonical tag vocabulary: engine, platform, pipeline, asset, phase, tooling, performance buckets. Examples per category.
+- **`docs/integrations/cursor.md`** — wiring Thoughtline into Cursor (MCP config + `.cursorrules` snippet).
+- **`docs/integrations/zed.md`** — wiring into Zed's assistant context server config.
+- **`docs/integrations/rider-unity.md`** — JetBrains Rider for Unity, with a "day 1 saves" cheat sheet (folder layout, MonoBehaviour conventions, Android asset bundles).
+- **`docs/media/`** — screenshots directory with capture-tip README; placeholder image references in main README.
+- **README integrations directory** — every README install section links the per-IDE guide instead of dumping every JSON config inline.
+
 ### Added — M5 (Dashboard)
 - **`thoughtline ui` subcommand** — opens an interactive Bubbletea TUI with four panels: header (version + DB path + active project), stats (counts by type / project / scope), recent activity (last 10 memories + 5 sessions), and roadmap (M0–M6 status). Keys: `r` refresh, `q` / `ctrl+c` / `esc` quit. Reads from the same SQLite store the MCP server uses.
 - **`tl_stats` MCP tool** — programmatic access to the same stats snapshot. Optional `project` argument; pass `*` to see counts across all projects. Returns text-formatted breakdown the AI can read aloud or summarize.

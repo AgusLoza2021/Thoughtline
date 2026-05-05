@@ -18,11 +18,13 @@ package main
 
 import (
 	"context"
+	"flag"
 	"fmt"
 	"os"
 	"os/signal"
 	"path/filepath"
 	"syscall"
+	"time"
 
 	mcpserver "github.com/mark3labs/mcp-go/server"
 
@@ -50,7 +52,9 @@ func main() {
 	case "", "serve":
 		err = runServer(ctx)
 	case "ui", "dashboard":
-		err = runDashboard(ctx)
+		err = runDashboard(ctx, os.Args[2:])
+	case "protocol":
+		err = runProtocol(os.Args[2:])
 	case "version", "-v", "--version":
 		fmt.Printf("thoughtline %s\n", version)
 		return
@@ -78,6 +82,11 @@ Usage:
   thoughtline              run the MCP stdio server (default; what your AI client launches)
   thoughtline serve        same as no-arg invocation
   thoughtline ui           open the interactive dashboard (TUI)
+                           flags: --theme {brand|zbrush|mono}, --no-splash,
+                                  --no-update-check, --splash-ms N
+  thoughtline protocol     emit the active-protocol markdown to stdout
+                           flags: --event {session-start|post-compaction},
+                                  --project NAME, -o FILE
   thoughtline version      print the binary version and exit
   thoughtline help         print this help and exit
 
@@ -132,7 +141,16 @@ func runServer(ctx context.Context) error {
 	return nil
 }
 
-func runDashboard(ctx context.Context) error {
+func runDashboard(ctx context.Context, args []string) error {
+	fs := flag.NewFlagSet("ui", flag.ContinueOnError)
+	themeName := fs.String("theme", "brand", "color palette: brand | zbrush | mono")
+	noSplash := fs.Bool("no-splash", false, "skip the intro splash screen")
+	noUpdateCheck := fs.Bool("no-update-check", false, "skip the GitHub release lookup")
+	splashMS := fs.Int("splash-ms", 1500, "splash duration in milliseconds")
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+
 	dbPath, err := resolveDBPath()
 	if err != nil {
 		return fmt.Errorf("resolve db path: %w", err)
@@ -149,9 +167,13 @@ func runDashboard(ctx context.Context) error {
 	}()
 
 	cfg := dashboard.Config{
-		Version: version,
-		DBPath:  dbPath,
-		Project: resolveDefaultProject(),
+		Version:        version,
+		DBPath:         dbPath,
+		Project:        resolveDefaultProject(),
+		ThemeName:      *themeName,
+		Splash:         !*noSplash,
+		SplashDuration: time.Duration(*splashMS) * time.Millisecond,
+		CheckUpdates:   !*noUpdateCheck,
 	}
 	return dashboard.Run(ctx, st, cfg)
 }

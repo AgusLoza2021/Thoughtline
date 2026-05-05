@@ -1,0 +1,90 @@
+version: 2
+
+project_name: thoughtline
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - id: thoughtline
+    main: ./cmd/thoughtline
+    binary: thoughtline
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    ignore:
+      - goos: windows
+        goarch: arm64
+    ldflags:
+      - -s -w
+      - -X main.version={{.Version}}
+      - -X main.commit={{.Commit}}
+      - -X main.date={{.Date}}
+
+archives:
+  - id: default
+    formats: [tar.gz]
+    name_template: >-
+      {{ .ProjectName }}_
+      {{- .Version }}_
+      {{- .Os }}_
+      {{- if eq .Arch "amd64" }}x86_64
+      {{- else if eq .Arch "386" }}i386
+      {{- else }}{{ .Arch }}{{ end }}
+    format_overrides:
+      - goos: windows
+        formats: [zip]
+    files:
+      - README.md
+      - LICENSE
+      - CHANGELOG.md
+
+checksum:
+  name_template: "checksums.txt"
+
+snapshot:
+  version_template: "{{ incpatch .Version }}-next"
+
+changelog:
+  sort: asc
+  use: github
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^chore:"
+      - "Merge pull request"
+      - "Merge branch"
+  groups:
+    - title: Features
+      regexp: '^.*?feat(\(.+\))??!?:.+$'
+      order: 0
+    - title: Bug fixes
+      regexp: '^.*?fix(\(.+\))??!?:.+$'
+      order: 1
+    - title: Other
+      order: 999
+
+release:
+  github:
+    owner: AgusLoza2021
+    name: Thoughtline
+  draft: false
+  prerelease: auto
+  header: |
+    ## Thoughtline {{ .Tag }}
+
+    Persistent, project-aware memory MCP server for AI coding assistants — built for game-development workflows.
+  footer: |
+    ---
+    **Install via `go install`:**
+    ```
+    go install github.com/AgusLoza2021/Thoughtline/cmd/thoughtline@{{ .Tag }}
+    ```
