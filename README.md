@@ -15,21 +15,26 @@
 
 ---
 
-## For game devs, in 60 seconds
+## What is this?
 
-You ship games. Your AI assistant doesn't ship anything — it forgets. Every session you re-explain:
+**Memory for your AI coding assistant. Local. Forever.**
 
-- Why the inn entity hierarchy is split into `world/static` and `world/interactive`
-- The exact import settings for the lantern texture so it doesn't blow out the bloom
+Your AI forgets everything between sessions. Thoughtline is a single SQLite file on your machine that the AI writes to while you work and reads from when you come back. No cloud, no account, no subscription.
+
+### What it actually saves you
+
+You stop re-explaining things like:
+
+- Why the inn entity is split into `world/static` and `world/interactive`
+- The lantern texture import settings that don't blow out the bloom
 - Which script handles the camera nudge when the player enters the cellar
-- That batching gotcha on Android with the chairs — the draw-call count you couldn't cross
-- The animation curve numbers your animator landed on after three iterations
+- That Android batching gotcha on the chairs — the draw-call count you couldn't cross
+- The animation curve numbers your animator finally locked in
 
-**Thoughtline remembers all of it.** It's a local, single-file SQLite database the AI writes to *while you work*, and reads from *every time you start a new session*. No cloud. No telemetry. No subscription.
+Memories are typed (`scene-pattern`, `asset-reference`, `perf-gotcha`, `pipeline-step`, `script-pattern`) and tagged (`engine:unity`, `platform:switch`, `pipeline:fbx-to-godot`) so you can search them later.
 
-It speaks the language of game development at the schema level: `scene-pattern`, `asset-reference`, `perf-gotcha`, `pipeline-step`, `script-pattern`. Tag a memory with `engine:unity`, `platform:switch`, `pipeline:fbx-to-godot` and search like a power user later.
-
-Built for: Unity, Unreal, Godot, PlayCanvas, Bevy, your custom engine. Works with: Claude Code, Cursor, Zed, Rider, Visual Studio, JetBrains, anything that speaks MCP.
+**Any engine** — Unity, Unreal, Godot, PlayCanvas, Bevy, your own.
+**Any AI tool that speaks MCP** — Claude Code, Cursor, Zed, Rider, Visual Studio, JetBrains.
 
 > 📸 _Screenshots of the dashboard go here. Until then: `thoughtline ui` and see for yourself — animated header cube, ZBrush-warm theme, status bar, search, browse._
 
