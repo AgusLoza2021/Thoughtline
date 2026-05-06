@@ -11,7 +11,12 @@ Drop launch screenshots and short GIFs here:
 
 ## Recording tips
 
+- **Easy mode (recommended): use [vhs](https://github.com/charmbracelet/vhs)** with the ready-made tape file at [`scripts/demo.tape`](../../scripts/demo.tape). One command from the repo root:
+  ```
+  vhs scripts/demo.tape
+  ```
+  vhs is reproducible (the `.tape` is committed code), uses the real keybindings, and outputs straight to `docs/media/demo.gif`. Edit the tape's `Sleep` values and `Type` lines to retune the choreography.
+- **Manual alternatives**: [t-rec](https://github.com/sassman/t-rec-rs) (Mac/Linux) or [terminalizer](https://github.com/faressoft/terminalizer) (cross-platform). Cap to 8 fps and ≤ 2 MB.
 - Resize your terminal to ~120×35 for landscape screenshots and 100×40 for the GIF.
 - Use a dark terminal background with no transparency (Windows Terminal default works fine).
-- For the GIF: [t-rec](https://github.com/sassman/t-rec-rs) (Mac/Linux) or [terminalizer](https://github.com/faressoft/terminalizer) (cross-platform). Cap to 8 fps and ≤ 2 MB.
-- Don't include personal usernames or absolute paths in the frame — set `THOUGHTLINE_DB=/tmp/demo.db` first and seed a few synthetic memories.
+- Don't include personal usernames or absolute paths in the frame — set `THOUGHTLINE_DB=/tmp/demo.db` (or `%TEMP%\thoughtline-demo.db` on Windows) first and seed a few synthetic memories.

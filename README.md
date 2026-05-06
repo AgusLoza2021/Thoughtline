@@ -122,6 +122,8 @@ Thoughtline is an **MCP (Model Context Protocol) server** that gives AI assistan
 
 Thoughtline stands on the shoulders of [**Engram**](https://github.com/Gentleman-Programming/engram) by Alan Buscaglia — we deliberately reuse Engram's MCP shape, storage layout, and the clever bits like **FTS5 full-text search** and **`topic_key` upserts**. What we add is a **gamedev-first memory taxonomy** and a vocabulary tuned for engines like PlayCanvas, Unity, Unreal, and Godot.
 
+> Curious how Thoughtline lines up against Engram and [claude-mem](https://github.com/thedotmack/claude-mem)? See **[docs/COMPARISON.md](docs/COMPARISON.md)** for an honest side-by-side.
+
 > **Status: M5 done.** Nine tools live + an interactive dashboard. Memory API: `tl_save`, `tl_search`, `tl_get_observation`, `tl_context`, `tl_update`, `tl_delete`, `tl_session_start`, `tl_session_summary`, `tl_stats`. Plus a Bubbletea TUI: `thoughtline ui`. M6 (semantic embeddings) remains deferred per [ADR 0002](docs/decisions/0002-search-strategy-fts5-first.md) — schema reserved, opt-in. See [`docs/PROGRESS.md`](docs/PROGRESS.md).
 
 ---
@@ -428,11 +430,17 @@ thoughtline/
 
 | Doc | Purpose |
 |-----|---------|
-| [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | Components, data flow, schema sketch |
+| [`docs/INSTALLATION.md`](docs/INSTALLATION.md) | Install on Windows / macOS / Linux, configure, verify, troubleshoot |
+| [`docs/AGENT-SETUP.md`](docs/AGENT-SETUP.md) | Per-editor setup index (Claude Code, Cursor, Zed, Windsurf, OpenCode, Gemini CLI, Rider) |
+| [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | Components, data flow, schema, MCP surface, TUI |
+| [`docs/COMPARISON.md`](docs/COMPARISON.md) | Honest side-by-side vs Engram and claude-mem |
 | [`docs/PROGRESS.md`](docs/PROGRESS.md) | What's done, what's next, pre-publish TODOs |
 | [`docs/design/memory-domain.md`](docs/design/memory-domain.md) | Full memory type taxonomy with examples |
+| [`docs/design/tag-conventions.md`](docs/design/tag-conventions.md) | Tag scheme: engine, platform, pipeline |
 | [`docs/decisions/0001-architecture-baseline.md`](docs/decisions/0001-architecture-baseline.md) | Why we built on Engram's foundations |
 | [`docs/decisions/0002-search-strategy-fts5-first.md`](docs/decisions/0002-search-strategy-fts5-first.md) | FTS5 in v1, embeddings deferred (with reasoning) |
+| [`docs/decisions/0003-state-dir-not-cache-dir.md`](docs/decisions/0003-state-dir-not-cache-dir.md) | Store memory data in user data dir, not user cache dir (with auto-migration) |
+| [`docs/integrations/`](docs/integrations/) | Per-editor setup: Cursor, Zed, Windsurf, OpenCode, Gemini CLI, Rider-Unity |
 | [`docs/research/engram-anatomy.md`](docs/research/engram-anatomy.md) | Engram codebase map |
 | [`docs/research/flow-mem-save.md`](docs/research/flow-mem-save.md) | Engram's `mem_save` traced end-to-end |
 | [`docs/research/flow-mem-search.md`](docs/research/flow-mem-search.md) | Engram's search internals — the most important doc |
@@ -440,7 +448,7 @@ thoughtline/
 ---
 
 ## Credits and lineage
-m
+
 Thoughtline would not exist without **Engram** by [Alan Buscaglia](https://github.com/Gentleman-Programming) and the Gentleman-Programming community. We read its source carefully (see `docs/research/`), credit the design choices we keep, and stay MIT-compatible so improvements can flow back upstream.
 
 Thoughtline now ships a first-class migration path for users coming from Engram: the `cmd/migrate` binary reads your Engram database, maps types and columns to Thoughtline's format, and writes through the same `storage.Save()` path the MCP server uses — FTS5 indexing, `sync_id` preservation, and all validation included. See [`cmd/migrate/README.md`](cmd/migrate/README.md).
