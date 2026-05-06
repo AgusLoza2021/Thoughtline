@@ -7,9 +7,13 @@
 //
 // Configuration (env vars):
 //
-//	THOUGHTLINE_HOME   Directory for the SQLite database. Defaults to
-//	                   $XDG_DATA_HOME/thoughtline (Linux), ~/Library/Application Support/thoughtline (macOS),
-//	                   or %LOCALAPPDATA%\thoughtline (Windows).
+//	THOUGHTLINE_HOME   Directory for the SQLite database. Defaults to the
+//	                   platform user-data dir (see ADR 0003):
+//	                     - Linux:   $XDG_DATA_HOME or ~/.local/share, then /thoughtline
+//	                     - macOS:   ~/Library/Application Support/thoughtline
+//	                     - Windows: %LOCALAPPDATA%\thoughtline
+//	                   On first launch after upgrading from a build that used
+//	                   the cache dir, the DB is auto-migrated.
 //	THOUGHTLINE_DB     Override the database file path entirely. Wins over
 //	                   THOUGHTLINE_HOME if set. Useful for tests.
 //	THOUGHTLINE_PROJECT  Override the default project identifier. Defaults to
@@ -18,11 +22,13 @@ package main
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"os"
 	"os/signal"
 	"path/filepath"
+	"runtime"
 	"syscall"
 	"time"
 
@@ -182,9 +188,12 @@ func runDashboard(ctx context.Context, args []string) error {
 //
 //	1. THOUGHTLINE_DB (full file path)
 //	2. THOUGHTLINE_HOME/thoughtline.db
-//	3. <user cache dir>/thoughtline/thoughtline.db
+//	3. <user data dir>/thoughtline/thoughtline.db (see ADR 0003)
 //
-// The parent directory is created if missing.
+// On the default-path branch, a one-time migration runs from the legacy
+// cache-dir location used by builds before ADR 0003. The parent directory
+// is created if missing. Migration is bypassed entirely when either
+// override is set.
 func resolveDBPath() (string, error) {
 	if explicit := os.Getenv("THOUGHTLINE_DB"); explicit != "" {
 		if err := os.MkdirAll(filepath.Dir(explicit), 0o755); err != nil {
@@ -193,18 +202,110 @@ func resolveDBPath() (string, error) {
 		return explicit, nil
 	}
 
-	home := os.Getenv("THOUGHTLINE_HOME")
-	if home == "" {
-		base, err := os.UserCacheDir()
-		if err != nil {
-			return "", fmt.Errorf("user cache dir: %w", err)
+	if home := os.Getenv("THOUGHTLINE_HOME"); home != "" {
+		if err := os.MkdirAll(home, 0o755); err != nil {
+			return "", fmt.Errorf("create home %s: %w", home, err)
 		}
-		home = filepath.Join(base, "thoughtline")
+		return filepath.Join(home, "thoughtline.db"), nil
 	}
+
+	base, err := dataDir()
+	if err != nil {
+		return "", fmt.Errorf("user data dir: %w", err)
+	}
+	home := filepath.Join(base, "thoughtline")
+
+	if err := migrateLegacyCacheDir(home); err != nil {
+		// Migration is best-effort. Log and continue with the new path so
+		// the binary always starts; users with weird permissions on the old
+		// path can still launch and see the empty new DB.
+		fmt.Fprintf(os.Stderr, "thoughtline: legacy DB migration skipped: %v\n", err)
+	}
+
 	if err := os.MkdirAll(home, 0o755); err != nil {
 		return "", fmt.Errorf("create home %s: %w", home, err)
 	}
 	return filepath.Join(home, "thoughtline.db"), nil
+}
+
+// dataDir returns the platform-specific user data directory. Unlike
+// os.UserCacheDir, this points at a location OS cleanup tools will not wipe.
+// See ADR 0003.
+func dataDir() (string, error) {
+	switch runtime.GOOS {
+	case "windows":
+		// LocalAppData is non-roaming, machine-local, and is the standard
+		// place for application data on Windows. Same value os.UserCacheDir
+		// returns here, but we read it explicitly so the call site reads as
+		// "data" not "cache".
+		if v := os.Getenv("LocalAppData"); v != "" {
+			return v, nil
+		}
+		return os.UserCacheDir()
+	case "darwin":
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return "", err
+		}
+		return filepath.Join(home, "Library", "Application Support"), nil
+	default: // linux, BSDs, plan9, ...
+		if v := os.Getenv("XDG_DATA_HOME"); v != "" {
+			return v, nil
+		}
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return "", err
+		}
+		return filepath.Join(home, ".local", "share"), nil
+	}
+}
+
+// migrateLegacyCacheDir performs the one-time move from the pre-ADR-0003
+// cache-dir location to the new data-dir location. No-op when the source
+// doesn't exist, the destination already does, or both resolve to the same
+// path (Windows, where LocalAppData is both cache and data).
+func migrateLegacyCacheDir(newHome string) error {
+	cacheBase, err := os.UserCacheDir()
+	if err != nil {
+		// No cache dir resolvable -> nothing to migrate.
+		return nil
+	}
+	oldHome := filepath.Join(cacheBase, "thoughtline")
+
+	if filepath.Clean(oldHome) == filepath.Clean(newHome) {
+		return nil
+	}
+
+	oldDB := filepath.Join(oldHome, "thoughtline.db")
+	if _, err := os.Stat(oldDB); err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return nil
+		}
+		return fmt.Errorf("stat legacy DB: %w", err)
+	}
+
+	newDB := filepath.Join(newHome, "thoughtline.db")
+	if _, err := os.Stat(newDB); err == nil {
+		// Already migrated, or user populated the new path manually. Don't
+		// overwrite real data; leave the old one alone so the user decides.
+		return nil
+	}
+
+	if err := os.MkdirAll(filepath.Dir(newHome), 0o755); err != nil {
+		return fmt.Errorf("create parent of %s: %w", newHome, err)
+	}
+
+	if err := os.Rename(oldHome, newHome); err != nil {
+		// Cross-device rename or other failure. Don't try copy+delete here:
+		// too easy to half-finish and leave the user in an ambiguous state.
+		return fmt.Errorf("rename %s -> %s: %w", oldHome, newHome, err)
+	}
+
+	fmt.Fprintf(os.Stderr,
+		"thoughtline: migrated DB from legacy cache path %q to data path %q (one-time, see ADR 0003)\n",
+		oldHome, newHome,
+	)
+	return nil
 }
 
 // resolveDefaultProject returns the project identifier used when a tool call
