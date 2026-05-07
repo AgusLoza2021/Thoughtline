@@ -10,6 +10,20 @@ import (
 	"github.com/AgusLoza2021/Thoughtline/internal/pending"
 )
 
+// DBQueryRowCount returns the row count of any table. Exported for tests only.
+func DBQueryRowCount(s *Storage, table string) (int, error) {
+	var n int
+	err := s.db.QueryRowContext(context.Background(),
+		"SELECT count(*) FROM "+table).Scan(&n)
+	return n, err
+}
+
+// DB returns the underlying *sql.DB. Exposed for integration tests that need
+// to seed data or inspect row state directly. Do not call in production code.
+func (s *Storage) DB() *sql.DB {
+	return s.db
+}
+
 // ErrPendingNotFound is returned when a pending_events lookup finds no row.
 var ErrPendingNotFound = errors.New("storage: pending event not found")
 
