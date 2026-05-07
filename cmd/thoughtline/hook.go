@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -90,14 +91,14 @@ func runHook(ctx context.Context, args []string, stdin io.Reader, errW io.Writer
 	project := os.Getenv("THOUGHTLINE_PROJECT")
 	if project == "" {
 		if cwd, err := os.Getwd(); err == nil {
-			project = filpathBase(cwd)
+			project = filepath.Base(cwd)
 		}
 	}
 	if project == "" {
 		project = "default"
 	}
 
-	syncID, err := newSyncIDFromStorage()
+	syncID, err := newHookSyncID()
 	if err != nil {
 		fmt.Fprintf(errW, "thoughtline hook: generate sync_id: %v\n", err)
 		return nil
@@ -161,25 +162,3 @@ func extractTimestamp(m map[string]any, fallback time.Time) time.Time {
 	return fallback
 }
 
-// filpathBase returns the last element of a path. Mirrors filepath.Base but
-// avoids importing "path/filepath" in a file that already imports it via main.
-// Actually we do import it via main.go so let's just use a simple approach.
-func filpathBase(path string) string {
-	// Walk backwards to find the last separator.
-	for i := len(path) - 1; i >= 0; i-- {
-		if path[i] == '/' || path[i] == '\\' {
-			return path[i+1:]
-		}
-	}
-	return path
-}
-
-// newSyncIDFromStorage delegates UUID generation to the storage package helper.
-// We need a UUIDv7 and storage already has newSyncID(), but it's unexported.
-// We use a small shim here.
-func newSyncIDFromStorage() (string, error) {
-	// Use the storage package's exported path: open a temp storage and
-	// have it generate an ID. Too heavy — instead just use uuid directly.
-	// Since we already depend on github.com/google/uuid in go.mod:
-	return newHookSyncID()
-}
