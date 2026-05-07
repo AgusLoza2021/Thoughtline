@@ -6,6 +6,33 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-05-07
+
+This is the first numbered release. It folds in the M5 launch-readiness work (TUI overhaul, distribution, plugin) plus two structured changes built under SDD: passive capture from Claude Code hooks, and the v2 workstation-style TUI.
+
+### Added — Passive capture (`passive-capture-hooks`)
+- New SQLite table `pending_events` (schema v3) with UNIQUE on `(project, event_hash)` for idempotent inserts
+- `thoughtline hook <event-name>` subcommand — reads JSON from stdin, fail-silent, never breaks the host Claude Code session
+- `thoughtline worker` subcommand — retention janitor with archive + hard-delete windows (default 7d / 30d)
+- 3 new MCP tools: `tl_pending_list`, `tl_pending_get`, `tl_promote` (per-event partial-success batch)
+- Plugin integration — `plugin/claude-code/hooks.json` registers all 6 Claude Code hook events
+- Opt-in only via `THOUGHTLINE_PASSIVE_CAPTURE=1`; default OFF
+- License hygiene: `scripts/check-no-claude-mem.{sh,ps1}` blocks accidental copy of AGPL strings
+- ADR 0004 documents the design and the known v1 limitation around the `tl_promote` non-atomic seam
+
+### Added — TUI v2 workstation (`tui-redesign`)
+- Welcome screen (engram-inspired) — ASCII logo, stat card, 5-action menu
+- Workstation screen — 3-pane layout (sidebar / center / right detail) with operational top bar and bottom status line
+- 4 new drill-in screens: SearchScreen, RecentScreen, BrowseProjectsScreen / Projects, PendingScreen, DetailScreen
+- Screen-stack navigation (`Screen` interface, push/pop semantics) with vim-style keys (`hjkl`, `gg`, `G`, `/`, `r`)
+- Single Rose-Pine-Moon adapted palette; multi-theme infrastructure deprecated
+- Cross-platform disk-free measurement (`diskfree_unix.go` / `diskfree_windows.go`)
+- New storage methods backing the workstation: `CountPending`, `MostRecentProjects`, `RecentAll`, project-scoped recent
+
+### Fixed
+- `q` no longer pops out of `SearchScreen` while typing — queries containing the letter `q` now work; `esc` is the universal back
+- `tl_search` license hygiene script no longer trips on legitimate doc references
+
 ### Added — Public-launch readiness
 
 This batch lands the work needed to flip the repo public: cross-platform plugin, Claude Code marketplace metadata, brand polish, distribution, and a Bubbletea TUI restyle.
