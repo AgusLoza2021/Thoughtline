@@ -305,17 +305,28 @@ func dashTickCmd() tea.Cmd {
 }
 
 // loadStatsCmd issues the combined storage + disk query as a single tea.Cmd.
+//
+// Welcome dashboard is a META view — it shows totals across all projects, not
+// just the cwd-derived one. We pass project="*" to Stats and "" to CountPending
+// so the numbers in the stat card match what `tl_stats project='*'` reports
+// from the MCP side. Otherwise stats counts come back as 0 whenever the user
+// launches `thoughtline ui` from a directory whose basename doesn't exactly
+// match a stored project name (very common — most engram-migrated memories
+// live under lowercase project names while cwd basenames are mixed-case).
 func (d *DashboardScreen) loadStatsCmd() tea.Cmd {
 	st := d.storage
-	project := d.project
 	return func() tea.Msg {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 
-		stats, statsErr := st.Stats(ctx, storage.StatsOptions{Project: project, RecentLimit: 20})
-		pending, _ := st.CountPending(ctx, project)
+		stats, statsErr := st.Stats(ctx, storage.StatsOptions{Project: "*", RecentLimit: 20})
+		// Pending events stay project-scoped — they're tied to the active
+		// session's working directory and grouping them globally would be
+		// misleading. "" means "default project" which CountPending resolves
+		// against the storage's view, not a UI-supplied filter.
+		pending, _ := st.CountPending(ctx, "")
 
-			return dashStatsLoadedMsg{
+		return dashStatsLoadedMsg{
 			stats:        stats,
 			pendingCount: pending,
 			err:          statsErr,
