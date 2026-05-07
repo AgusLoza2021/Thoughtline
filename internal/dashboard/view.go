@@ -23,9 +23,21 @@ import (
 //
 // View is pure with respect to the Model — Update populates state, View
 // only reads it.
+// minWidth and minHeight define the smallest terminal Thoughtline supports.
+const (
+	minWidth  = 80
+	minHeight = 24
+)
+
 func (m Model) View() string {
 	if m.Quitting {
 		return ""
+	}
+	// Small terminal guard (design decision B).
+	if m.width > 0 && m.height > 0 && (m.width < minWidth || m.height < minHeight) {
+		msg := fmt.Sprintf("Terminal too small (%dx%d). Please resize to at least %dx%d.",
+			m.width, m.height, minWidth, minHeight)
+		return msg + "\n"
 	}
 	if m.splashActive {
 		return m.renderSplash()
@@ -489,11 +501,16 @@ func (m *Model) applyLayout() {
 // statsPanelWidth, recentPanelWidth, roadmapPanelWidth, contentWidth: width
 // budget allocations. The panel widths used to be hard-coded (38/56/96);
 // now they scale with the terminal so resize actually does something.
+// Max 100 columns per design decision B.
 func (m Model) contentWidth() int {
 	if m.width <= 0 {
 		return 96
 	}
-	return m.width - 2
+	w := m.width - 2
+	if w > 100 {
+		w = 100
+	}
+	return w
 }
 
 func (m Model) contentHeight() int {
