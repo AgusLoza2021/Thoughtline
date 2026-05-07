@@ -48,6 +48,23 @@ docs(adr): record decision to defer embeddings to M5
 chore(ci): bump golangci-lint to v1.65
 ```
 
+## License hygiene (AGPL firewall)
+
+Thoughtline is MIT-licensed. `claude-mem` (by thedotmack) is AGPL-3.0. **Do not copy
+any source code, prompt text, or schema definitions from claude-mem into this repository.**
+
+Specifically, never introduce these strings:
+- `buildObservationPrompt` / `buildSummaryPrompt`
+- `<observed_from_primary_session>`
+- `SSEBroadcaster`
+- `viewer-bundle.js`
+- `"mem-search"` (their MCP server name)
+
+The CI `check-no-claude-mem.sh` / `.ps1` step will block PRs that introduce these strings.
+Every PR that touches `internal/pending/`, `cmd/thoughtline/hook.go`, or
+`cmd/thoughtline/worker.go` must include a one-line affirmation in the PR description:
+*"No AGPL source, prompt, or schema text was copied from claude-mem."*
+
 ## Code of conduct
 
 Be kind, be precise, cite source lines. Disagreement is fine; condescension isn't.

@@ -27,6 +27,15 @@ jobs:
           go-version-file: go.mod
           cache: true
 
+      - name: License hygiene (unix)
+        if: runner.os != 'Windows'
+        run: bash scripts/check-no-claude-mem.sh
+
+      - name: License hygiene (windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: pwsh scripts/check-no-claude-mem.ps1
+
       - name: go vet
         run: go vet ./...
 
