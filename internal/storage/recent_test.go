@@ -3,6 +3,7 @@ package storage
 import (
 	"context"
 	"errors"
+	"fmt"
 	"testing"
 	"time"
 )
@@ -214,6 +215,86 @@ func TestRecent_ReturnsEmptyForUnknownProject(t *testing.T) {
 	}
 	if len(results) != 0 {
 		t.Errorf("unknown project should return empty, got %d", len(results))
+	}
+}
+
+// A5: Contract test — RecentAll satisfies the Recent Activity screen's
+// "cross-project, ordered by updated_at DESC, capped at limit" requirement.
+func TestRecentAll_SatisfiesRecentActivityContract(t *testing.T) {
+	st := newTestStorage(t)
+	ctx := context.Background()
+
+	t0 := time.Date(2026, 5, 1, 12, 0, 0, 0, time.UTC)
+
+	// Seed 25 memories across two projects with distinct updated_at.
+	for i := 0; i < 25; i++ {
+		offset := time.Duration(i) * time.Minute
+		st.SetClock(func() time.Time { return t0.Add(offset) })
+		m := sampleMemory()
+		m.Project = "proj-a"
+		if i%3 == 0 {
+			m.Project = "proj-b"
+		}
+		m.TopicKey = fmt.Sprintf("scene/item-%d", i)
+		m.Title = fmt.Sprintf("item-%d", i)
+		seed(t, st, m)
+	}
+
+	results, err := st.RecentAll(ctx, "", 20)
+	if err != nil {
+		t.Fatalf("RecentAll: %v", err)
+	}
+	if len(results) != 20 {
+		t.Errorf("RecentAll limit=20: got %d results, want 20", len(results))
+	}
+	// Verify ordering: updated_at of first must be >= last.
+	if results[0].UpdatedAt.Before(results[len(results)-1].UpdatedAt) {
+		t.Errorf("results must be ordered updated_at DESC: first=%v last=%v",
+			results[0].UpdatedAt, results[len(results)-1].UpdatedAt)
+	}
+}
+
+// A7: Contract test — Storage.Recent satisfies BrowseProjects drill-in
+// (project-scoped, ordered updated_at DESC, capped at limit).
+func TestRecent_SatisfiesBrowseProjectsDrillIn(t *testing.T) {
+	st := newTestStorage(t)
+	ctx := context.Background()
+
+	t0 := time.Date(2026, 5, 1, 12, 0, 0, 0, time.UTC)
+
+	for i := 0; i < 5; i++ {
+		offset := time.Duration(i) * time.Hour
+		st.SetClock(func() time.Time { return t0.Add(offset) })
+		m := sampleMemory()
+		m.Project = "target"
+		m.TopicKey = fmt.Sprintf("scene/t-%d", i)
+		m.Title = fmt.Sprintf("target-%d", i)
+		seed(t, st, m)
+	}
+	// Seed 3 memories in a different project — must not appear.
+	for i := 0; i < 3; i++ {
+		m := sampleMemory()
+		m.Project = "other"
+		m.TopicKey = fmt.Sprintf("scene/o-%d", i)
+		m.Title = fmt.Sprintf("other-%d", i)
+		seed(t, st, m)
+	}
+
+	results, err := st.Recent(ctx, "target", 3)
+	if err != nil {
+		t.Fatalf("Recent: %v", err)
+	}
+	if len(results) != 3 {
+		t.Errorf("Recent limit=3: got %d, want 3", len(results))
+	}
+	for _, r := range results {
+		if r.Project != "target" {
+			t.Errorf("all results must be project=target, got %q", r.Project)
+		}
+	}
+	// Ordering: first must be newest.
+	if results[0].UpdatedAt.Before(results[len(results)-1].UpdatedAt) {
+		t.Errorf("results must be ordered updated_at DESC")
 	}
 }
 

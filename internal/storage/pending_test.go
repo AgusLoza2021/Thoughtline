@@ -2,6 +2,7 @@ package storage
 
 import (
 	"context"
+	"fmt"
 	"testing"
 	"time"
 
@@ -442,5 +443,74 @@ func TestSweepPending_NoEligibleRows(t *testing.T) {
 	}
 	if result.Archived != 0 || result.Deleted != 0 {
 		t.Errorf("expected no-op, got archived=%d deleted=%d", result.Archived, result.Deleted)
+	}
+}
+
+// TestCountPending_ReturnsOnlyPendingStatus verifies that CountPending counts
+// only rows with status=pending for the given project, ignoring other projects
+// and other statuses (promoted, archived).
+func TestCountPending_ReturnsOnlyPendingStatus(t *testing.T) {
+	st := newTestStorage(t)
+	ctx := context.Background()
+
+	base := time.Date(2026, 5, 7, 10, 0, 0, 0, time.UTC)
+
+	// 3 pending rows for "alpha".
+	for i := 0; i < 3; i++ {
+		ev := samplePendingEvent()
+		ev.SyncID = fmt.Sprintf("a-pend-%d", i)
+		ev.Hash = fmt.Sprintf("ha%d", i)
+		ev.Project = "alpha"
+		ev.CapturedAt = base
+		if _, err := st.InsertPending(ctx, ev); err != nil {
+			t.Fatalf("insert alpha pending %d: %v", i, err)
+		}
+	}
+
+	// 2 promoted rows for "alpha" — must NOT be counted.
+	for i := 0; i < 2; i++ {
+		ev := samplePendingEvent()
+		ev.SyncID = fmt.Sprintf("a-prom-%d", i)
+		ev.Hash = fmt.Sprintf("hp%d", i)
+		ev.Project = "alpha"
+		ev.Status = "promoted"
+		ev.CapturedAt = base
+		if _, err := st.InsertPending(ctx, ev); err != nil {
+			t.Fatalf("insert alpha promoted %d: %v", i, err)
+		}
+	}
+
+	// 1 pending row for "other" — must NOT be counted for "alpha".
+	other := samplePendingEvent()
+	other.SyncID = "other-pend"
+	other.Hash = "hother"
+	other.Project = "other"
+	other.CapturedAt = base
+	if _, err := st.InsertPending(ctx, other); err != nil {
+		t.Fatalf("insert other: %v", err)
+	}
+
+	n, err := st.CountPending(ctx, "alpha")
+	if err != nil {
+		t.Fatalf("CountPending: %v", err)
+	}
+	if n != 3 {
+		t.Errorf("CountPending(alpha) = %d, want 3", n)
+	}
+
+	n2, err := st.CountPending(ctx, "other")
+	if err != nil {
+		t.Fatalf("CountPending other: %v", err)
+	}
+	if n2 != 1 {
+		t.Errorf("CountPending(other) = %d, want 1", n2)
+	}
+
+	n3, err := st.CountPending(ctx, "nonexistent")
+	if err != nil {
+		t.Fatalf("CountPending nonexistent: %v", err)
+	}
+	if n3 != 0 {
+		t.Errorf("CountPending(nonexistent) = %d, want 0", n3)
 	}
 }

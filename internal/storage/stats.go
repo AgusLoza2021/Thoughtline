@@ -35,6 +35,11 @@ type Stats struct {
 	ByProject map[string]int
 	ByScope   map[memory.Scope]int
 
+	// MostRecentProjects lists up to 4 project names ordered by the most
+	// recently updated memory in each project (MAX(updated_at) DESC).
+	// Used by the dashboard's "Top Projects" section.
+	MostRecentProjects []string
+
 	OpenSessions   int
 	ClosedSessions int
 
@@ -71,6 +76,12 @@ func (s *Storage) Stats(ctx context.Context, opts StatsOptions) (Stats, error) {
 		return Stats{}, err
 	}
 
+	// MostRecentProjects: top-4 projects by most recent memory update.
+	// Not scoped by project (always cross-project).
+	if err := s.queryMostRecentProjects(ctx, &out); err != nil {
+		return Stats{}, err
+	}
+
 	// Recent memories: project-scoped if requested, all-projects otherwise.
 	recent, err := s.recentMemoriesForStats(ctx, opts.Project, limit)
 	if err != nil {
@@ -85,6 +96,28 @@ func (s *Storage) Stats(ctx context.Context, opts StatsOptions) (Stats, error) {
 	out.RecentSessions = recentSess
 
 	return out, nil
+}
+
+func (s *Storage) queryMostRecentProjects(ctx context.Context, out *Stats) error {
+	rows, err := s.db.QueryContext(ctx, `
+		SELECT project
+		FROM memories
+		WHERE deleted_at IS NULL
+		GROUP BY project
+		ORDER BY MAX(updated_at) DESC
+		LIMIT 4`)
+	if err != nil {
+		return fmt.Errorf("most recent projects: %w", err)
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var p string
+		if err := rows.Scan(&p); err != nil {
+			return fmt.Errorf("scan project: %w", err)
+		}
+		out.MostRecentProjects = append(out.MostRecentProjects, p)
+	}
+	return rows.Err()
 }
 
 func (s *Storage) queryMemoryCounts(ctx context.Context, project string, out *Stats) error {

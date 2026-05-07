@@ -10,6 +10,20 @@ import (
 	"github.com/AgusLoza2021/Thoughtline/internal/pending"
 )
 
+// CountPending returns the number of rows in pending_events with
+// status='pending' for the given project.
+func (s *Storage) CountPending(ctx context.Context, project string) (int, error) {
+	var n int
+	err := s.db.QueryRowContext(ctx,
+		`SELECT count(*) FROM pending_events WHERE project = ? AND status = 'pending'`,
+		project,
+	).Scan(&n)
+	if err != nil {
+		return 0, fmt.Errorf("count pending: %w", err)
+	}
+	return n, nil
+}
+
 // DBQueryRowCount returns the row count of any table. Exported for tests only.
 func DBQueryRowCount(s *Storage, table string) (int, error) {
 	var n int

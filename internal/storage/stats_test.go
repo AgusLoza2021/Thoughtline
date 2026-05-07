@@ -2,6 +2,7 @@ package storage
 
 import (
 	"context"
+	"fmt"
 	"testing"
 	"time"
 
@@ -291,6 +292,41 @@ func TestStats_ProjectFilter(t *testing.T) {
 	}
 	if stats.OpenSessions != 1 {
 		t.Errorf("expected 1 open session for alpha, got %d", stats.OpenSessions)
+	}
+}
+
+// TestStats_MostRecentProjects verifies that the Stats result includes a
+// MostRecentProjects field ordered by MAX(updated_at) DESC, capped at 4.
+func TestStats_MostRecentProjects(t *testing.T) {
+	st := newTestStorage(t)
+	ctx := context.Background()
+
+	t0 := time.Date(2026, 5, 1, 12, 0, 0, 0, time.UTC)
+
+	// Seed 5 projects with distinct updated_at (older → newer).
+	projects := []string{"alpha", "beta", "gamma", "delta", "epsilon"}
+	for i, p := range projects {
+		st.SetClock(func() time.Time { return t0.Add(time.Duration(i) * time.Hour) })
+		m := sampleMemory()
+		m.Project = p
+		m.TopicKey = fmt.Sprintf("scene/%s", p)
+		seed(t, st, m)
+	}
+
+	stats, err := st.Stats(ctx, StatsOptions{})
+	if err != nil {
+		t.Fatalf("stats: %v", err)
+	}
+
+	if len(stats.MostRecentProjects) != 4 {
+		t.Fatalf("MostRecentProjects len=%d, want 4", len(stats.MostRecentProjects))
+	}
+	// First should be newest (epsilon), last in top-4 should be beta.
+	if stats.MostRecentProjects[0] != "epsilon" {
+		t.Errorf("MostRecentProjects[0]=%q, want %q", stats.MostRecentProjects[0], "epsilon")
+	}
+	if stats.MostRecentProjects[3] != "beta" {
+		t.Errorf("MostRecentProjects[3]=%q, want %q", stats.MostRecentProjects[3], "beta")
 	}
 }
 
