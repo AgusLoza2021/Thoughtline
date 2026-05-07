@@ -21,21 +21,21 @@ func (s *stubScreen) Title() string                           { return s.title }
 func (s *stubScreen) OnFocus() tea.Cmd                        { return nil }
 
 func newSearchScreen(st *storage.Storage, project string) Screen {
-	return &stubScreen{title: "Search"}
+	return newSearchScreenFull(st, project)
 }
 
 func newRecentScreen(st *storage.Storage, project, filterProject string) Screen {
-	return &stubScreen{title: "Recent"}
+	return newRecentScreenFull(st, project, filterProject)
 }
 
 func newBrowseProjectsScreen(st *storage.Storage, stats storage.Stats) Screen {
-	return &stubScreen{title: "Browse Projects"}
+	return newBrowseProjectsScreenFull(st, stats)
 }
 
 func newPendingScreen(st *storage.Storage, project string) Screen {
-	return &stubScreen{title: "Pending Events"}
+	return newPendingScreenFull(st, project)
 }
 
 func newDetailScreen(content string) Screen {
-	return &stubScreen{title: "Detail"}
+	return newDetailScreenFull(content)
 }
