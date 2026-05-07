@@ -86,8 +86,41 @@ CREATE TABLE IF NOT EXISTS sessions (
 
 CREATE INDEX IF NOT EXISTS idx_sessions_recent
     ON sessions(project, started_at DESC);
+
+-- v3: passive capture queue. pending_events holds raw hook payloads from
+-- Claude Code until the model promotes them to memories via tl_promote.
+-- They are NEVER surfaced by tl_search — they live in this separate table only.
+CREATE TABLE IF NOT EXISTS pending_events (
+    id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+    sync_id             TEXT    NOT NULL UNIQUE,
+    project             TEXT    NOT NULL,
+    session_id          TEXT,
+    event_type          TEXT    NOT NULL,
+    tool_name           TEXT,
+    tool_use_id         TEXT,
+    payload             TEXT    NOT NULL,
+    event_hash          TEXT    NOT NULL,
+    status              TEXT    NOT NULL DEFAULT 'pending'
+                                CHECK (status IN ('pending','promoted','archived')),
+    promoted_memory_id  INTEGER,
+    promoted_at         INTEGER,
+    archived_at         INTEGER,
+    created_at          INTEGER NOT NULL,
+    captured_at         INTEGER NOT NULL
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_pending_events_dedup
+    ON pending_events(project, event_hash);
+
+CREATE INDEX IF NOT EXISTS idx_pending_events_triage
+    ON pending_events(project, status, captured_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_pending_events_session
+    ON pending_events(session_id, captured_at DESC)
+    WHERE session_id IS NOT NULL;
 `
 
 // currentSchemaVersion is bumped whenever schemaSQL changes in a way that
 // requires a migration. v1: M1 baseline. v2: M4 sessions table + memories.session_id.
-const currentSchemaVersion = 2
+// v3: passive-capture pending_events table.
+const currentSchemaVersion = 3
