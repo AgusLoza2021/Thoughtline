@@ -79,15 +79,20 @@ func TestSearchScreen_EscReturnsToDashboard(t *testing.T) {
 	}
 }
 
-// TestSearchScreen_QActsAsEsc verifies q also pops the screen.
-func TestSearchScreen_QActsAsEsc(t *testing.T) {
+// TestSearchScreen_QTypesIntoInput verifies q is a regular character inside
+// the search input — it must NOT pop the screen, otherwise queries
+// containing the letter q (e.g. "query") would be impossible. esc is the
+// universal way to back out.
+func TestSearchScreen_QTypesIntoInput(t *testing.T) {
 	screen, _ := newTestSearchScreen(t)
 
-	_, cmd := screen.Update(qKey)
-	if cmd == nil {
-		t.Fatal("q must return a non-nil cmd")
+	_, _ = screen.Update(qKey)
+
+	if _, ok := any(screen).(*SearchScreen); !ok {
+		t.Fatalf("update must return a SearchScreen, got %T", screen)
 	}
-	if _, ok := cmd().(popScreenCmd); !ok {
-		t.Errorf("q on SearchScreen must return popScreenCmd, not quit")
+	got := screen.input.Value()
+	if got != "q" {
+		t.Errorf("after typing q, input value = %q, want %q", got, "q")
 	}
 }

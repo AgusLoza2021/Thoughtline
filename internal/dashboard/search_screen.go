@@ -57,10 +57,22 @@ func (s *SearchScreen) Update(msg tea.Msg) (Screen, tea.Cmd) {
 				return s, nil
 			}
 			return s, s.runSearch(q)
+		case tea.KeyUp:
+			// Navigate results upward when there are any. Stays put on first row.
+			if len(s.results) > 0 && s.cursor > 0 {
+				s.cursor--
+			}
+			return s, nil
+		case tea.KeyDown:
+			// Navigate results downward. No wrap.
+			if s.cursor < len(s.results)-1 {
+				s.cursor++
+			}
+			return s, nil
 		}
-		if msg.String() == "q" {
-			return s, func() tea.Msg { return popScreenCmd{} }
-		}
+		// Everything else (including 'q') is a normal character for the search
+		// input. esc is the universal way to back out — q used to pop the
+		// screen but that broke any query containing the letter q.
 		var cmd tea.Cmd
 		s.input, cmd = s.input.Update(msg)
 		return s, cmd
