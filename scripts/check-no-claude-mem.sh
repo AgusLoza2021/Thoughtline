@@ -15,17 +15,23 @@ FORBIDDEN=(
   '"mem-search"'
 )
 
+# Threat model: AGPL contagion only happens through code copying. Markdown is
+# documentation — referencing the forbidden strings BY NAME (as this very repo
+# does in CONTRIBUTING.md and openspec/changes/*) is not contagion. We scan
+# only code-bearing extensions and explicitly skip docs/, openspec/, and the
+# scripts directory itself.
 FAIL=0
 for pattern in "${FORBIDDEN[@]}"; do
-  # Search tracked files only (-r recursive, ignore .git and this script itself)
-  if grep -r --include="*.go" --include="*.json" --include="*.md" \
+  if grep -r --include="*.go" --include="*.json" \
              --include="*.ts" --include="*.js" \
              --exclude-dir=".git" --exclude-dir="scripts" \
+             --exclude-dir="docs" --exclude-dir="openspec" \
              -- "$pattern" . 2>/dev/null | grep -q .; then
     echo "ERROR: forbidden string found: $pattern" >&2
-    grep -r --include="*.go" --include="*.json" --include="*.md" \
+    grep -r --include="*.go" --include="*.json" \
              --include="*.ts" --include="*.js" \
-             --exclude-dir=".git" --exclude-dir="scripts" -n \
+             --exclude-dir=".git" --exclude-dir="scripts" \
+             --exclude-dir="docs" --exclude-dir="openspec" -n \
              -- "$pattern" . 2>/dev/null >&2 || true
     FAIL=1
   fi

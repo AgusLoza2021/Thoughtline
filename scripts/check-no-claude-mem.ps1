@@ -13,14 +13,20 @@ $forbidden = @(
     '"mem-search"'
 )
 
-$extensions = @('*.go', '*.json', '*.md', '*.ts', '*.js', '*.sh', '*.ps1')
+# Threat model: AGPL contagion only happens through code copying. Markdown is
+# documentation — referencing the forbidden strings BY NAME (CONTRIBUTING.md,
+# openspec/changes/*) is not contagion. We scan only code extensions and skip
+# docs/, openspec/, scripts/, and .git/.
+$extensions = @('*.go', '*.json', '*.ts', '*.js')
+
+$excludePathPattern = '\\(\.git|scripts|docs|openspec)\\'
 
 $fail = $false
 
 foreach ($pattern in $forbidden) {
-    $found = Get-ChildItem -Recurse -Include $extensions -Exclude '.git' |
-        Select-String -Pattern ([regex]::Escape($pattern)) -SimpleMatch |
-        Where-Object { $_.Path -notmatch '\\\.git\\' }
+    $found = Get-ChildItem -Recurse -Include $extensions |
+        Where-Object { $_.FullName -notmatch $excludePathPattern } |
+        Select-String -Pattern ([regex]::Escape($pattern)) -SimpleMatch
 
     if ($found) {
         Write-Error "ERROR: forbidden string found: $pattern"
