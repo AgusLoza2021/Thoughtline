@@ -309,12 +309,17 @@ func (w *WorkstationScreen) View(width, height int, p palette) string {
 		bodyH = 6
 	}
 
-	// Sidebar fixed; right pane proportional but capped.
+	// Sidebar fixed; right pane scales with terminal width so content has
+	// room to breathe. Roughly: tiny=26 / normal=38 / wide=48.
 	sidebarW := 22
-	rightW := 30
+	rightW := 38
+	if width >= 130 {
+		sidebarW = 24
+		rightW = 48
+	}
 	if width < 100 {
 		sidebarW = 20
-		rightW = 26
+		rightW = 30
 	}
 	centerW := width - sidebarW - rightW
 	if centerW < 20 {
@@ -562,50 +567,91 @@ func (w *WorkstationScreen) renderRight(width, height int, p palette) string {
 }
 
 func (w *WorkstationScreen) renderMemoryDetail(m storage.SearchResult, width int, p palette) []string {
+	if width < 12 {
+		width = 12
+	}
 	muted := lipgloss.NewStyle().Foreground(p.Muted)
 	fg := lipgloss.NewStyle().Foreground(p.Foreground)
 	tag := lipgloss.NewStyle().Foreground(p.Tag)
+	statClr := lipgloss.NewStyle().Foreground(p.StatNumber)
+	cursorClr := lipgloss.NewStyle().Foreground(p.Cursor)
 
-	title := wrap(m.Title, width)
-	out := []string{
-		fg.Bold(true).Render(title),
-		"",
-		muted.Render("Type:"),
-		fg.Render("  " + string(m.Type)),
-		"",
-	}
-	if m.TopicKey != "" {
-		out = append(out,
-			muted.Render("Topic:"),
-			fg.Render("  "+truncateLeft(m.TopicKey, width-2)),
-			"",
-		)
-	}
-	out = append(out,
-		muted.Render("Project:"),
-		fg.Render("  "+truncateLeft(m.Project, width-2)),
-		"",
-		muted.Render("Scope:"),
-		fg.Render("  "+string(m.Scope)),
-		"",
-		muted.Render("Revision:"),
-		fg.Render(fmt.Sprintf("  %d", m.RevisionCount)),
-	)
-	if !m.UpdatedAt.IsZero() {
-		out = append(out,
-			"",
-			muted.Render("Updated:"),
-			fg.Render("  "+relTime(m.UpdatedAt)),
-		)
-	}
-	if len(m.Tags) > 0 {
-		out = append(out, "", muted.Render("Tags:"))
-		for _, t := range m.Tags {
-			out = append(out, "  "+tag.Render(t))
+	// Title — bold + cursor color (gold) so it stands out from labels.
+	titleStyle := lipgloss.NewStyle().
+		Bold(true).
+		Foreground(p.Cursor).
+		Width(width)
+	titleBlock := titleStyle.Render(m.Title)
+
+	divider := muted.Render(strings.Repeat("─", width))
+
+	out := []string{titleBlock, divider}
+
+	// Inline label-value rows. Compact and easy to scan.
+	row := func(label, value string, valueStyle lipgloss.Style) string {
+		labelW := 9
+		labelStr := muted.Render(padRight(label, labelW))
+		// Wrap the value to remaining columns.
+		valueW := width - labelW
+		if valueW < 6 {
+			valueW = 6
 		}
+		valueWrapped := valueStyle.Width(valueW).Render(value)
+		valueLines := strings.Split(valueWrapped, "\n")
+		// First line goes next to the label; subsequent lines indent under it.
+		first := labelStr + valueLines[0]
+		if len(valueLines) == 1 {
+			return first
+		}
+		indent := strings.Repeat(" ", labelW)
+		var b strings.Builder
+		b.WriteString(first)
+		for _, l := range valueLines[1:] {
+			b.WriteByte('\n')
+			b.WriteString(indent + l)
+		}
+		return b.String()
 	}
+
+	out = append(out, row("type", string(m.Type), statClr))
+	if m.TopicKey != "" {
+		out = append(out, row("topic", m.TopicKey, lipgloss.NewStyle().Foreground(p.Tag)))
+	}
+	out = append(out, row("project", m.Project, fg))
+	out = append(out, row("scope", string(m.Scope), fg))
+	if m.RevisionCount > 0 {
+		out = append(out, row("rev", fmt.Sprintf("%d", m.RevisionCount), fg))
+	}
+	if !m.UpdatedAt.IsZero() {
+		out = append(out, row("updated", relTime(m.UpdatedAt), fg))
+	}
+
+	// Tags — each in tag colour, joined inline so they wrap as a single block.
+	if len(m.Tags) > 0 {
+		out = append(out, "")
+		out = append(out, muted.Render("tags"))
+		tagBlock := tag.Width(width).Render(strings.Join(m.Tags, "  "))
+		out = append(out, strings.Split(tagBlock, "\n")...)
+	}
+
+	// Snippet content — the actual memory body. Word-wrapped via lipgloss,
+	// not the naive char-count wrap that broke long sentences before.
+	if strings.TrimSpace(m.Snippet) != "" {
+		out = append(out, "")
+		out = append(out, divider)
+		out = append(out, "")
+		snippet := lipgloss.NewStyle().Foreground(p.Foreground).Width(width).Render(m.Snippet)
+		out = append(out, strings.Split(snippet, "\n")...)
+	}
+
+	// Faint hint at the bottom: full content via tl_get_observation.
+	out = append(out, "")
+	out = append(out, muted.Render("enter — full"))
+
+	_ = cursorClr // silenced if unused after future refactor
 	return out
 }
+
 
 func (w *WorkstationScreen) renderProjectDetail(name string, width int, p palette) []string {
 	muted := lipgloss.NewStyle().Foreground(p.Muted)
