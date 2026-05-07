@@ -101,6 +101,10 @@ func (d *DashboardScreen) handleKey(msg tea.KeyMsg) (Screen, tea.Cmd) {
 		}
 	case "r":
 		return d, d.loadStatsCmd()
+	case "q":
+		// Welcome is the root — q here means "exit the program". flatModel
+		// no longer handles 'q' globally, so screens own this decision.
+		return d, tea.Quit
 	case "enter":
 		return d.dispatchEnter()
 	}
@@ -109,26 +113,31 @@ func (d *DashboardScreen) handleKey(msg tea.KeyMsg) (Screen, tea.Cmd) {
 
 func (d *DashboardScreen) dispatchEnter() (Screen, tea.Cmd) {
 	switch d.cursor {
-	case 0: // Search memories
+	case 0: // Search memories — kept as a modal-style direct push.
 		return d, func() tea.Msg {
 			return pushScreenCmd{screen: newSearchScreen(d.storage, d.project)}
 		}
-	case 1: // Recent activity
-		return d, func() tea.Msg {
-			return pushScreenCmd{screen: newRecentScreen(d.storage, d.project, "")}
-		}
-	case 2: // Browse projects
-		return d, func() tea.Msg {
-			return pushScreenCmd{screen: newBrowseProjectsScreen(d.storage, d.stats)}
-		}
-	case 3: // Pending events
-		return d, func() tea.Msg {
-			return pushScreenCmd{screen: newPendingScreen(d.storage, d.project)}
-		}
+	case 1: // Recent activity → enter workstation with Recent section.
+		return d, d.openWorkstation(sectionRecent)
+	case 2: // Browse projects → enter workstation with Projects section.
+		return d, d.openWorkstation(sectionProjects)
+	case 3: // Pending events → enter workstation with Pending section.
+		return d, d.openWorkstation(sectionPending)
 	case 4: // Quit
 		return d, tea.Quit
 	}
 	return d, nil
+}
+
+// openWorkstation returns a tea.Cmd that pushes the workstation screen with
+// the given sidebar section already focused. Lets the welcome dashboard act
+// as a friendly entry point that drops the user straight into the right pane.
+func (d *DashboardScreen) openWorkstation(initial sidebarSection) tea.Cmd {
+	return func() tea.Msg {
+		ws := NewWorkstationScreen(d.storage, d.project, d.version)
+		ws.section = initial
+		return pushScreenCmd{screen: ws}
+	}
 }
 
 // View renders all 7 sections of the dashboard.
