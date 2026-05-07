@@ -129,7 +129,7 @@ Thoughtline stands on the shoulders of [**Engram**](https://github.com/Gentleman
 
 > Curious how Thoughtline lines up against Engram and [claude-mem](https://github.com/thedotmack/claude-mem)? See **[docs/COMPARISON.md](docs/COMPARISON.md)** for an honest side-by-side.
 
-> **Status: M5 done.** Nine tools live + an interactive dashboard. Memory API: `tl_save`, `tl_search`, `tl_get_observation`, `tl_context`, `tl_update`, `tl_delete`, `tl_session_start`, `tl_session_summary`, `tl_stats`. Plus a Bubbletea TUI: `thoughtline ui`. M6 (semantic embeddings) remains deferred per [ADR 0002](docs/decisions/0002-search-strategy-fts5-first.md) — schema reserved, opt-in. See [`docs/PROGRESS.md`](docs/PROGRESS.md).
+> **Status: M5 done + passive capture.** Twelve tools live: `tl_save`, `tl_search`, `tl_get_observation`, `tl_context`, `tl_update`, `tl_delete`, `tl_session_start`, `tl_session_summary`, `tl_stats`, plus `tl_pending_list`, `tl_pending_get`, `tl_promote` for opt-in passive capture of Claude Code hook events. See [docs/integrations/claude-code-passive-capture.md](docs/integrations/claude-code-passive-capture.md) for the setup guide. M6 (semantic embeddings) remains deferred per [ADR 0002](docs/decisions/0002-search-strategy-fts5-first.md). See [`docs/PROGRESS.md`](docs/PROGRESS.md).
 
 ---
 

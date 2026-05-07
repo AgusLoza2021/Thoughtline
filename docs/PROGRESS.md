@@ -4,9 +4,26 @@ Single source of truth for "what's done, what's next, what's blocking publishing
 
 ---
 
-## Current state — 2026-04-30
+## Current state — 2026-05-07
 
-**Milestone M5 (Dashboard): 🟢 done.** M0–M4 are also 🟢 done — see history below. Nine MCP tools + interactive TUI ship now. M6 (Smarts / embeddings) is deferred per ADR 0002.
+**Passive capture: 🟢 done.** Schema v3, 12 MCP tools, `thoughtline hook`, `thoughtline worker`. See ADR 0004.
+
+**Milestone M5 (Dashboard): 🟢 done.** M0–M4 are also 🟢 done — see history below. Nine MCP tools + interactive TUI shipped in M5. M6 (Smarts / embeddings) is deferred per ADR 0002.
+
+---
+
+### What got done — passive capture hooks (2026-05-07)
+
+- **Schema v3** (`internal/storage/schema.go`): `pending_events` table with `event_hash`-based dedup, `(project, event_hash)` unique index, status check constraint, 3 indexes.
+- **Domain package** (`internal/pending/`): `Event` struct, `Status` constants, `Validate`, `ComputeHash` (SHA-256 over type+session+tool_use_id+floored-second+canonical-payload).
+- **Storage layer** (`internal/storage/pending.go`): `InsertPending`, `ListPending`, `GetPendingByID`, `MarkPromoted`, `SweepPending` with `SweepResult`. Uses `INSERT OR IGNORE` for idempotency.
+- **Hook CLI** (`cmd/thoughtline/hook.go`): opt-in fast-path, 1 MiB stdin cap, JSON validation, SHA-256 dedup hash, always exits 0 on user-facing errors.
+- **Worker CLI** (`cmd/thoughtline/worker.go`): one-shot retention janitor; `--retention` (default 7d) and `--hard-delete` (default 30d) flags; cron/Task-Scheduler friendly.
+- **3 new MCP tools** (`internal/server/`): `tl_pending_list`, `tl_pending_get`, `tl_promote`. Promote uses per-event transactions; partial success is the defined behavior.
+- **Plugin hooks** (`plugin/claude-code/hooks/hooks.json`): 6 new entries for SessionStart, UserPromptSubmit, PreToolUse, PostToolUse, Stop, SessionEnd.
+- **License hygiene** (`scripts/check-no-claude-mem.sh` + `.ps1`): CI guard against AGPL string leakage; added to `.github/workflows/ci.yml`.
+- **Docs**: ADR 0004, integration guide, COMPARISON.md updated, README pointer added.
+- **Verification**: `go test ./...` green; `go vet ./...` clean.
 
 ### What got done this session (M5)
 

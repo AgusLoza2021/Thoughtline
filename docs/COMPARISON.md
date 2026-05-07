@@ -37,12 +37,12 @@ Same shape, different language. Both can coexist on the same machine.
 | Storage | SQLite + FTS5 | SQLite + FTS5 | SQLite + ChromaDB embeddings |
 | Memory model | Explicit save | Explicit save | **Implicit** capture + AI compression |
 | Vocabulary | **Gamedev-specialized** | General software | General software |
-| MCP tools | 9 (M5: save, search, context, get_observation, update, delete, session_start, session_summary, stats) | 19 (incl. conflict surfacing, semantic LLM judging) | Search-focused MCP tools |
+| MCP tools | 12 (9 core + `tl_pending_list`, `tl_pending_get`, `tl_promote`) | 19 (incl. conflict surfacing, semantic LLM judging) | Search-focused MCP tools |
 | Built-in TUI | Yes — Bubbletea, three themes (`brand` / `zbrush` / `mono`), animated header cube | Yes — Catppuccin Mocha, dashboard / detail / search views | Web viewer UI on `localhost:37777` |
 | HTTP API | No (planned) | Yes | No |
 | Cloud sync | No | Yes (opt-in replication, beta) | No |
 | Cross-machine sync | Manual | Git sync built in | Manual |
-| Auto-capture from agent activity | No (explicit by design) | No (explicit by design) | **Yes** |
+| Auto-capture from agent activity | **Yes — opt-in** via `THOUGHTLINE_PASSIVE_CAPTURE=1` + hook registration; model triages via `tl_pending_list` / `tl_promote` | No (explicit by design) | **Yes — automatic** |
 | Install (macOS) | `go install` (Homebrew planned) | `brew install gentleman-programming/tap/engram` | `npx claude-mem install` |
 | Install (Windows) | `irm .../scripts/install.ps1 \| iex` | Documented in INSTALLATION.md | `npx claude-mem install` |
 | License | MIT | MIT | AGPL-3.0 |
@@ -86,3 +86,13 @@ Yes. They write to different SQLite files in different directories and expose di
 Engram and claude-mem solve the *general* memory problem. Thoughtline is what happens when you take Engram's architecture, drop the cloud / HTTP surface, and specialize the vocabulary for the workflows of game studios. That's a deliberate trade — fewer features, sharper fit.
 
 If your assistant currently misremembers which `Materials/lantern_emissive_01.mat` you settled on after three iterations, this one is for you.
+
+---
+
+## License hygiene affirmation
+
+No source code, prompt text, or schema definitions from `claude-mem` (AGPL-3.0) have been
+copied into Thoughtline. The passive-capture design draws only on the *architectural idea*
+(local queue + hook integration). All implementation — DDL, CLI commands, MCP tools, hash
+logic, retention janitor — is original to this project. See `CONTRIBUTING.md` for the
+contributor checklist and `scripts/check-no-claude-mem.sh` for the automated guard.
