@@ -1,8 +1,8 @@
 # Design: Passive Capture Hooks
 
-Status: ready
+Status: shipped
 Phase: design
-Companion artifacts: `proposal.md`, `spec.md` (parallel), `tasks.md` (next)
+Companion artifacts: `proposal.md`, `specs/`, `tasks.md`
 
 ## 1. Architecture at a glance
 
@@ -19,7 +19,7 @@ thoughtline hook <event-name>            (capture stage — fast, fail-silent)
     ▼
 pending_events  (new SQLite table, same DB file)
     │
-    │  reviewed by the model via tl_search_pending / tl_get_pending
+    │  reviewed by the model via tl_pending_list / tl_pending_get
     │  curated by the model via tl_promote
     ▼
 memories       (existing table, unchanged shape)
@@ -50,7 +50,7 @@ The hook contract is the stable seam — anything we add later (compression, emb
 
 ## 3. Data model
 
-### 3.1 `pending_events` DDL
+### 3.1 `pending_events` DDL (as implemented)
 
 ```sql
 CREATE TABLE IF NOT EXISTS pending_events (
@@ -139,7 +139,7 @@ Mirrors `internal/memory` shape. Validation lives here (`Validate(Event) error`)
 
 | Component | Lives in | Responsibility | Reads | Writes |
 |---|---|---|---|---|
-| Hook CLI | `cmd/thoughtline/hook.go` (new) | One-shot subcommand; reads stdin, builds Event, calls storage; ALWAYS exits 0 unless usage error | env, stdin | log file, `pending_events` |
+| Hook CLI | `cmd/thoughtline/hook.go` (new) | One-shot subcommand; reads stdin, builds Event, calls storage; ALWAYS exits 0 unless usage error | env, stdin | stderr (errors), `pending_events` |
 | Worker CLI | `cmd/thoughtline/worker.go` (new) | One-shot subcommand; archives + prunes; advisory-locked | flag args | `pending_events` |
 | Pending domain | `internal/pending/` (new) | `Event`, `Validate`, hash, JSON helpers | — | — |
 | Pending storage | `internal/storage/pending.go` (new) | `InsertPending`, `ListPending`, `GetPendingByID`, `MarkPromoted`, `MarkArchived`, `PrunePending` | sqlite | sqlite |
@@ -165,57 +165,13 @@ Claude spawns: thoughtline hook PostToolUse < payload.json
   6. Build pending.Event; pending.Validate
   7. Compute event_hash
   8. storage.InsertPending — INSERT OR IGNORE; ignored hits return ActionNoop
-  9. On ANY error after step 2: write to log file (see §7), exit 0.
+  9. On ANY error after step 2: write to stderr, exit 0.
      Step 1 errors (unknown event name) exit 2 — they're a misconfiguration, not a runtime fault.
 ```
 
-### 5.2 Promote path (model → DB)
-
-```
-Model calls tl_pending_list project=foo status=pending limit=50
-  → returns [{id, event_type, captured_at, snippet}, ...]
-Model calls tl_pending_get id=42 (optional, for full payload review)
-Model calls tl_promote items=[
-    {pending_event_id: 42, type: "bugfix", topic_key: "bugfix/foo-crash",
-     title: "...", content: "...", tags: ["x","y"]},
-    ...
-]
-  For each item INDEPENDENTLY:
-    1. Validate item (type ∈ taxonomy, content non-empty, etc.)
-    2. Lookup pending event by id; reject if missing or already promoted
-    3. storage.Save(memory) → returns memory.ID
-    4. storage.MarkPromoted(pending_event_id, memory.ID)
-    5. Append per-item result {pending_event_id, memory_id, status, error?}
-  Return aggregated results array.
-```
-
-**Per-item transaction semantics** (resolved by user 2026-05-07, supersedes earlier "all-or-nothing" wording): each item commits in its own transaction. A failure in item N does NOT roll back items 1..N-1. The model receives a per-id outcome and can retry only the failed entries. Rationale: matches the spec's partial-success scenario, gives the model granular retry, avoids whole-batch retries that re-pay validation cost.
-
-**Known v1 limitation — orphan memory on `MarkPromoted` failure**: between step 3 (memory saved) and step 4 (event marked promoted) there is a non-atomic seam. If step 4 fails (e.g. DB lock race), the memory exists but the event remains `pending`. A naive retry would call `Save` again and create a *second* memory.
-
-Mitigations available without a v1.1 fix:
-1. The `topic_key` upsert in `Save` makes the second save a no-op when the caller passes the same `topic_key` — recommend in docs that callers always supply `topic_key` when promoting.
-2. `MarkPromoted` is a single-row UPDATE on a row we just successfully INSERT-ed; lock contention is the only realistic failure path, and SQLite WAL + `busy_timeout` make it rare.
-3. The orphan memory is harmless content — it just isn't linked back to the source event.
-
-A v1.1 follow-up could either (a) wrap `Save + MarkPromoted` in a single SQL transaction (requires `Storage.Save` to accept an existing tx handle), or (b) make `tl_promote` idempotent by checking `pending_events.promoted_memory_id` first and returning the linked memory instead of saving again. Tracked as a known issue in `docs/decisions/0004-passive-capture-via-hooks.md`.
-
-### 5.3 Worker path (cron → DB)
-
-```
-thoughtline worker --retention 7d --hard-delete 30d
-  1. Acquire advisory lock: BEGIN EXCLUSIVE; SELECT 1 FROM pending_events LIMIT 0; COMMIT;
-     If another worker holds it, exit 0 with a stderr note.
-  2. UPDATE pending_events SET status='archived', archived_at=? WHERE status='pending' AND captured_at < ?
-  3. DELETE FROM pending_events WHERE status='archived' AND archived_at < ?
-  4. Print one-line summary; exit 0.
-```
-
-Defaults: retention `7d`, hard-delete `30d` (configurable via flags). Soft-then-hard, never one-shot delete: gives operators a window to inspect what was archived.
-
 ## 6. Hook payload assumptions (Claude Code contract)
 
-Anthropic Claude Code documents the hook events publicly. Working assumption (to be confirmed in the spec/verification phase):
+Anthropic Claude Code documents the hook events publicly. Working assumption:
 
 | Event | Stable fields we extract | Notes |
 |---|---|---|
@@ -228,17 +184,14 @@ Anthropic Claude Code documents the hook events publicly. Working assumption (to
 
 If any field is absent in a real payload, capture still succeeds (we store the raw blob; missing extracted columns become NULL). The contract is "store everything, extract what you can".
 
-**Assumption flag for spec phase**: confirm against current Claude Code docs that the field names above are stable. If the docs disagree, update the extractor only — the `payload` blob means nothing is lost.
-
 ## 7. Failure isolation
 
 The hook command's #1 invariant: **never break the host Claude session**. Implementation rules:
 
-1. The `runHook` function returns `error` only for unknown subcommand-name. EVERY runtime error (DB locked, disk full, malformed JSON, oversized payload) is caught, written to a log file, and yields `os.Exit(0)`.
+1. The `runHook` function returns `error` only for unknown subcommand-name. EVERY runtime error (DB locked, disk full, malformed JSON, oversized payload) is caught, written to stderr, and yields `os.Exit(0)`.
 2. Default panics are recovered at the `runHook` boundary with `defer recover` and logged.
-3. Log file location: `<dataDir>/thoughtline/hook.log`, append-only, line-delimited JSON `{ts, event_type, err}`. Manual rotation via worker's `--rotate-log` flag (size-based, default 10 MiB → keep one `.log.1`).
-4. Stdin read is bounded by `io.LimitReader(stdin, 1<<20)` — 1 MiB cap is well above any realistic Claude Code payload.
-5. Hook timeout: Claude Code already accepts a `timeout` field per hook in `hooks.json`. We register all six events with `timeout: 10` seconds, an order of magnitude over our p99 budget.
+3. Stdin read is bounded by `io.LimitReader(stdin, 1<<20)` — 1 MiB cap is well above any realistic Claude Code payload.
+4. Hook timeout: Claude Code already accepts a `timeout` field per hook in `hooks.json`. We register all six events with `timeout: 10` seconds, an order of magnitude over our p99 budget.
 
 ## 8. Performance budget
 

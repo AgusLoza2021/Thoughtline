@@ -80,21 +80,21 @@ We read claude-mem (AGPL-3.0) for **architectural ideas only**. No code, prompts
 
 ## Success Criteria
 
-- [ ] With opt-in OFF (default), `thoughtline hook` exits 0 with no DB writes — verified by test.
-- [ ] With opt-in ON, all 6 event types insert one row per unique event; duplicates are ignored.
-- [ ] `tl_promote` converts a `pending_event` row into a real memory with correct taxonomy type and marks the source row `promoted`.
-- [ ] Hook command median latency <50ms on a warm DB.
-- [ ] No AGPL-licensed source/prompt strings appear in the diff (grep + manual review).
-- [ ] Docs page explains opt-in, privacy, and promote workflow end-to-end.
+- [x] With opt-in OFF (default), `thoughtline hook` exits 0 with no DB writes — verified by test.
+- [x] With opt-in ON, all 6 event types insert one row per unique event; duplicates are ignored.
+- [x] `tl_promote` converts a `pending_event` row into a real memory with correct taxonomy type and marks the source row `promoted`.
+- [x] Hook command median latency <50ms on a warm DB.
+- [x] No AGPL-licensed source/prompt strings appear in the diff (grep + manual review).
+- [x] Docs page explains opt-in, privacy, and promote workflow end-to-end.
 
-## Open Questions
+## Open Questions (Resolved in Design/Apply Phases)
 
-1. Config: env var only, config file only, or both? (Lean: both — env wins.)
-2. Worker model: long-running daemon vs. cron-style invocation from a hook? (Lean: invoked, not daemon, in v1.)
-3. `tl_promote` signature: single event vs. batch? (Lean: batch from day one — cheaper round-trips.)
-4. Retention default for unpromoted events? (Suggested: 7 days.)
-5. Should `SessionEnd` auto-trigger a promote prompt to the AI, or stay fully manual? (Lean: manual in v1.)
-6. Where does the opt-in setting live if config-file? Reuse existing config or new section?
+1. Config: env var only, config file only, or both? (Resolved: env var only in v1.)
+2. Worker model: long-running daemon vs. cron-style invocation from a hook? (Resolved: invoked, not daemon, in v1.)
+3. `tl_promote` signature: single event vs. batch? (Resolved: batch from day one — cheaper round-trips.)
+4. Retention default for unpromoted events? (Resolved: 7 days.)
+5. Should `SessionEnd` auto-trigger a promote prompt to the AI, or stay fully manual? (Resolved: manual in v1.)
+6. Where does the opt-in setting live if config-file? (Resolved: deferred to v1.1; env var only in v1.)
 
 ## License Hygiene Clause
 

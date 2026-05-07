@@ -48,7 +48,7 @@ Before any destructive config edit, a zip backup of `~\.engram\` MUST exist at `
 
 ### Requirement 4: Allow-List Updated in settings.json
 
-`~\.claude\settings.json` MUST NOT contain any `mcp__plugin_engram_engram__*` entries under the tool allow-list. It MUST contain pre-populated allow-list entries for all 9 Thoughtline MCP tools so the user is never prompted for permission on first use:
+`~\.claude\settings.json` MUST NOT contain any `mcp__plugin_engram_engram__*` entries under the tool allow-list. It MUST contain pre-populated allow-list entries for all **12** Thoughtline MCP tools so the user is never prompted for permission on first use:
 
 | Tool name pattern |
 |---|
@@ -61,8 +61,11 @@ Before any destructive config edit, a zip backup of `~\.engram\` MUST exist at `
 | `mcp__thoughtline__tl_session_start` |
 | `mcp__thoughtline__tl_session_summary` |
 | `mcp__thoughtline__tl_stats` |
+| `mcp__thoughtline__tl_promote` |
+| `mcp__thoughtline__tl_pending_list` |
+| `mcp__thoughtline__tl_pending_get` |
 
-The exact number of tools (9) is fixed by Thoughtline's current MCP surface. If the design phase discovers a different count, this requirement MUST be updated before apply begins.
+Previously this contained exactly 9 tools. The passive-capture-hooks change adds 3 new tools (`tl_promote`, `tl_pending_list`, `tl_pending_get`), bringing the total to 12.
 
 #### Scenario: tl_save callable without permission prompt
 
@@ -78,7 +81,56 @@ The exact number of tools (9) is fixed by Thoughtline's current MCP surface. If 
 
 ---
 
-### Requirement 5: CLAUDE.md Protocol Block Replaced
+### Requirement 5: Hook Event Registration — 6 Events
+
+`plugin/claude-code/hooks/hooks.json` MUST be extended with entries for the following 6 Claude Code hook events, each invoking `thoughtline hook <name>` with JSON piped from stdin:
+
+| Event name (Claude Code) | `thoughtline hook` argument |
+|--------------------------|-----------------------------|
+| `SessionStart` | `session-start` |
+| `UserPromptSubmit` | `user-prompt-submit` |
+| `PreToolUse` | `pre-tool-use` |
+| `PostToolUse` | `post-tool-use` |
+| `Stop` | `stop` |
+| `SessionEnd` | `session-end` |
+
+Each hook entry MUST specify the command in a cross-platform form that works on both Windows (PowerShell/cmd) and Unix (bash/sh). The hook MUST pipe the event JSON to the binary via stdin.
+
+The hook configuration MUST NOT suppress stdout from the binary globally — errors that reach stderr are visible to the user for debugging. The hook MUST be configured so that a non-zero exit from the command does NOT abort the Claude Code session (use `"on_failure": "continue"` or equivalent field if supported by the hooks JSON schema).
+
+#### Scenario: Hooks file contains all 6 entries
+
+- GIVEN `plugin/claude-code/hooks/hooks.json` has been updated
+- WHEN the file is parsed
+- THEN exactly 6 entries exist for the events listed above, each with a valid command referencing the `thoughtline` binary
+
+#### Scenario: Hook failure does not crash Claude Code
+
+- GIVEN one of the 6 hooks is registered and `thoughtline hook` exits non-zero (unexpected error)
+- WHEN Claude Code fires that hook
+- THEN the Claude Code session continues; no crash or blocking dialog appears
+
+#### Scenario: Hook invocation is cross-platform
+
+- GIVEN a Windows machine with `thoughtline.exe` in PATH
+- WHEN Claude Code fires `PreToolUse`
+- THEN the hook command resolves the binary correctly and exits 0
+
+---
+
+### Requirement 6: `tl_promote` Allow-Listed in settings.json
+
+`~\.claude\settings.json` MUST include `mcp__thoughtline__tl_promote`, `mcp__thoughtline__tl_pending_list`, and `mcp__thoughtline__tl_pending_get` in the tool allow-list alongside the existing 9 Thoughtline tools. After this change the allow-list MUST contain 12 entries (see Requirement 4 above).
+
+#### Scenario: tl_promote callable without permission prompt
+
+- GIVEN `settings.json` contains `mcp__thoughtline__tl_promote` in the allow-list
+- WHEN Claude Code calls `tl_promote` for the first time in a session
+- THEN no permission dialog appears; the tool executes immediately
+
+---
+
+### Requirement 7: CLAUDE.md Protocol Block Replaced
 
 `~\.claude\CLAUDE.md` MUST NOT contain the `<!-- gentle-ai:engram-protocol -->` block after this change. It MUST contain an equivalent Thoughtline memory protocol block that documents `tl_save`, `tl_search`, `mem_session_summary` equivalents, and the proactive save triggers. The replacement block MUST preserve the same structural sections (when to save, when to search, session close protocol) so that Claude Code's behavior is equivalent — just backed by Thoughtline tools.
 
@@ -108,12 +160,12 @@ The exact number of tools (9) is fixed by Thoughtline's current MCP surface. If 
 
 ---
 
-### Requirement 7: Edit Order is Mandatory
+### Requirement 8: Edit Order is Mandatory
 
 The 5 config edits MUST be applied in the following order to ensure there is always a working memory backend during the transition:
 
 1. `mcp.json` — remove `engram` server entry (Thoughtline already active; this cuts Engram from the MCP bus)
-2. `settings.json` — swap allow-list entries
+2. `settings.json` — swap allow-list entries (updated to include 12 Thoughtline tools per Requirements 4 and 6)
 3. `~\.claude\mcp\engram.json` — delete (or rename to `.bak`)
 4. `~\.claude\CLAUDE.md` — replace protocol block
 5. `~\.claude\skills\_shared\engram-convention.md` → `thoughtline-convention.md`
