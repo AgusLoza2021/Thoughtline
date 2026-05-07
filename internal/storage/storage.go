@@ -28,6 +28,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
 	"strings"
 	"time"
 
@@ -88,6 +89,21 @@ func Open(ctx context.Context, path string) (*Storage, error) {
 	if err := db.PingContext(ctx); err != nil {
 		_ = db.Close()
 		return nil, fmt.Errorf("ping sqlite: %w", err)
+	}
+
+	// Tighten DB file permissions to 0600 (owner-only read/write).
+	// SQLite creates the file with the OS umask, which on most Linux
+	// distros leaves the file world-readable (0644). The DB can contain
+	// raw user prompts and tool I/O via passive capture — keep it private.
+	// On Windows os.Chmod only toggles the read-only bit, which is the
+	// expected no-op for this case.
+	if path != ":memory:" {
+		if err := os.Chmod(path, 0o600); err != nil && !os.IsNotExist(err) {
+			// Log via fmt.Errorf chain but don't fail Open — restrictive
+			// perms are best-effort. A user-visible failure here would
+			// break first-run on filesystems that don't honour chmod.
+			_ = err
+		}
 	}
 
 	s := &Storage{db: db, now: time.Now}
