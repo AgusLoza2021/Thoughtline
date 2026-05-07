@@ -19,14 +19,16 @@ type Config struct {
 	DBPath  string
 	Project string
 
-	// ThemeName picks the initial palette: "brand" (default), "zbrush",
-	// or "mono". Unknown names fall back to "brand". Theme can be
-	// cycled at runtime with the [t] hotkey.
+	// ThemeName is preserved on Config for backwards compatibility with
+	// the existing CLI flag --theme. The new screen-stack dashboard
+	// ignores it and renders a single palette; the old tab-based view
+	// is still wired through this field until the migration completes.
 	ThemeName string
 
-	// Splash controls whether the intro screen is shown on launch.
-	// Default false so tests don't have to wait. cmd/thoughtline sets
-	// this true unless --no-splash is passed.
+	// Splash + SplashDuration drive the v1 intro animation that lives in
+	// the old tab-based view. The new flat dashboard skips the splash.
+	// These fields stay so --no-splash and --splash-ms keep parsing while
+	// the migration is in flight.
 	Splash         bool
 	SplashDuration time.Duration
 
@@ -119,6 +121,11 @@ type Model struct {
 	detailVP      viewport.Model
 	detailLoading bool
 
+	// Screen stack — new flat-screen navigation (I1+).
+	// The root is always DashboardScreen; child screens are pushed on top.
+	screens []Screen
+	pal     palette
+
 	// Animated header cube (Overview tab only).
 	cube CubeModel
 
@@ -173,8 +180,8 @@ func (m *stackModel) Peek() Screen {
 // stats load. All bubbles widgets are created in a default-sized state and
 // resized to fit on the first WindowSizeMsg.
 func New(st *storage.Storage, cfg Config) Model {
-	// Apply the chosen theme up front so all styles render consistently.
-	ApplyTheme(ThemeByName(cfg.ThemeName))
+	// Apply the default theme so all styles render consistently.
+	ApplyTheme(ThemeBrand)
 
 	delegate := list.NewDefaultDelegate()
 	delegate.SetSpacing(0)
@@ -201,9 +208,16 @@ func New(st *storage.Storage, cfg Config) Model {
 
 	vp := viewport.New(0, 0)
 
+	// Root screen: the new flat dashboard. The old tab-based view continues
+	// to render via View()/Update() until I3 removes it; the screen stack
+	// drives the new navigation path in parallel.
+	rootScreen := NewDashboardScreen(st, cfg.Project, cfg.Version)
+
 	return Model{
 		storage:     st,
 		cfg:         cfg,
+		screens:     []Screen{rootScreen},
+		pal:         defaultPalette,
 		tab:         tabOverview,
 		tabsLoaded:  make(map[tabKey]bool),
 		browseList:  browseList,
@@ -217,7 +231,7 @@ func New(st *storage.Storage, cfg Config) Model {
 			Mode:       CubePlain,
 			FrameDelay: 220 * time.Millisecond,
 		}),
-		theme:        ThemeByName(cfg.ThemeName),
+		theme:        ThemeBrand,
 		splashActive: cfg.Splash,
 	}
 }
