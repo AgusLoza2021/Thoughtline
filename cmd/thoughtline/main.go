@@ -61,6 +61,10 @@ func main() {
 		err = runDashboard(ctx, os.Args[2:])
 	case "protocol":
 		err = runProtocol(os.Args[2:])
+	case "hook":
+		err = runHook(ctx, os.Args[2:], os.Stdin, os.Stderr)
+	case "worker":
+		err = runWorker(ctx, os.Args[2:], os.Stderr)
 	case "version", "-v", "--version":
 		fmt.Printf("thoughtline %s\n", version)
 		return
