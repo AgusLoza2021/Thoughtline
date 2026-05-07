@@ -1,5 +1,5 @@
 {
-  "description": "Thoughtline persistent memory hooks — protocol injection and session lifecycle. Cross-platform: invokes the `thoughtline` binary directly so no bash/WSL is required on Windows.",
+  "description": "Thoughtline persistent memory hooks — protocol injection, session lifecycle, and passive event capture. Cross-platform: invokes the `thoughtline` binary directly so no bash/WSL is required on Windows.",
   "hooks": {
     "SessionStart": [
       {
@@ -10,6 +10,12 @@
             "command": "thoughtline protocol --event session-start",
             "timeout": 5,
             "statusMessage": "Loading thoughtline memory..."
+          },
+          {
+            "type": "command",
+            "command": "thoughtline hook session-start",
+            "timeout": 10,
+            "on_failure": "continue"
           }
         ]
       },
@@ -21,6 +27,66 @@
             "command": "thoughtline protocol --event post-compaction",
             "timeout": 5,
             "statusMessage": "Recovering thoughtline context after compaction..."
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "thoughtline hook user-prompt-submit",
+            "timeout": 10,
+            "on_failure": "continue"
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "thoughtline hook pre-tool-use",
+            "timeout": 10,
+            "on_failure": "continue"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "thoughtline hook post-tool-use",
+            "timeout": 10,
+            "on_failure": "continue"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "thoughtline hook stop",
+            "timeout": 10,
+            "on_failure": "continue"
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "thoughtline hook session-end",
+            "timeout": 10,
+            "on_failure": "continue"
           }
         ]
       }
