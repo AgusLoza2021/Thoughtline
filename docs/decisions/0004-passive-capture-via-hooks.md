@@ -66,6 +66,17 @@ never surfaced by `tl_search`.
   and a setup guide mitigate this; enforcement is future work.
 - Hook payload schema from Claude Code may drift. Mitigation: we store the raw
   blob; extractors degrade gracefully to NULL for unknown fields.
+- **`tl_promote` non-atomic seam (known v1 limitation)**: per-item flow is
+  `Save(memory) → MarkPromoted(event)`. If `MarkPromoted` fails after `Save`
+  succeeds, the memory exists but the event stays `pending`. A retry would
+  call `Save` again and create a duplicate memory. Mitigations: (a) callers
+  SHOULD pass a stable `topic_key` so the second `Save` upserts instead of
+  creating a duplicate; (b) the failure path is a single-row UPDATE on a row
+  we just successfully INSERT-ed, so contention is rare under SQLite WAL +
+  `busy_timeout`. A v1.1 fix would either wrap both calls in one transaction
+  (requires `Storage.Save` to accept an external tx) or check
+  `pending_events.promoted_memory_id` first and return the linked memory
+  instead of re-saving. Tracked here as a known issue, not a blocker for v1.
 
 **Deferred**:
 - LLM compression of pending events (will be its own ADR when needed).
