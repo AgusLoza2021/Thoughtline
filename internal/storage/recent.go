@@ -11,22 +11,21 @@ import (
 	"github.com/AgusLoza2021/Thoughtline/internal/memory"
 )
 
-// Recent returns the most recently updated active memories for a project,
+// Recent returns the most recently updated active memories for a brain,
 // ordered by updated_at DESC. Soft-deleted rows are excluded. The returned
 // SearchResult mirrors what tl_search yields, except Score is always 0
 // (recency is not a relevance signal) and Snippet is the content prefix
 // truncated to SnippetMaxChars (no FTS5 match centering).
 //
-// project must be non-empty: passing "" would silently return rows from
-// every project, which is a security/data-leak shape we refuse to support.
-// Callers that genuinely want cross-project recency should call Recent
-// once per project.
+// brainID must be non-zero: passing 0 would silently return rows from
+// every brain, which is a cross-brain leak. Callers that genuinely want
+// cross-brain recency should use RecentAll.
 //
 // limit follows the same semantics as Search: <=0 means DefaultSearchLimit,
 // values above MaxSearchLimit are clamped down.
-func (s *Storage) Recent(ctx context.Context, project string, limit int) ([]SearchResult, error) {
-	if project == "" {
-		return nil, errors.New("storage: Recent requires a non-empty project")
+func (s *Storage) Recent(ctx context.Context, brainID int64, limit int) ([]SearchResult, error) {
+	if brainID == 0 {
+		return nil, errors.New("storage: Recent requires a non-zero brainID")
 	}
 	if limit <= 0 {
 		limit = DefaultSearchLimit
@@ -39,10 +38,10 @@ func (s *Storage) Recent(ctx context.Context, project string, limit int) ([]Sear
 		SELECT id, sync_id, project, scope, type, topic_key,
 		       title, content, tags, revision_count, updated_at
 		FROM memories
-		WHERE project = ? AND deleted_at IS NULL
+		WHERE brain_id = ? AND deleted_at IS NULL
 		ORDER BY updated_at DESC
 		LIMIT ?`,
-		project, limit,
+		brainID, limit,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("recent query: %w", err)

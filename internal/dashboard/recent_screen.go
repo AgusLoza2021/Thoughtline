@@ -107,7 +107,12 @@ func (r *RecentScreen) loadCmd() tea.Cmd {
 		var results []storage.SearchResult
 		var err error
 		if fp != "" {
-			results, err = st.Recent(ctx, fp, 20)
+			// Read path: resolve brain — return empty on not-found (no auto-create).
+			brainID, resolveErr := st.ResolveBrainID(ctx, fp)
+			if resolveErr == nil {
+				results, err = st.Recent(ctx, brainID, 20)
+			}
+			// If brain not found, results stays nil (empty list) — no error surfaced.
 		} else {
 			results, err = st.RecentAll(ctx, "", 20)
 		}

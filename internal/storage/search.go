@@ -60,6 +60,9 @@ type SearchResult struct {
 // for topic-key shortcut hits). Filters are applied as exact-match SQL WHERE
 // predicates, except TopicKey which is a GLOB pattern.
 //
+// brainID scopes the search to a single brain — all results belong to that
+// brain. Pass a valid non-zero brainID obtained from ResolveBrainID.
+//
 // Behaviour summary:
 //   - If query contains "/", a topic_key GLOB lookup runs first. If it returns
 //     rows, those rows are the result set (FTS does not run). If it returns
@@ -68,7 +71,7 @@ type SearchResult struct {
 //   - Otherwise the FTS5 path runs, with each query token wrapped in quotes
 //     to neutralize FTS5 operator characters in user input.
 //   - Soft-deleted rows (deleted_at IS NOT NULL) are never returned.
-func (s *Storage) Search(ctx context.Context, query string, opts SearchOptions) ([]SearchResult, error) {
+func (s *Storage) Search(ctx context.Context, brainID int64, query string, opts SearchOptions) ([]SearchResult, error) {
 	limit := opts.Limit
 	if limit <= 0 {
 		limit = DefaultSearchLimit
@@ -82,7 +85,7 @@ func (s *Storage) Search(ctx context.Context, query string, opts SearchOptions) 
 	}
 
 	if strings.Contains(query, "/") {
-		hits, err := s.searchByTopicKey(ctx, query, opts, limit, offset)
+		hits, err := s.searchByTopicKey(ctx, brainID, query, opts, limit, offset)
 		if err != nil {
 			return nil, err
 		}
@@ -92,15 +95,15 @@ func (s *Storage) Search(ctx context.Context, query string, opts SearchOptions) 
 		// Shortcut miss → fall through to FTS path.
 	}
 
-	return s.searchByFTS(ctx, query, opts, limit, offset)
+	return s.searchByFTS(ctx, brainID, query, opts, limit, offset)
 }
 
 // searchByTopicKey runs the GLOB shortcut. Rank is synthetic; ordering is by
 // updated_at DESC (most recently touched first).
-func (s *Storage) searchByTopicKey(ctx context.Context, glob string, opts SearchOptions, limit, offset int) ([]SearchResult, error) {
+func (s *Storage) searchByTopicKey(ctx context.Context, brainID int64, glob string, opts SearchOptions, limit, offset int) ([]SearchResult, error) {
 	var (
-		where = []string{"topic_key GLOB ?", "deleted_at IS NULL"}
-		args  = []any{glob}
+		where = []string{"topic_key GLOB ?", "deleted_at IS NULL", "brain_id = ?"}
+		args  = []any{glob, brainID}
 	)
 	addCommonFilters(&where, &args, opts)
 
@@ -158,15 +161,15 @@ func (s *Storage) searchByTopicKey(ctx context.Context, glob string, opts Search
 
 // searchByFTS runs the FTS5 + BM25 path. The query is sanitized so each token
 // is a literal-quoted phrase; FTS5 special chars in user input become inert.
-func (s *Storage) searchByFTS(ctx context.Context, raw string, opts SearchOptions, limit, offset int) ([]SearchResult, error) {
+func (s *Storage) searchByFTS(ctx context.Context, brainID int64, raw string, opts SearchOptions, limit, offset int) ([]SearchResult, error) {
 	q := sanitizeFTSQuery(raw)
 	if q == "" {
 		// Nothing left after sanitization (e.g. all whitespace) — empty result.
 		return nil, nil
 	}
 
-	where := []string{"memories_fts MATCH ?", "m.deleted_at IS NULL"}
-	args := []any{q}
+	where := []string{"memories_fts MATCH ?", "m.deleted_at IS NULL", "m.brain_id = ?"}
+	args := []any{q, brainID}
 	addCommonFiltersAliased(&where, &args, opts, "m")
 
 	sqlStr := `

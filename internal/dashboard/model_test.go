@@ -49,6 +49,11 @@ func TestModel_InitLoadsStats(t *testing.T) {
 	m, st := newTestModel(t)
 
 	// Seed one memory so stats has something to count.
+	ctx := context.Background()
+	brainID, err := st.ResolveOrCreateBrainID(ctx, "enchanted-inn")
+	if err != nil {
+		t.Fatalf("resolve brain: %v", err)
+	}
 	m_input := memory.Memory{
 		Project: "enchanted-inn",
 		Scope:   memory.ScopeProject,
@@ -56,7 +61,7 @@ func TestModel_InitLoadsStats(t *testing.T) {
 		Title:   "Test",
 		Content: "test body",
 	}
-	if _, _, err := st.Save(context.Background(), m_input); err != nil {
+	if _, _, err := st.Save(ctx, brainID, m_input); err != nil {
 		t.Fatalf("seed: %v", err)
 	}
 

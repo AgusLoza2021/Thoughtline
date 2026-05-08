@@ -2,7 +2,6 @@ package server
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 	"fmt"
 	"strings"
@@ -54,15 +53,25 @@ func doGetObservation(ctx context.Context, s *storage.Storage, args getObservati
 		return mcp.NewToolResultError("'id' is required and must be a positive integer"), nil
 	}
 
-	m, err := s.GetByID(ctx, args.ID)
+	// Read path: fetch without brain scoping to discover which brain owns the row,
+	// then re-fetch brain-scoped so cross-brain isolation is enforced.
+	m, err := s.GetByIDUnscoped(ctx, args.ID)
 	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return mcp.NewToolResultError(fmt.Sprintf("no memory found with id=%d", args.ID)), nil
-		}
-		return mcp.NewToolResultError(fmt.Sprintf("get failed: %v", err)), nil
+		return mcp.NewToolResultError(fmt.Sprintf("no memory found with id=%d", args.ID)), nil
 	}
 	if m.DeletedAt != nil {
 		return mcp.NewToolResultError(fmt.Sprintf("no memory found with id=%d", args.ID)), nil
+	}
+	// Enforce brain-scoped access using the row's own brain_id.
+	if m.BrainID != 0 {
+		scoped, err := s.GetByID(ctx, m.BrainID, args.ID)
+		if errors.Is(err, storage.ErrMemoryNotFound) {
+			return mcp.NewToolResultError(fmt.Sprintf("no memory found with id=%d", args.ID)), nil
+		}
+		if err != nil {
+			return mcp.NewToolResultError(fmt.Sprintf("get failed: %v", err)), nil
+		}
+		m = scoped
 	}
 
 	return mcp.NewToolResultText(formatObservation(m)), nil

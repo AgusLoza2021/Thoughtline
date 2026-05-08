@@ -62,8 +62,13 @@ func writeRow(ctx context.Context, st *storage.Storage, rawDB *sql.DB, m memory.
 		}
 	}
 
-	// Step 3 — storage.Save() writes the row and generates a fresh UUIDv7.
-	saved, action, err := st.Save(ctx, m)
+	// Step 3 — resolve or create the brain for m.Project, then Save.
+	// Migration is a write path: auto-create the brain if not present.
+	brainID, err := st.ResolveOrCreateBrainID(ctx, m.Project)
+	if err != nil {
+		return result, fmt.Errorf("resolve brain for %s: %w", m.Project, err)
+	}
+	saved, action, err := st.Save(ctx, brainID, m)
 	if err != nil {
 		return result, fmt.Errorf("storage.Save for %s: %w", engramSyncID, err)
 	}

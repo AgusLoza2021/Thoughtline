@@ -6,6 +6,8 @@ Single source of truth for "what's done, what's next, what's blocking publishing
 
 ## Current state — 2026-05-07
 
+**M-brain-foundation: 🟢 done (2026-05-07).** Schema v4, 4 new packages (`config`, `brain`, `links`, `events`), storage API redesign (brain-scoped queries), isolation invariant test suite, server compat layer. See ADR 0005.
+
 **Passive capture: 🟢 done.** Schema v3, 12 MCP tools, `thoughtline hook`, `thoughtline worker`. See ADR 0004.
 
 **Milestone M5 (Dashboard): 🟢 done.** M0–M4 are also 🟢 done — see history below. Nine MCP tools + interactive TUI shipped in M5. M6 (Smarts / embeddings) is deferred per ADR 0002.

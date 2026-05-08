@@ -1,3 +1,6 @@
+// tl_stats.go — stats MCP tool.
+// Stats is a cross-brain aggregate view (queries by project string, not brainID).
+// Per-brain breakdown is deferred to a future change; see storage/stats.go.
 package server
 
 import (

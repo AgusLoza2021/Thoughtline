@@ -21,7 +21,12 @@ func newTestBrowseScreen(t *testing.T, projects ...string) (*BrowseProjectsScree
 	}
 	t.Cleanup(func() { _ = st.Close() })
 
+	ctx := context.Background()
 	for _, p := range projects {
+		brainID, err := st.ResolveOrCreateBrainID(ctx, p)
+		if err != nil {
+			t.Fatalf("resolve brain %q: %v", p, err)
+		}
 		m := memory.Memory{
 			Project:  p,
 			Scope:    memory.ScopeProject,
@@ -30,7 +35,7 @@ func newTestBrowseScreen(t *testing.T, projects ...string) (*BrowseProjectsScree
 			Content:  "content",
 			TopicKey: "scene/" + p,
 		}
-		if _, _, err := st.Save(context.Background(), m); err != nil {
+		if _, _, err := st.Save(ctx, brainID, m); err != nil {
 			t.Fatalf("seed project %q: %v", p, err)
 		}
 	}

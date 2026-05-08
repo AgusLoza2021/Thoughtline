@@ -116,7 +116,12 @@ func (s *SearchScreen) runSearch(query string) tea.Cmd {
 	return func() tea.Msg {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
-		results, err := st.Search(ctx, query, storage.SearchOptions{Project: project, Limit: 50})
+		// Read path: resolve brain — return empty on not-found (no auto-create).
+		brainID, err := st.ResolveBrainID(ctx, project)
+		if err != nil {
+			return searchResultsMsg{results: nil, err: nil}
+		}
+		results, err := st.Search(ctx, brainID, query, storage.SearchOptions{Project: project, Limit: 50})
 		return searchResultsMsg{results: results, err: err}
 	}
 }

@@ -23,6 +23,17 @@ func newTestStorage(t *testing.T) *Storage {
 	return st
 }
 
+// defaultBrainID creates (or returns cached) the "enchanted-inn" brain for a
+// test storage. All helpers that accept sampleMemory() use this brain.
+func defaultBrainID(t *testing.T, st *Storage) int64 {
+	t.Helper()
+	id, err := st.ResolveOrCreateBrainID(context.Background(), "enchanted-inn")
+	if err != nil {
+		t.Fatalf("defaultBrainID: %v", err)
+	}
+	return id
+}
+
 func sampleMemory() memory.Memory {
 	return memory.Memory{
 		Project: "enchanted-inn",
@@ -36,9 +47,10 @@ func sampleMemory() memory.Memory {
 func TestSave_InsertWithoutTopicKey(t *testing.T) {
 	st := newTestStorage(t)
 	ctx := context.Background()
+	brainID := defaultBrainID(t, st)
 
 	m := sampleMemory()
-	saved, action, err := st.Save(ctx, m)
+	saved, action, err := st.Save(ctx, brainID, m)
 	if err != nil {
 		t.Fatalf("save: %v", err)
 	}
@@ -62,11 +74,12 @@ func TestSave_InsertWithoutTopicKey(t *testing.T) {
 func TestSave_UpsertByTopicKey_FirstSaveIsCreate(t *testing.T) {
 	st := newTestStorage(t)
 	ctx := context.Background()
+	brainID := defaultBrainID(t, st)
 
 	m := sampleMemory()
 	m.TopicKey = "scene/playcanvas/inn-cellar"
 
-	saved, action, err := st.Save(ctx, m)
+	saved, action, err := st.Save(ctx, brainID, m)
 	if err != nil {
 		t.Fatalf("save: %v", err)
 	}
@@ -81,10 +94,11 @@ func TestSave_UpsertByTopicKey_FirstSaveIsCreate(t *testing.T) {
 func TestSave_UpsertByTopicKey_DifferentContentIsUpdate(t *testing.T) {
 	st := newTestStorage(t)
 	ctx := context.Background()
+	brainID := defaultBrainID(t, st)
 
 	first := sampleMemory()
 	first.TopicKey = "scene/playcanvas/inn-cellar"
-	saved1, _, err := st.Save(ctx, first)
+	saved1, _, err := st.Save(ctx, brainID, first)
 	if err != nil {
 		t.Fatalf("first save: %v", err)
 	}
@@ -94,7 +108,7 @@ func TestSave_UpsertByTopicKey_DifferentContentIsUpdate(t *testing.T) {
 
 	second := first
 	second.Content = first.Content + "\nUpdated: switched lighting batch group."
-	saved2, action, err := st.Save(ctx, second)
+	saved2, action, err := st.Save(ctx, brainID, second)
 	if err != nil {
 		t.Fatalf("second save: %v", err)
 	}
@@ -121,15 +135,16 @@ func TestSave_UpsertByTopicKey_DifferentContentIsUpdate(t *testing.T) {
 func TestSave_UpsertByTopicKey_IdenticalContentIsNoop(t *testing.T) {
 	st := newTestStorage(t)
 	ctx := context.Background()
+	brainID := defaultBrainID(t, st)
 
 	m := sampleMemory()
 	m.TopicKey = "scene/playcanvas/inn-cellar"
-	saved1, _, err := st.Save(ctx, m)
+	saved1, _, err := st.Save(ctx, brainID, m)
 	if err != nil {
 		t.Fatalf("first save: %v", err)
 	}
 
-	saved2, action, err := st.Save(ctx, m)
+	saved2, action, err := st.Save(ctx, brainID, m)
 	if err != nil {
 		t.Fatalf("second save: %v", err)
 	}
@@ -147,6 +162,7 @@ func TestSave_UpsertByTopicKey_IdenticalContentIsNoop(t *testing.T) {
 func TestSave_DifferentTopicKeysCreateSeparateRows(t *testing.T) {
 	st := newTestStorage(t)
 	ctx := context.Background()
+	brainID := defaultBrainID(t, st)
 
 	a := sampleMemory()
 	a.TopicKey = "scene/playcanvas/inn-cellar"
@@ -154,11 +170,11 @@ func TestSave_DifferentTopicKeysCreateSeparateRows(t *testing.T) {
 	b.TopicKey = "scene/playcanvas/inn-courtyard"
 	b.Content = "different content for the courtyard"
 
-	savedA, actA, err := st.Save(ctx, a)
+	savedA, actA, err := st.Save(ctx, brainID, a)
 	if err != nil {
 		t.Fatalf("save a: %v", err)
 	}
-	savedB, actB, err := st.Save(ctx, b)
+	savedB, actB, err := st.Save(ctx, brainID, b)
 	if err != nil {
 		t.Fatalf("save b: %v", err)
 	}
@@ -178,6 +194,15 @@ func TestSave_DifferentProjectsAllowSameTopicKey(t *testing.T) {
 	st := newTestStorage(t)
 	ctx := context.Background()
 
+	brainA, err := st.ResolveOrCreateBrainID(ctx, "project-alpha")
+	if err != nil {
+		t.Fatalf("brain-alpha: %v", err)
+	}
+	brainB, err := st.ResolveOrCreateBrainID(ctx, "project-beta")
+	if err != nil {
+		t.Fatalf("brain-beta: %v", err)
+	}
+
 	a := sampleMemory()
 	a.Project = "project-alpha"
 	a.TopicKey = "convention/asset-naming"
@@ -186,10 +211,10 @@ func TestSave_DifferentProjectsAllowSameTopicKey(t *testing.T) {
 	b.Project = "project-beta"
 	b.TopicKey = "convention/asset-naming"
 
-	if _, _, err := st.Save(ctx, a); err != nil {
+	if _, _, err := st.Save(ctx, brainA, a); err != nil {
 		t.Fatalf("save a: %v", err)
 	}
-	if _, _, err := st.Save(ctx, b); err != nil {
+	if _, _, err := st.Save(ctx, brainB, b); err != nil {
 		t.Fatalf("save b: %v", err)
 	}
 
@@ -215,6 +240,7 @@ func TestSave_DifferentProjectsAllowSameTopicKey(t *testing.T) {
 func TestSave_FTSStaysInSync(t *testing.T) {
 	st := newTestStorage(t)
 	ctx := context.Background()
+	brainID := defaultBrainID(t, st)
 
 	// 1. Insert — FTS row count should grow.
 	if n, err := st.FTSCount(ctx); err != nil || n != 0 {
@@ -224,7 +250,7 @@ func TestSave_FTSStaysInSync(t *testing.T) {
 	first := sampleMemory()
 	first.TopicKey = "scene/playcanvas/inn-cellar"
 	first.Content = "lantern-base texture, bloom-safe import"
-	if _, _, err := st.Save(ctx, first); err != nil {
+	if _, _, err := st.Save(ctx, brainID, first); err != nil {
 		t.Fatalf("save: %v", err)
 	}
 
@@ -239,7 +265,7 @@ func TestSave_FTSStaysInSync(t *testing.T) {
 	// 2. Update — old content must be evicted, new content searchable.
 	updated := first
 	updated.Content = "tea kettle prop, alpha mask import"
-	if _, _, err := st.Save(ctx, updated); err != nil {
+	if _, _, err := st.Save(ctx, brainID, updated); err != nil {
 		t.Fatalf("save update: %v", err)
 	}
 
@@ -262,15 +288,16 @@ func TestSave_FTSStaysInSync(t *testing.T) {
 func TestSave_PersistsTags(t *testing.T) {
 	st := newTestStorage(t)
 	ctx := context.Background()
+	brainID := defaultBrainID(t, st)
 
 	m := sampleMemory()
 	m.Tags = []string{"engine:playcanvas", "platform:android"}
-	saved, _, err := st.Save(ctx, m)
+	saved, _, err := st.Save(ctx, brainID, m)
 	if err != nil {
 		t.Fatalf("save: %v", err)
 	}
 
-	got, err := st.GetByID(ctx, saved.ID)
+	got, err := st.GetByID(ctx, brainID, saved.ID)
 	if err != nil {
 		t.Fatalf("get: %v", err)
 	}
@@ -288,7 +315,11 @@ func TestOpen_PersistsAcrossReopen(t *testing.T) {
 	if err != nil {
 		t.Fatalf("open 1: %v", err)
 	}
-	saved, _, err := st1.Save(ctx, sampleMemory())
+	brainID, err := st1.ResolveOrCreateBrainID(ctx, "enchanted-inn")
+	if err != nil {
+		t.Fatalf("brain: %v", err)
+	}
+	saved, _, err := st1.Save(ctx, brainID, sampleMemory())
 	if err != nil {
 		t.Fatalf("save: %v", err)
 	}
@@ -301,7 +332,7 @@ func TestOpen_PersistsAcrossReopen(t *testing.T) {
 		t.Fatalf("open 2: %v", err)
 	}
 	defer st2.Close()
-	got, err := st2.GetByID(ctx, saved.ID)
+	got, err := st2.GetByID(ctx, brainID, saved.ID)
 	if err != nil {
 		t.Fatalf("get after reopen: %v", err)
 	}

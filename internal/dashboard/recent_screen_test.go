@@ -27,15 +27,20 @@ func newTestRecentScreen(t *testing.T) (*RecentScreen, *storage.Storage) {
 func seedMemory(t *testing.T, st *storage.Storage, project, title string, updatedAt time.Time) storage.SearchResult {
 	t.Helper()
 	st.SetClock(func() time.Time { return updatedAt })
+	ctx := context.Background()
+	brainID, err := st.ResolveOrCreateBrainID(ctx, project)
+	if err != nil {
+		t.Fatalf("resolve brain %q: %v", project, err)
+	}
 	m := memory.Memory{
-		Project: project,
-		Scope:   memory.ScopeProject,
-		Type:    memory.TypeScenePattern,
-		Title:   title,
-		Content: "content for " + title,
+		Project:  project,
+		Scope:    memory.ScopeProject,
+		Type:     memory.TypeScenePattern,
+		Title:    title,
+		Content:  "content for " + title,
 		TopicKey: "scene/" + title,
 	}
-	saved, _, err := st.Save(context.Background(), m)
+	saved, _, err := st.Save(ctx, brainID, m)
 	if err != nil {
 		t.Fatalf("seed memory %q: %v", title, err)
 	}

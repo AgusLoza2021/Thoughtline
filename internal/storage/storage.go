@@ -34,6 +34,8 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/AgusLoza2021/Thoughtline/internal/config"
+	"github.com/AgusLoza2021/Thoughtline/internal/events"
 	"github.com/AgusLoza2021/Thoughtline/internal/memory"
 
 	_ "modernc.org/sqlite"
@@ -44,6 +46,16 @@ import (
 // given id. Callers (and the server layer) should errors.Is against this
 // sentinel to render a clean "not found" response.
 var ErrMemoryNotFound = errors.New("storage: memory not found")
+
+// ErrBrainRequired is returned when a per-brain storage method is called
+// with brainID == 0. This is a programmer error — every write/read must
+// be scoped to a specific brain.
+var ErrBrainRequired = errors.New("storage: brainID must be non-zero")
+
+// ErrBrainMismatch is returned when the memory.BrainID set by the caller
+// does not match the brainID argument passed to Save. Always trust the arg;
+// a mismatch indicates a bug in the caller.
+var ErrBrainMismatch = errors.New("storage: memory.BrainID does not match brainID argument")
 
 // UpsertAction reports what Save did with the row.
 type UpsertAction int
@@ -69,8 +81,17 @@ func (a UpsertAction) String() string {
 
 // Storage owns a SQLite connection pool and is safe for concurrent use.
 type Storage struct {
-	db  *sql.DB
-	now func() time.Time
+	db     *sql.DB
+	now    func() time.Time
+	brains brainCache
+	bus    *events.Bus // optional; nil means no event emission
+}
+
+// SetBus attaches an event bus to the storage. After this call, every
+// successful Save, UpdateByID, and SoftDelete emits the corresponding event.
+// Safe to call at most once during app bootstrap. Passing nil is a no-op.
+func (s *Storage) SetBus(bus *events.Bus) {
+	s.bus = bus
 }
 
 // Open opens or creates the database at path and runs migrations. Use ":memory:"
@@ -164,15 +185,140 @@ func (s *Storage) migrate(ctx context.Context) error {
 		return fmt.Errorf("create session_id index: %w", err)
 	}
 
-	// Record / refresh the schema version. Using INSERT OR IGNORE keeps the
-	// first applied_at intact per row; bumping currentSchemaVersion to a new
-	// integer adds a separate row, leaving an audit trail of when each
-	// version was first applied.
+	// Record v3 in the schema_version audit trail (INSERT OR IGNORE so
+	// existing rows are preserved; v4 migration will add its own row).
+	if _, err := s.db.ExecContext(ctx,
+		`INSERT OR IGNORE INTO schema_version(version, applied_at) VALUES (3, ?)`,
+		time.Now().UnixMilli()); err != nil {
+		return fmt.Errorf("record schema v3: %w", err)
+	}
+
+	// v4 step: brains, global_config, memory_links tables + backfill.
+	// Check whether v4 has already been applied by looking for the version row.
+	var v4Applied int
+	_ = s.db.QueryRowContext(ctx,
+		`SELECT COUNT(*) FROM schema_version WHERE version = 4`).Scan(&v4Applied)
+	if v4Applied == 0 {
+		if err := s.migrateV4(ctx); err != nil {
+			return fmt.Errorf("migrate v4: %w", err)
+		}
+	}
+
+	// Record / refresh the current schema version. INSERT OR IGNORE keeps the
+	// first applied_at intact per row, leaving an audit trail per version.
 	_, err = s.db.ExecContext(ctx,
 		`INSERT OR IGNORE INTO schema_version(version, applied_at) VALUES (?, ?)`,
 		currentSchemaVersion, time.Now().UnixMilli(),
 	)
 	return err
+}
+
+// migrateV4 creates the brains, global_config, and memory_links tables, adds
+// memories.brain_id, seeds global_config, backfills brains from distinct
+// memories.project values, and sets memories.brain_id. The entire operation
+// runs in a single transaction so a failure rolls back cleanly to v3 state.
+func (s *Storage) migrateV4(ctx context.Context) error {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	// 1. Run v4 DDL (CREATE IF NOT EXISTS for new tables + indexes).
+	if _, err := tx.ExecContext(ctx, schemaV4SQL); err != nil {
+		return fmt.Errorf("v4 ddl: %w", err)
+	}
+
+	// 2. Add memories.brain_id if absent. PRAGMA-driven, idempotent.
+	hasBrainID, err := columnExists(ctx, s.db, "memories", "brain_id")
+	if err != nil {
+		return fmt.Errorf("check brain_id column: %w", err)
+	}
+	if !hasBrainID {
+		if _, err := tx.ExecContext(ctx,
+			`ALTER TABLE memories ADD COLUMN brain_id INTEGER REFERENCES brains(id)`); err != nil {
+			return fmt.Errorf("add brain_id: %w", err)
+		}
+	}
+	// Create the brain_id index on memories (must be after ALTER TABLE adds the column).
+	if _, err := tx.ExecContext(ctx, schemaV4MemoriesBrainIndexSQL); err != nil {
+		return fmt.Errorf("v4 brain index: %w", err)
+	}
+
+	now := s.nowMillis().UnixMilli()
+
+	// 3. Seed global_config singleton with compiled defaults if missing.
+	// INSERT OR IGNORE preserves any pre-existing custom config (idempotency).
+	if _, err := tx.ExecContext(ctx,
+		`INSERT OR IGNORE INTO global_config(id, config_json, updated_at) VALUES (1, ?, ?)`,
+		config.DefaultGlobalJSON(), now); err != nil {
+		return fmt.Errorf("seed global_config: %w", err)
+	}
+
+	// 4. Backfill brains: one row per DISTINCT memories.project, kind='real'.
+	// INSERT OR IGNORE so re-runs are no-ops.
+	if _, err := tx.ExecContext(ctx, `
+		INSERT OR IGNORE INTO brains (slug, display_name, kind, description,
+		                              config_json, created_at, updated_at)
+		SELECT project, project, 'real', 'Backfilled from v3 project',
+		       '{}', ?, ?
+		FROM memories
+		WHERE project IS NOT NULL AND project <> ''
+		GROUP BY project`, now, now); err != nil {
+		return fmt.Errorf("backfill brains: %w", err)
+	}
+
+	// 5. UPDATE memories.brain_id from brains.slug.
+	if _, err := tx.ExecContext(ctx, `
+		UPDATE memories
+		SET brain_id = (SELECT id FROM brains WHERE brains.slug = memories.project)
+		WHERE brain_id IS NULL`); err != nil {
+		return fmt.Errorf("backfill brain_id: %w", err)
+	}
+
+	// 6. FAIL LOUDLY if any active memory still has NULL brain_id.
+	//    These are memories with NULL or empty project — unresolvable.
+	var orphans int
+	if err := tx.QueryRowContext(ctx, `
+		SELECT COUNT(*) FROM memories
+		WHERE deleted_at IS NULL
+		  AND (brain_id IS NULL OR project IS NULL OR project = '')`).Scan(&orphans); err != nil {
+		return err
+	}
+	if orphans > 0 {
+		ids := collectOrphanIDs(ctx, tx, 10)
+		return fmt.Errorf("migrate v4: %d memories have NULL/empty project (ids: %v); cannot backfill brain_id", orphans, ids)
+	}
+
+	// 7. Bump schema_version.
+	if _, err := tx.ExecContext(ctx,
+		`INSERT OR IGNORE INTO schema_version(version, applied_at) VALUES (4, ?)`,
+		now); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
+// collectOrphanIDs returns up to n memory IDs that are active but have
+// NULL brain_id or NULL/empty project. Used in migration failure messages.
+func collectOrphanIDs(ctx context.Context, tx *sql.Tx, n int) []int64 {
+	rows, err := tx.QueryContext(ctx, `
+		SELECT id FROM memories
+		WHERE deleted_at IS NULL
+		  AND (brain_id IS NULL OR project IS NULL OR project = '')
+		LIMIT ?`, n)
+	if err != nil {
+		return nil
+	}
+	defer rows.Close()
+	var ids []int64
+	for rows.Next() {
+		var id int64
+		if err := rows.Scan(&id); err == nil {
+			ids = append(ids, id)
+		}
+	}
+	return ids
 }
 
 // columnExists reports whether the given table has a column with the given
@@ -207,21 +353,33 @@ func columnExists(ctx context.Context, db *sql.DB, table, column string) (bool, 
 // memory.Validate; it does NOT re-validate the memory shape itself, but it DOES
 // enforce the cross-table invariants that domain validation can't see — namely
 // that an attached SessionID exists and belongs to the same project.
-func (s *Storage) Save(ctx context.Context, m memory.Memory) (memory.Memory, UpsertAction, error) {
+//
+// brainID must be non-zero (returns ErrBrainRequired if zero).
+// If m.BrainID is set and differs from brainID, returns ErrBrainMismatch.
+// Storage always trusts the brainID argument; m.BrainID and m.Project are
+// stored as-is for denorm compat but brain_id column is set from brainID arg.
+func (s *Storage) Save(ctx context.Context, brainID int64, m memory.Memory) (memory.Memory, UpsertAction, error) {
+	if brainID == 0 {
+		return memory.Memory{}, 0, ErrBrainRequired
+	}
+	if m.BrainID != 0 && m.BrainID != brainID {
+		return memory.Memory{}, 0, fmt.Errorf("%w: memory has %d, arg is %d",
+			ErrBrainMismatch, m.BrainID, brainID)
+	}
 	if err := s.validateSessionLink(ctx, m); err != nil {
 		return memory.Memory{}, 0, err
 	}
 	if m.TopicKey == "" {
-		saved, err := s.insertNew(ctx, m)
+		saved, err := s.insertNew(ctx, brainID, m)
 		if err != nil {
 			return memory.Memory{}, ActionCreated, err
 		}
 		return saved, ActionCreated, nil
 	}
-	return s.upsertByTopicKey(ctx, m)
+	return s.upsertByTopicKey(ctx, brainID, m)
 }
 
-func (s *Storage) insertNew(ctx context.Context, m memory.Memory) (memory.Memory, error) {
+func (s *Storage) insertNew(ctx context.Context, brainID int64, m memory.Memory) (memory.Memory, error) {
 	now := s.nowMillis()
 	syncID, err := newSyncID()
 	if err != nil {
@@ -238,12 +396,13 @@ func (s *Storage) insertNew(ctx context.Context, m memory.Memory) (memory.Memory
 		INSERT INTO memories (
 			sync_id, project, scope, type, topic_key,
 			title, content, tags, normalized_hash, revision_count,
-			created_at, updated_at, session_id
-		) VALUES (?, ?, ?, ?, NULL, ?, ?, ?, ?, 0, ?, ?, ?)`,
+			created_at, updated_at, session_id, brain_id
+		) VALUES (?, ?, ?, ?, NULL, ?, ?, ?, ?, 0, ?, ?, ?, ?)`,
 		syncID, m.Project, string(m.Scope), string(m.Type),
 		m.Title, m.Content, tagsJSON, hash,
 		now.UnixMilli(), now.UnixMilli(),
 		nullIfEmpty(m.SessionID),
+		brainID,
 	)
 	if err != nil {
 		return memory.Memory{}, fmt.Errorf("insert memory: %w", err)
@@ -256,14 +415,18 @@ func (s *Storage) insertNew(ctx context.Context, m memory.Memory) (memory.Memory
 
 	m.ID = id
 	m.SyncID = syncID
+	m.BrainID = brainID
 	m.NormalizedHash = hash
 	m.RevisionCount = 0
 	m.CreatedAt = now
 	m.UpdatedAt = now
+	if s.bus != nil {
+		s.bus.Publish(events.MemoryCreated{Brain: brainID, MemoryID: id, SyncID: syncID, At: now})
+	}
 	return m, nil
 }
 
-func (s *Storage) upsertByTopicKey(ctx context.Context, m memory.Memory) (memory.Memory, UpsertAction, error) {
+func (s *Storage) upsertByTopicKey(ctx context.Context, brainID int64, m memory.Memory) (memory.Memory, UpsertAction, error) {
 	hash := normalizedHash(m.Title, m.Content)
 
 	tx, err := s.db.BeginTx(ctx, nil)
@@ -304,12 +467,13 @@ func (s *Storage) upsertByTopicKey(ctx context.Context, m memory.Memory) (memory
 			INSERT INTO memories (
 				sync_id, project, scope, type, topic_key,
 				title, content, tags, normalized_hash, revision_count,
-				created_at, updated_at, session_id
-			) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?)`,
+				created_at, updated_at, session_id, brain_id
+			) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?)`,
 			syncID, m.Project, string(m.Scope), string(m.Type), m.TopicKey,
 			m.Title, m.Content, tagsJSON, hash,
 			now.UnixMilli(), now.UnixMilli(),
 			nullIfEmpty(m.SessionID),
+			brainID,
 		)
 		if ierr != nil {
 			return memory.Memory{}, 0, fmt.Errorf("insert memory: %w", ierr)
@@ -323,10 +487,14 @@ func (s *Storage) upsertByTopicKey(ctx context.Context, m memory.Memory) (memory
 		}
 		m.ID = newID
 		m.SyncID = syncID
+		m.BrainID = brainID
 		m.NormalizedHash = hash
 		m.RevisionCount = 0
 		m.CreatedAt = now
 		m.UpdatedAt = now
+		if s.bus != nil {
+			s.bus.Publish(events.MemoryCreated{Brain: brainID, MemoryID: newID, SyncID: syncID, At: now})
+		}
 		return m, ActionCreated, nil
 
 	case err != nil:
@@ -374,6 +542,7 @@ func (s *Storage) upsertByTopicKey(ctx context.Context, m memory.Memory) (memory
 
 	m.ID = existingID
 	m.SyncID = existingSyncID
+	m.BrainID = brainID
 	m.NormalizedHash = hash
 	m.RevisionCount = existingRevision + 1
 	m.CreatedAt = time.UnixMilli(existingCreatedAtMS)
@@ -384,28 +553,59 @@ func (s *Storage) upsertByTopicKey(ctx context.Context, m memory.Memory) (memory
 	if m.SessionID == "" && existingSessionID.Valid {
 		m.SessionID = existingSessionID.String
 	}
+	if s.bus != nil {
+		s.bus.Publish(events.MemoryUpdated{Brain: brainID, MemoryID: existingID, SyncID: existingSyncID, At: now})
+	}
 	return m, ActionUpdated, nil
 }
 
-// GetByID is exported for tests — production callers use Save.
-func (s *Storage) GetByID(ctx context.Context, id int64) (memory.Memory, error) {
-	return s.getByID(ctx, id)
+// GetByID fetches the memory with the given id, scoped to brainID.
+// If the row exists but belongs to a different brain, ErrMemoryNotFound is
+// returned — the existence of the row in another brain is not leaked.
+func (s *Storage) GetByID(ctx context.Context, brainID int64, id int64) (memory.Memory, error) {
+	m, err := s.getByID(ctx, id)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return memory.Memory{}, ErrMemoryNotFound
+		}
+		return memory.Memory{}, err
+	}
+	if m.BrainID != brainID {
+		return memory.Memory{}, ErrMemoryNotFound
+	}
+	return m, nil
 }
 
+// GetByIDUnscoped fetches the memory with the given id without enforcing
+// brain isolation. Use only from the server layer for operations (delete,
+// update, get-observation) that operate on a globally-unique memory ID and
+// need to discover which brain owns the row before calling the
+// brain-scoped API. Soft-deleted rows ARE returned (caller decides).
+func (s *Storage) GetByIDUnscoped(ctx context.Context, id int64) (memory.Memory, error) {
+	m, err := s.getByID(ctx, id)
+	if err != nil {
+		return memory.Memory{}, err
+	}
+	return m, nil
+}
+
+// getByID is the internal fetch used by Save's upsert path. It does NOT
+// enforce cross-brain isolation (that is the caller's responsibility).
 func (s *Storage) getByID(ctx context.Context, id int64) (memory.Memory, error) {
 	var (
-		m              memory.Memory
-		topicKey       sql.NullString
-		tagsJSON       sql.NullString
-		createdAtMS    int64
-		updatedAtMS    int64
-		deletedAtMS    sql.NullInt64
-		sessionID      sql.NullString
+		m           memory.Memory
+		topicKey    sql.NullString
+		tagsJSON    sql.NullString
+		createdAtMS int64
+		updatedAtMS int64
+		deletedAtMS sql.NullInt64
+		sessionID   sql.NullString
+		brainID     sql.NullInt64
 	)
 	row := s.db.QueryRowContext(ctx, `
 		SELECT id, sync_id, project, scope, type, topic_key,
 		       title, content, tags, normalized_hash, revision_count,
-		       created_at, updated_at, deleted_at, session_id
+		       created_at, updated_at, deleted_at, session_id, brain_id
 		FROM memories
 		WHERE id = ?`,
 		id,
@@ -417,7 +617,7 @@ func (s *Storage) getByID(ctx context.Context, id int64) (memory.Memory, error) 
 	if err := row.Scan(
 		&m.ID, &m.SyncID, &m.Project, &scope, &typ, &topicKey,
 		&m.Title, &m.Content, &tagsJSON, &m.NormalizedHash, &m.RevisionCount,
-		&createdAtMS, &updatedAtMS, &deletedAtMS, &sessionID,
+		&createdAtMS, &updatedAtMS, &deletedAtMS, &sessionID, &brainID,
 	); err != nil {
 		return memory.Memory{}, err
 	}
@@ -439,6 +639,9 @@ func (s *Storage) getByID(ctx context.Context, id int64) (memory.Memory, error) 
 	}
 	if sessionID.Valid {
 		m.SessionID = sessionID.String
+	}
+	if brainID.Valid {
+		m.BrainID = brainID.Int64
 	}
 	return m, nil
 }
@@ -494,6 +697,10 @@ func nullIfEmpty(s string) sql.NullString {
 	}
 	return sql.NullString{String: s, Valid: true}
 }
+
+// configDefaultGlobalJSON exposes config.DefaultGlobalJSON() to package-level
+// tests without requiring them to import internal/config directly.
+func configDefaultGlobalJSON() string { return config.DefaultGlobalJSON() }
 
 func encodeTags(tags []string) (sql.NullString, error) {
 	if len(tags) == 0 {

@@ -142,7 +142,13 @@ func doSave(ctx context.Context, s *storage.Storage, cfg Config, args saveArgs) 
 		return mcp.NewToolResultError(formatValidationError(err)), nil
 	}
 
-	saved, action, err := s.Save(ctx, m)
+	// Write path: auto-create the brain on first encounter with this project.
+	brainID, err := s.ResolveOrCreateBrainID(ctx, project)
+	if err != nil {
+		return mcp.NewToolResultError(fmt.Sprintf("resolve brain: %v", err)), nil
+	}
+
+	saved, action, err := s.Save(ctx, brainID, m)
 	if err != nil {
 		// Cross-table errors (unknown session, project mismatch) come from
 		// storage.Save's preflight — surface them as user-facing messages

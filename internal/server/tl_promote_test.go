@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/AgusLoza2021/Thoughtline/internal/pending"
+	"github.com/AgusLoza2021/Thoughtline/internal/storage"
 )
 
 func getPendingIDBySync(t *testing.T, st interface{ DB() interface{ QueryRowContext(context.Context, string, ...any) interface{ Scan(...any) error } } }, syncID string) int64 {
@@ -16,12 +17,23 @@ func getPendingIDBySync(t *testing.T, st interface{ DB() interface{ QueryRowCont
 	return 0
 }
 
+// ensureBrain creates a brain for the given project slug if one doesn't exist.
+// Called in promote tests to simulate the state where tl_save has already been
+// called at least once for this project before a hook event is promoted.
+func ensureBrain(t *testing.T, st *storage.Storage, project string) {
+	t.Helper()
+	if _, err := st.ResolveOrCreateBrainID(context.Background(), project); err != nil {
+		t.Fatalf("ensureBrain(%q): %v", project, err)
+	}
+}
+
 // TestTLPromote_SingleEventPromoted verifies the happy path: pending → memory
 // created, status=promoted, promoted_memory_id set.
 func TestTLPromote_SingleEventPromoted(t *testing.T) {
 	st := newTestStorage(t)
 	ctx := context.Background()
 	cfg := Config{Version: "test", DefaultProject: "enchanted-inn"}
+	ensureBrain(t, st, "enchanted-inn")
 
 	ts := time.Date(2026, 5, 7, 10, 0, 0, 0, time.UTC)
 	seedPendingEvent(t, st, "promo-ev1", "promo-h1", "enchanted-inn", pending.StatusPending, ts)
@@ -78,6 +90,7 @@ func TestTLPromote_BatchPartialFailure(t *testing.T) {
 	st := newTestStorage(t)
 	ctx := context.Background()
 	cfg := Config{Version: "test", DefaultProject: "enchanted-inn"}
+	ensureBrain(t, st, "enchanted-inn")
 
 	ts := time.Date(2026, 5, 7, 10, 0, 0, 0, time.UTC)
 	seedPendingEvent(t, st, "batch-ev1", "batch-h1", "enchanted-inn", pending.StatusPending, ts)
@@ -136,6 +149,7 @@ func TestTLPromote_AlreadyPromoted(t *testing.T) {
 	st := newTestStorage(t)
 	ctx := context.Background()
 	cfg := Config{Version: "test", DefaultProject: "enchanted-inn"}
+	ensureBrain(t, st, "enchanted-inn")
 
 	ts := time.Date(2026, 5, 7, 10, 0, 0, 0, time.UTC)
 	seedPendingEvent(t, st, "dupe-ev1", "dupe-h1", "enchanted-inn", pending.StatusPending, ts)
@@ -192,6 +206,7 @@ func TestTLPromote_PromotedMemoryFindable(t *testing.T) {
 	st := newTestStorage(t)
 	ctx := context.Background()
 	cfg := Config{Version: "test", DefaultProject: "enchanted-inn"}
+	ensureBrain(t, st, "enchanted-inn")
 
 	ts := time.Date(2026, 5, 7, 10, 0, 0, 0, time.UTC)
 	seedPendingEvent(t, st, "findable-ev1", "findable-h1", "enchanted-inn", pending.StatusPending, ts)

@@ -240,6 +240,22 @@ Output shape: array of `{ event_id, memory_id, status: "promoted" | "error", err
 - WHEN the process crashes before commit
 - THEN on next startup, event 42 is still `pending` and no orphaned memory row exists (at-least-once delivery — incomplete promotes are safe to retry)
 
+#### Scenario: tl_promote Resolves brain_id from project
+
+When `tl_promote` creates a memory from a pending event, the new memory MUST have its `brain_id` populated. `tl_promote` MUST resolve the brain by matching `pending_events.project` to `brains.slug`. If no matching brain is found, the promotion for that event MUST fail with error `"no brain found for project: <value>"` — no orphaned memory MUST be created without a valid `brain_id`.
+
+#### Scenario: tl_promote sets brain_id on created memory
+
+- GIVEN a `pending_event` with `project = "my-game"` and a brain with `slug = "my-game"` exists
+- WHEN `tl_promote` is called for that event
+- THEN the created memory has `brain_id` pointing to the "my-game" brain
+
+#### Scenario: tl_promote fails if no matching brain
+
+- GIVEN a `pending_event` with `project = "unknown-project"` and no brain with that slug exists
+- WHEN `tl_promote` is called for that event
+- THEN the event is NOT promoted; the response contains `{ status: "error", error: "no brain found for project: unknown-project" }`
+
 ---
 
 ### Requirement 7: Memory Type Taxonomy — Unchanged

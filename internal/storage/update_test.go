@@ -12,16 +12,17 @@ import (
 
 // strPtr / tagsPtr are tiny helpers — UpdatePatch fields are pointers so the
 // caller can distinguish "leave unchanged" (nil) from "set to empty" (&"").
-func strPtr(s string) *string         { return &s }
-func tagsPtr(t []string) *[]string    { return &t }
+func strPtr(s string) *string      { return &s }
+func tagsPtr(t []string) *[]string { return &t }
 
 func TestUpdateByID_TitleOnly_PreservesContent(t *testing.T) {
 	st := newTestStorage(t)
 	ctx := context.Background()
+	brainID := defaultBrainID(t, st)
 
 	saved := seed(t, st, sampleMemory())
 
-	updated, err := st.UpdateByID(ctx, saved.ID, UpdatePatch{
+	updated, err := st.UpdateByID(ctx, brainID, saved.ID, UpdatePatch{
 		Title: strPtr("Renamed title"),
 	})
 	if err != nil {
@@ -38,6 +39,7 @@ func TestUpdateByID_TitleOnly_PreservesContent(t *testing.T) {
 func TestUpdateByID_BumpsRevisionPreservesIdentity(t *testing.T) {
 	st := newTestStorage(t)
 	ctx := context.Background()
+	brainID := defaultBrainID(t, st)
 
 	t0 := time.Date(2026, 4, 30, 12, 0, 0, 0, time.UTC)
 	st.SetClock(func() time.Time { return t0 })
@@ -49,7 +51,7 @@ func TestUpdateByID_BumpsRevisionPreservesIdentity(t *testing.T) {
 
 	st.SetClock(func() time.Time { return t0.Add(2 * time.Second) })
 
-	updated, err := st.UpdateByID(ctx, saved.ID, UpdatePatch{
+	updated, err := st.UpdateByID(ctx, brainID, saved.ID, UpdatePatch{
 		Content: strPtr("new body content for the update path"),
 	})
 	if err != nil {
@@ -89,19 +91,19 @@ func TestUpdateByID_BumpsRevisionPreservesIdentity(t *testing.T) {
 func TestUpdateByID_RefreshesFTSIndex(t *testing.T) {
 	st := newTestStorage(t)
 	ctx := context.Background()
+	brainID := defaultBrainID(t, st)
 
 	m := sampleMemory()
 	m.Title = "Lantern bake"
 	m.Content = "old content about lanterns"
 	saved := seed(t, st, m)
 
-	if _, err := st.UpdateByID(ctx, saved.ID, UpdatePatch{
+	if _, err := st.UpdateByID(ctx, brainID, saved.ID, UpdatePatch{
 		Content: strPtr("new content about kettles only"),
 	}); err != nil {
 		t.Fatalf("update: %v", err)
 	}
 
-	// Old token "lanterns" must no longer be in the FTS index for content.
 	hasOld, err := st.FTSContains(ctx, "lanterns")
 	if err != nil {
 		t.Fatalf("fts contains old: %v", err)
@@ -122,11 +124,12 @@ func TestUpdateByID_RefreshesFTSIndex(t *testing.T) {
 func TestUpdateByID_TagsRoundTrip(t *testing.T) {
 	st := newTestStorage(t)
 	ctx := context.Background()
+	brainID := defaultBrainID(t, st)
 
 	saved := seed(t, st, sampleMemory())
 
 	// Replace tags entirely.
-	updated, err := st.UpdateByID(ctx, saved.ID, UpdatePatch{
+	updated, err := st.UpdateByID(ctx, brainID, saved.ID, UpdatePatch{
 		Tags: tagsPtr([]string{"engine:playcanvas", "platform:android"}),
 	})
 	if err != nil {
@@ -137,7 +140,7 @@ func TestUpdateByID_TagsRoundTrip(t *testing.T) {
 	}
 
 	// Empty slice = "remove all tags" (distinct from nil = "no change").
-	cleared, err := st.UpdateByID(ctx, saved.ID, UpdatePatch{
+	cleared, err := st.UpdateByID(ctx, brainID, saved.ID, UpdatePatch{
 		Tags: tagsPtr([]string{}),
 	})
 	if err != nil {
@@ -151,10 +154,11 @@ func TestUpdateByID_TagsRoundTrip(t *testing.T) {
 func TestUpdateByID_NoOpPatchIsNoop(t *testing.T) {
 	st := newTestStorage(t)
 	ctx := context.Background()
+	brainID := defaultBrainID(t, st)
 
 	saved := seed(t, st, sampleMemory())
 
-	updated, err := st.UpdateByID(ctx, saved.ID, UpdatePatch{}) // all nil
+	updated, err := st.UpdateByID(ctx, brainID, saved.ID, UpdatePatch{}) // all nil
 	if err != nil {
 		t.Fatalf("update: %v", err)
 	}
@@ -171,8 +175,9 @@ func TestUpdateByID_NoOpPatchIsNoop(t *testing.T) {
 func TestUpdateByID_NotFound(t *testing.T) {
 	st := newTestStorage(t)
 	ctx := context.Background()
+	brainID := defaultBrainID(t, st)
 
-	_, err := st.UpdateByID(ctx, 999, UpdatePatch{Title: strPtr("nope")})
+	_, err := st.UpdateByID(ctx, brainID, 999, UpdatePatch{Title: strPtr("nope")})
 	if err == nil {
 		t.Fatalf("expected error for missing id, got nil")
 	}
@@ -184,13 +189,14 @@ func TestUpdateByID_NotFound(t *testing.T) {
 func TestUpdateByID_RejectsSoftDeleted(t *testing.T) {
 	st := newTestStorage(t)
 	ctx := context.Background()
+	brainID := defaultBrainID(t, st)
 
 	saved := seed(t, st, sampleMemory())
-	if err := st.SoftDelete(ctx, saved.ID); err != nil {
+	if err := st.SoftDelete(ctx, brainID, saved.ID); err != nil {
 		t.Fatalf("soft delete: %v", err)
 	}
 
-	_, err := st.UpdateByID(ctx, saved.ID, UpdatePatch{Title: strPtr("nope")})
+	_, err := st.UpdateByID(ctx, brainID, saved.ID, UpdatePatch{Title: strPtr("nope")})
 	if err == nil {
 		t.Fatalf("expected error updating a soft-deleted row, got nil")
 	}
@@ -202,10 +208,11 @@ func TestUpdateByID_RejectsSoftDeleted(t *testing.T) {
 func TestUpdateByID_ValidatesResultingMemory(t *testing.T) {
 	st := newTestStorage(t)
 	ctx := context.Background()
+	brainID := defaultBrainID(t, st)
 
 	saved := seed(t, st, sampleMemory())
 
-	_, err := st.UpdateByID(ctx, saved.ID, UpdatePatch{Title: strPtr("")})
+	_, err := st.UpdateByID(ctx, brainID, saved.ID, UpdatePatch{Title: strPtr("")})
 	if err == nil {
 		t.Fatalf("setting title to empty must fail validation")
 	}
@@ -214,7 +221,7 @@ func TestUpdateByID_ValidatesResultingMemory(t *testing.T) {
 	}
 
 	tooLong := strings.Repeat("x", memory.MaxTitleChars+10)
-	_, err = st.UpdateByID(ctx, saved.ID, UpdatePatch{Title: strPtr(tooLong)})
+	_, err = st.UpdateByID(ctx, brainID, saved.ID, UpdatePatch{Title: strPtr(tooLong)})
 	if err == nil {
 		t.Fatalf("oversized title must fail validation")
 	}
@@ -226,11 +233,12 @@ func TestUpdateByID_ValidatesResultingMemory(t *testing.T) {
 func TestUpdateByID_HashChangesOnContentEdit(t *testing.T) {
 	st := newTestStorage(t)
 	ctx := context.Background()
+	brainID := defaultBrainID(t, st)
 
 	saved := seed(t, st, sampleMemory())
 	originalHash := saved.NormalizedHash
 
-	updated, err := st.UpdateByID(ctx, saved.ID, UpdatePatch{
+	updated, err := st.UpdateByID(ctx, brainID, saved.ID, UpdatePatch{
 		Content: strPtr(saved.Content + "\nappended line"),
 	})
 	if err != nil {

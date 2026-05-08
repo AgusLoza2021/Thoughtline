@@ -9,14 +9,15 @@ import (
 func TestSoftDelete_HappyPath(t *testing.T) {
 	st := newTestStorage(t)
 	ctx := context.Background()
+	brainID := defaultBrainID(t, st)
 
 	saved := seed(t, st, sampleMemory())
 
-	if err := st.SoftDelete(ctx, saved.ID); err != nil {
+	if err := st.SoftDelete(ctx, brainID, saved.ID); err != nil {
 		t.Fatalf("soft delete: %v", err)
 	}
 
-	got, err := st.GetByID(ctx, saved.ID)
+	got, err := st.GetByID(ctx, brainID, saved.ID)
 	if err != nil {
 		t.Fatalf("get after delete: %v", err)
 	}
@@ -28,6 +29,7 @@ func TestSoftDelete_HappyPath(t *testing.T) {
 func TestSoftDelete_RemovedFromSearch(t *testing.T) {
 	st := newTestStorage(t)
 	ctx := context.Background()
+	brainID := defaultBrainID(t, st)
 
 	m := sampleMemory()
 	m.Title = "Lantern bake"
@@ -35,7 +37,7 @@ func TestSoftDelete_RemovedFromSearch(t *testing.T) {
 	saved := seed(t, st, m)
 
 	// Sanity: search finds it before delete.
-	pre, err := st.Search(ctx, "lantern", SearchOptions{})
+	pre, err := st.Search(ctx, brainID, "lantern", SearchOptions{})
 	if err != nil {
 		t.Fatalf("pre search: %v", err)
 	}
@@ -43,11 +45,11 @@ func TestSoftDelete_RemovedFromSearch(t *testing.T) {
 		t.Fatalf("expected 1 hit pre-delete, got %d", len(pre))
 	}
 
-	if err := st.SoftDelete(ctx, saved.ID); err != nil {
+	if err := st.SoftDelete(ctx, brainID, saved.ID); err != nil {
 		t.Fatalf("soft delete: %v", err)
 	}
 
-	post, err := st.Search(ctx, "lantern", SearchOptions{})
+	post, err := st.Search(ctx, brainID, "lantern", SearchOptions{})
 	if err != nil {
 		t.Fatalf("post search: %v", err)
 	}
@@ -59,8 +61,9 @@ func TestSoftDelete_RemovedFromSearch(t *testing.T) {
 func TestSoftDelete_NotFound(t *testing.T) {
 	st := newTestStorage(t)
 	ctx := context.Background()
+	brainID := defaultBrainID(t, st)
 
-	err := st.SoftDelete(ctx, 999)
+	err := st.SoftDelete(ctx, brainID, 999)
 	if err == nil {
 		t.Fatalf("expected error for unknown id, got nil")
 	}
@@ -72,16 +75,16 @@ func TestSoftDelete_NotFound(t *testing.T) {
 func TestSoftDelete_SecondCallIsNotFound(t *testing.T) {
 	st := newTestStorage(t)
 	ctx := context.Background()
+	brainID := defaultBrainID(t, st)
 
 	saved := seed(t, st, sampleMemory())
 
-	if err := st.SoftDelete(ctx, saved.ID); err != nil {
+	if err := st.SoftDelete(ctx, brainID, saved.ID); err != nil {
 		t.Fatalf("first delete: %v", err)
 	}
 	// Second delete on an already-deleted row: row is no longer "active",
-	// so we treat it as not found rather than silently succeeding. This
-	// keeps the contract symmetric with UpdateByID on soft-deleted rows.
-	err := st.SoftDelete(ctx, saved.ID)
+	// so we treat it as not found rather than silently succeeding.
+	err := st.SoftDelete(ctx, brainID, saved.ID)
 	if !errors.Is(err, ErrMemoryNotFound) {
 		t.Errorf("repeat delete must wrap ErrMemoryNotFound, got %v", err)
 	}
@@ -93,13 +96,14 @@ func TestSoftDelete_FreesTopicKeyForNewSave(t *testing.T) {
 	// the same topic_key should be reusable for a fresh insert.
 	st := newTestStorage(t)
 	ctx := context.Background()
+	brainID := defaultBrainID(t, st)
 
 	first := sampleMemory()
 	first.TopicKey = "scene/reusable"
 	first.Title = "Original"
 	saved := seed(t, st, first)
 
-	if err := st.SoftDelete(ctx, saved.ID); err != nil {
+	if err := st.SoftDelete(ctx, brainID, saved.ID); err != nil {
 		t.Fatalf("soft delete: %v", err)
 	}
 
@@ -107,7 +111,7 @@ func TestSoftDelete_FreesTopicKeyForNewSave(t *testing.T) {
 	second.TopicKey = "scene/reusable"
 	second.Title = "Replacement"
 	second.Content = "different content for the new row"
-	replacement, action, err := st.Save(ctx, second)
+	replacement, action, err := st.Save(ctx, brainID, second)
 	if err != nil {
 		t.Fatalf("re-save after soft delete: %v", err)
 	}

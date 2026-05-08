@@ -62,7 +62,13 @@ func runSearchCmd(st *storage.Storage, project, query string) tea.Cmd {
 	return func() tea.Msg {
 		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 		defer cancel()
-		items, err := st.Search(ctx, query, storage.SearchOptions{Project: project, Limit: 50})
+		// Read path: resolve brain — return empty on not-found (no auto-create).
+		brainID, err := st.ResolveBrainID(ctx, project)
+		if err != nil {
+			// Brain not found: treat as empty result set.
+			return searchLoadedMsg{query: query, items: nil, err: nil}
+		}
+		items, err := st.Search(ctx, brainID, query, storage.SearchOptions{Project: project, Limit: 50})
 		return searchLoadedMsg{query: query, items: items, err: err}
 	}
 }
@@ -76,23 +82,26 @@ func loadTagsCmd(st *storage.Storage, project string) tea.Cmd {
 	return func() tea.Msg {
 		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 		defer cancel()
-		items, err := st.TopTags(ctx, project, 30)
+		// brainID=0 means cross-brain (all tags); project-scoped tags would need
+		// a resolved brainID, but the dashboard tags widget uses cross-project for now.
+		items, err := st.TopTags(ctx, 0, 30)
 		return tagsLoadedMsg{items: items, err: err}
 	}
 }
 
 type detailLoadedMsg struct {
-	id      int64
+	id       int64
 	envelope storage.SearchResult
-	content string
-	err     error
+	content  string
+	err      error
 }
 
 func loadDetailCmd(st *storage.Storage, id int64) tea.Cmd {
 	return func() tea.Msg {
 		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 		defer cancel()
-		m, err := st.GetByID(ctx, id)
+		// Unscoped fetch to discover which brain owns this row, then load full detail.
+		m, err := st.GetByIDUnscoped(ctx, id)
 		if err != nil {
 			return detailLoadedMsg{id: id, err: err}
 		}

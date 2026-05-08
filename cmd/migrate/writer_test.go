@@ -125,7 +125,11 @@ func TestWriteRow_TopicKeyCollision(t *testing.T) {
 	existing.TopicKey = "architecture/storage"
 	existing.Title = "Pre-existing Thoughtline row"
 	existing.Content = "This row lives in Thoughtline already."
-	if _, _, err := st.Save(ctx, existing); err != nil {
+	brainID, err := st.ResolveOrCreateBrainID(ctx, existing.Project)
+	if err != nil {
+		t.Fatalf("resolve brain: %v", err)
+	}
+	if _, _, err := st.Save(ctx, brainID, existing); err != nil {
 		t.Fatalf("pre-insert existing row: %v", err)
 	}
 

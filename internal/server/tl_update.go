@@ -90,6 +90,15 @@ func doUpdate(ctx context.Context, s *storage.Storage, args updateArgs) (*mcp.Ca
 		return mcp.NewToolResultError("'id' is required and must be a positive integer"), nil
 	}
 
+	// Discover which brain owns this memory so we can pass brainID to UpdateByID.
+	m, err := s.GetByIDUnscoped(ctx, args.ID)
+	if err != nil {
+		return mcp.NewToolResultError(fmt.Sprintf("no memory found with id=%d", args.ID)), nil
+	}
+	if m.DeletedAt != nil {
+		return mcp.NewToolResultError(fmt.Sprintf("no memory found with id=%d", args.ID)), nil
+	}
+
 	var patch storage.UpdatePatch
 	if args.HasTitle {
 		patch.Title = &args.Title
@@ -101,7 +110,7 @@ func doUpdate(ctx context.Context, s *storage.Storage, args updateArgs) (*mcp.Ca
 		patch.Tags = &args.Tags
 	}
 
-	updated, err := s.UpdateByID(ctx, args.ID, patch)
+	updated, err := s.UpdateByID(ctx, m.BrainID, args.ID, patch)
 	if err != nil {
 		if errors.Is(err, storage.ErrMemoryNotFound) {
 			return mcp.NewToolResultError(fmt.Sprintf("no memory found with id=%d", args.ID)), nil

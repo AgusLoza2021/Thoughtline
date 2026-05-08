@@ -2,6 +2,8 @@ package server
 
 import (
 	"context"
+	"database/sql"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -97,6 +99,16 @@ func doSearch(ctx context.Context, s *storage.Storage, cfg Config, args searchAr
 		project = cfg.DefaultProject
 	}
 
+	// Read path: resolve brain, return empty on not-found (never auto-create on reads).
+	brainID, err := s.ResolveBrainID(ctx, project)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			// Brain doesn't exist yet — return empty results, not an error.
+			return mcp.NewToolResultText(formatSearchResults(args.Query, nil)), nil
+		}
+		return mcp.NewToolResultError(fmt.Sprintf("resolve brain: %v", err)), nil
+	}
+
 	opts := storage.SearchOptions{
 		Project:  project,
 		Scope:    args.Scope,
@@ -106,7 +118,7 @@ func doSearch(ctx context.Context, s *storage.Storage, cfg Config, args searchAr
 		Offset:   args.Offset,
 	}
 
-	results, err := s.Search(ctx, args.Query, opts)
+	results, err := s.Search(ctx, brainID, args.Query, opts)
 	if err != nil {
 		return mcp.NewToolResultError(fmt.Sprintf("search failed: %v", err)), nil
 	}

@@ -282,6 +282,7 @@ func TestRecentSessions_LimitDefaultAndClamp(t *testing.T) {
 func TestSave_PersistsSessionID(t *testing.T) {
 	st := newTestStorage(t)
 	ctx := context.Background()
+	brainID := defaultBrainID(t, st)
 
 	sess, err := st.StartSession(ctx, "enchanted-inn", "")
 	if err != nil {
@@ -290,7 +291,7 @@ func TestSave_PersistsSessionID(t *testing.T) {
 
 	m := sampleMemory()
 	m.SessionID = sess.ID
-	saved, _, err := st.Save(ctx, m)
+	saved, _, err := st.Save(ctx, brainID, m)
 	if err != nil {
 		t.Fatalf("save: %v", err)
 	}
@@ -298,7 +299,7 @@ func TestSave_PersistsSessionID(t *testing.T) {
 		t.Errorf("session_id round-trip mismatch: got %q want %q", saved.SessionID, sess.ID)
 	}
 
-	got, err := st.GetByID(ctx, saved.ID)
+	got, err := st.GetByID(ctx, brainID, saved.ID)
 	if err != nil {
 		t.Fatalf("get: %v", err)
 	}
@@ -314,6 +315,7 @@ func TestSave_PersistsSessionID(t *testing.T) {
 func TestSave_UpsertDoesNotClobberSessionID(t *testing.T) {
 	st := newTestStorage(t)
 	ctx := context.Background()
+	brainID := defaultBrainID(t, st)
 
 	sess, err := st.StartSession(ctx, "enchanted-inn", "")
 	if err != nil {
@@ -323,7 +325,7 @@ func TestSave_UpsertDoesNotClobberSessionID(t *testing.T) {
 	first := sampleMemory()
 	first.TopicKey = "scene/lantern"
 	first.SessionID = sess.ID
-	if _, _, err := st.Save(ctx, first); err != nil {
+	if _, _, err := st.Save(ctx, brainID, first); err != nil {
 		t.Fatalf("first save: %v", err)
 	}
 
@@ -331,7 +333,7 @@ func TestSave_UpsertDoesNotClobberSessionID(t *testing.T) {
 	second := first
 	second.SessionID = ""
 	second.Content = first.Content + "\nupdated body"
-	updated, action, err := st.Save(ctx, second)
+	updated, action, err := st.Save(ctx, brainID, second)
 	if err != nil {
 		t.Fatalf("second save: %v", err)
 	}
@@ -343,7 +345,7 @@ func TestSave_UpsertDoesNotClobberSessionID(t *testing.T) {
 	}
 
 	// Confirm via fresh read.
-	got, err := st.GetByID(ctx, updated.ID)
+	got, err := st.GetByID(ctx, brainID, updated.ID)
 	if err != nil {
 		t.Fatalf("get: %v", err)
 	}
@@ -358,6 +360,11 @@ func TestSave_RejectsCrossProjectSession(t *testing.T) {
 	st := newTestStorage(t)
 	ctx := context.Background()
 
+	betaBrainID, err := st.ResolveOrCreateBrainID(ctx, "beta")
+	if err != nil {
+		t.Fatalf("brain beta: %v", err)
+	}
+
 	sessAlpha, err := st.StartSession(ctx, "alpha", "")
 	if err != nil {
 		t.Fatalf("start: %v", err)
@@ -367,7 +374,7 @@ func TestSave_RejectsCrossProjectSession(t *testing.T) {
 	m.Project = "beta"
 	m.SessionID = sessAlpha.ID
 
-	_, _, err = st.Save(ctx, m)
+	_, _, err = st.Save(ctx, betaBrainID, m)
 	if !errors.Is(err, ErrSessionProjectMismatch) {
 		t.Errorf("expected ErrSessionProjectMismatch, got %v", err)
 	}
@@ -376,12 +383,13 @@ func TestSave_RejectsCrossProjectSession(t *testing.T) {
 func TestSave_RejectsUnknownSessionID(t *testing.T) {
 	st := newTestStorage(t)
 	ctx := context.Background()
+	brainID := defaultBrainID(t, st)
 
 	bogus := uuid.Must(uuid.NewV7()).String()
 	m := sampleMemory()
 	m.SessionID = bogus
 
-	_, _, err := st.Save(ctx, m)
+	_, _, err := st.Save(ctx, brainID, m)
 	if !errors.Is(err, ErrSessionNotFound) {
 		t.Errorf("expected ErrSessionNotFound for unknown session, got %v", err)
 	}

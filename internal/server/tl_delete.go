@@ -51,8 +51,17 @@ func doDelete(ctx context.Context, s *storage.Storage, args deleteArgs) (*mcp.Ca
 		return mcp.NewToolResultError("'id' is required and must be a positive integer"), nil
 	}
 
-	err := s.SoftDelete(ctx, args.ID)
+	// Discover which brain owns this memory, then pass brainID to SoftDelete
+	// so cross-brain isolation is enforced.
+	m, err := s.GetByIDUnscoped(ctx, args.ID)
 	if err != nil {
+		return mcp.NewToolResultError(fmt.Sprintf("no memory found with id=%d", args.ID)), nil
+	}
+	if m.DeletedAt != nil {
+		return mcp.NewToolResultError(fmt.Sprintf("no memory found with id=%d", args.ID)), nil
+	}
+
+	if err := s.SoftDelete(ctx, m.BrainID, args.ID); err != nil {
 		if errors.Is(err, storage.ErrMemoryNotFound) {
 			return mcp.NewToolResultError(fmt.Sprintf("no memory found with id=%d", args.ID)), nil
 		}

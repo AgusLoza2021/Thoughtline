@@ -90,6 +90,10 @@ cmd/
 
 internal/
 ├── memory/                  # Domain types (Memory, Type, Scope) + validation
+├── config/                  # Two-level config: DefaultGlobal, Effective (deep-merge)
+├── brain/                   # Brain CRUD: Create, Archive, UpdateConfig, SetBus
+├── links/                   # Memory link graph: Create, Delete, Neighbors, Subgraph
+├── events/                  # In-process pub/sub bus: typed events, per-brain fanout
 ├── storage/                 # SQLite + FTS5; the only place that touches the DB
 ├── server/                  # MCP tool registration + handlers (one file per tool)
 └── dashboard/               # Bubbletea TUI: model, view, update, themes, splash, cube
@@ -110,16 +114,35 @@ Each `internal/` package has one job and a minimal public API:
 
 Pure domain types. Knows nothing about SQL or MCP. Includes the gamedev taxonomy — `scene-pattern`, `asset-reference`, `perf-gotcha`, `pipeline-step`, `script-pattern`, `game-design-decision` — plus the general types we kept from Engram's vocabulary (`bugfix`, `decision`, `architecture`, `pattern`, `convention`, `preference`). Validation rules live in `validate.go`. Full catalogue in [design/memory-domain.md](design/memory-domain.md) and [design/tag-conventions.md](design/tag-conventions.md).
 
+### `internal/config`
+
+Two-level configuration model. `DefaultGlobal()` returns compiled-in defaults. `Effective(global, brainOverride)` deep-merges them — unknown JSON keys are tolerated with a `slog.Warn`. Used by `migrateV4` to seed the `global_config` singleton row.
+
+### `internal/brain`
+
+CRUD for the `brains` table. `Kind` enum (`real`, `synthetic`, `sandbox`) drives lifecycle policy: real brains are archived; synthetic/sandbox support hard delete. `UpdateConfig` emits `BrainConfigChanged` via the optional event bus.
+
+### `internal/links`
+
+Memory link graph backed by `memory_links`. Enforces self-loop rejection, cross-brain rejection, and triple uniqueness `(from_id, to_id, relation)`. `Neighbors` and `Subgraph` support optional filters. `Create`/`Delete` emit events via the optional bus.
+
+### `internal/events`
+
+In-process typed pub/sub. `Bus` has per-brain subscriber maps with a non-blocking deliver (slow subscribers drop events, tracked by an atomic counter). Concrete event types: `MemoryCreated`, `MemoryUpdated`, `MemoryDeleted`, `LinkCreated`, `LinkDeleted`, `BrainConfigChanged`. The `Event` interface is sealed via an unexported marker method.
+
 ### `internal/storage`
 
 The only place that talks to SQLite. Built on [`modernc.org/sqlite`](https://pkg.go.dev/modernc.org/sqlite) (pure Go, no CGO). Owns:
 
-- Schema migration (forward-only, versioned).
-- CRUD (`Save`, `GetByID`, `GetBySyncID`, `UpdateByID`, `SoftDelete`).
-- Search (`Search` — FTS5 + BM25, with the topic-key shortcut).
-- Recent activity (`Recent` — for `tl_context`).
+- Schema migration (forward-only, versioned — currently v4).
+- CRUD (`Save(ctx, brainID, m)`, `GetByID(ctx, brainID, id)`, `UpdateByID`, `SoftDelete`). All operations are brain-scoped; cross-brain access returns `ErrMemoryNotFound`.
+- Brain resolution (`ResolveBrainID`, `ResolveOrCreateBrainID`, `InvalidateBrainCache`).
+- Search (`Search(ctx, brainID, q)` — FTS5 + BM25, with the topic-key shortcut).
+- Recent activity (`Recent(ctx, brainID, limit)` — for `tl_context`).
 - Session lifecycle (M4: `OpenSession`, `CloseSession`, `Sessions`).
-- Stats (`Stats` — counts and aggregates for `tl_stats` and the dashboard's Overview tab).
+- Stats (`Stats` — cross-brain aggregate counts for `tl_stats` and the dashboard).
+
+**Multi-brain model**: each memory belongs to exactly one brain via `brain_id`. The old `project` text column is kept for denorm compat and will be dropped in a future v5 migration. See [ADR 0005](decisions/0005-brain-as-first-class-entity.md).
 
 ### `internal/server`
 

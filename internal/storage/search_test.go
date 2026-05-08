@@ -8,11 +8,16 @@ import (
 	"github.com/AgusLoza2021/Thoughtline/internal/memory"
 )
 
-// seed inserts a memory and returns the saved row. It's a thin helper around
-// Save that fails the test on error.
+// seed inserts a memory scoped to the default "enchanted-inn" brain and
+// returns the saved row. It's a thin helper around Save that fails the test
+// on error.
 func seed(t *testing.T, st *Storage, m memory.Memory) memory.Memory {
 	t.Helper()
-	saved, _, err := st.Save(context.Background(), m)
+	brainID, err := st.ResolveOrCreateBrainID(context.Background(), m.Project)
+	if err != nil {
+		t.Fatalf("seed resolve brain: %v", err)
+	}
+	saved, _, err := st.Save(context.Background(), brainID, m)
 	if err != nil {
 		t.Fatalf("seed save: %v", err)
 	}
@@ -22,13 +27,14 @@ func seed(t *testing.T, st *Storage, m memory.Memory) memory.Memory {
 func TestSearch_FTS5_BasicMatch(t *testing.T) {
 	st := newTestStorage(t)
 	ctx := context.Background()
+	brainID := defaultBrainID(t, st)
 
 	m := sampleMemory()
 	m.Title = "Lantern import workflow"
 	m.Content = "Bake lantern-base normals before exporting to PlayCanvas."
 	seed(t, st, m)
 
-	results, err := st.Search(ctx, "lantern", SearchOptions{})
+	results, err := st.Search(ctx, brainID, "lantern", SearchOptions{})
 	if err != nil {
 		t.Fatalf("search: %v", err)
 	}
@@ -59,6 +65,7 @@ func TestSearch_FTS5_BasicMatch(t *testing.T) {
 func TestSearch_BM25_OrdersByRelevance(t *testing.T) {
 	st := newTestStorage(t)
 	ctx := context.Background()
+	brainID := defaultBrainID(t, st)
 
 	// "lantern" appears once in this one — weak match.
 	weak := sampleMemory()
@@ -74,7 +81,7 @@ func TestSearch_BM25_OrdersByRelevance(t *testing.T) {
 	strong.Content = "lantern bake; lantern export; lantern emissive bloom."
 	seed(t, st, strong)
 
-	results, err := st.Search(ctx, "lantern", SearchOptions{})
+	results, err := st.Search(ctx, brainID, "lantern", SearchOptions{})
 	if err != nil {
 		t.Fatalf("search: %v", err)
 	}
@@ -96,6 +103,7 @@ func TestSearch_BM25_OrdersByRelevance(t *testing.T) {
 func TestSearch_FilterByType(t *testing.T) {
 	st := newTestStorage(t)
 	ctx := context.Background()
+	brainID := defaultBrainID(t, st)
 
 	a := sampleMemory()
 	a.TopicKey = "scene/a"
@@ -109,7 +117,7 @@ func TestSearch_FilterByType(t *testing.T) {
 	b.Type = memory.TypePerfGotcha
 	seed(t, st, b)
 
-	results, err := st.Search(ctx, "lantern", SearchOptions{Type: string(memory.TypePerfGotcha)})
+	results, err := st.Search(ctx, brainID, "lantern", SearchOptions{Type: string(memory.TypePerfGotcha)})
 	if err != nil {
 		t.Fatalf("search: %v", err)
 	}
@@ -125,6 +133,16 @@ func TestSearch_FilterByProject(t *testing.T) {
 	st := newTestStorage(t)
 	ctx := context.Background()
 
+	// Two different brains/projects — search is now brain-scoped.
+	brainAlpha, err := st.ResolveOrCreateBrainID(ctx, "alpha")
+	if err != nil {
+		t.Fatalf("brain alpha: %v", err)
+	}
+	brainBeta, err := st.ResolveOrCreateBrainID(ctx, "beta")
+	if err != nil {
+		t.Fatalf("brain beta: %v", err)
+	}
+
 	a := sampleMemory()
 	a.Project = "alpha"
 	a.TopicKey = "scene/a"
@@ -137,21 +155,32 @@ func TestSearch_FilterByProject(t *testing.T) {
 	b.Title = "Lantern beta"
 	seed(t, st, b)
 
-	results, err := st.Search(ctx, "lantern", SearchOptions{Project: "beta"})
+	// Search brainBeta — must only return beta rows.
+	results, err := st.Search(ctx, brainBeta, "lantern", SearchOptions{})
 	if err != nil {
 		t.Fatalf("search: %v", err)
 	}
 	if len(results) != 1 {
-		t.Fatalf("expected 1 result filtered by project, got %d", len(results))
+		t.Fatalf("expected 1 result for brainBeta, got %d", len(results))
 	}
 	if results[0].Project != "beta" {
 		t.Errorf("expected project beta, got %q", results[0].Project)
+	}
+
+	// Search brainAlpha — must only return alpha rows.
+	resultsA, err := st.Search(ctx, brainAlpha, "lantern", SearchOptions{})
+	if err != nil {
+		t.Fatalf("search alpha: %v", err)
+	}
+	if len(resultsA) != 1 || resultsA[0].Project != "alpha" {
+		t.Errorf("expected 1 alpha row, got %v", resultsA)
 	}
 }
 
 func TestSearch_FilterByScope(t *testing.T) {
 	st := newTestStorage(t)
 	ctx := context.Background()
+	brainID := defaultBrainID(t, st)
 
 	proj := sampleMemory()
 	proj.TopicKey = "scene/proj"
@@ -167,7 +196,7 @@ func TestSearch_FilterByScope(t *testing.T) {
 	pers.Type = memory.TypePreference
 	seed(t, st, pers)
 
-	results, err := st.Search(ctx, "lantern", SearchOptions{Scope: string(memory.ScopePersonal)})
+	results, err := st.Search(ctx, brainID, "lantern", SearchOptions{Scope: string(memory.ScopePersonal)})
 	if err != nil {
 		t.Fatalf("search: %v", err)
 	}
@@ -182,6 +211,7 @@ func TestSearch_FilterByScope(t *testing.T) {
 func TestSearch_TopicKeyShortcut_ExactMatch(t *testing.T) {
 	st := newTestStorage(t)
 	ctx := context.Background()
+	brainID := defaultBrainID(t, st)
 
 	m := sampleMemory()
 	m.TopicKey = "scene/playcanvas/inn-cellar"
@@ -198,7 +228,7 @@ func TestSearch_TopicKeyShortcut_ExactMatch(t *testing.T) {
 	seed(t, st, noise)
 
 	// The query string contains "/", so we hit the topic_key shortcut.
-	results, err := st.Search(ctx, "scene/playcanvas/inn-cellar", SearchOptions{})
+	results, err := st.Search(ctx, brainID, "scene/playcanvas/inn-cellar", SearchOptions{})
 	if err != nil {
 		t.Fatalf("search: %v", err)
 	}
@@ -213,6 +243,7 @@ func TestSearch_TopicKeyShortcut_ExactMatch(t *testing.T) {
 func TestSearch_TopicKeyShortcut_GlobWildcard(t *testing.T) {
 	st := newTestStorage(t)
 	ctx := context.Background()
+	brainID := defaultBrainID(t, st)
 
 	a := sampleMemory()
 	a.TopicKey = "design/auth/oauth"
@@ -229,7 +260,7 @@ func TestSearch_TopicKeyShortcut_GlobWildcard(t *testing.T) {
 	c.Title = "Lighting"
 	seed(t, st, c)
 
-	results, err := st.Search(ctx, "design/auth/*", SearchOptions{})
+	results, err := st.Search(ctx, brainID, "design/auth/*", SearchOptions{})
 	if err != nil {
 		t.Fatalf("search: %v", err)
 	}
@@ -246,6 +277,7 @@ func TestSearch_TopicKeyShortcut_GlobWildcard(t *testing.T) {
 func TestSearch_TopicKeyShortcut_FallsThroughOnMiss(t *testing.T) {
 	st := newTestStorage(t)
 	ctx := context.Background()
+	brainID := defaultBrainID(t, st)
 
 	// Topic key contains "/" but no row will match it; FTS path must still run.
 	m := sampleMemory()
@@ -254,10 +286,7 @@ func TestSearch_TopicKeyShortcut_FallsThroughOnMiss(t *testing.T) {
 	m.Content = "door pivots on the top hinge"
 	seed(t, st, m)
 
-	// "missing/topic" does not match any topic_key, but "door" does match
-	// content via FTS5 — wait, no, the query is "missing/topic", so FTS will
-	// also miss. Let's make the query something whose FTS path matches.
-	results, err := st.Search(ctx, "scene/notfound", SearchOptions{})
+	results, err := st.Search(ctx, brainID, "scene/notfound", SearchOptions{})
 	if err != nil {
 		t.Fatalf("search: %v", err)
 	}
@@ -272,6 +301,7 @@ func TestSearch_TopicKeyShortcut_FallsThroughOnMiss(t *testing.T) {
 func TestSearch_SnippetTruncatedTo300Chars(t *testing.T) {
 	st := newTestStorage(t)
 	ctx := context.Background()
+	brainID := defaultBrainID(t, st)
 
 	long := strings.Repeat("lorem ipsum dolor sit amet ", 200) // ~5400 chars
 	long += " marker keyword "
@@ -283,7 +313,7 @@ func TestSearch_SnippetTruncatedTo300Chars(t *testing.T) {
 	m.Content = long
 	seed(t, st, m)
 
-	results, err := st.Search(ctx, "marker", SearchOptions{})
+	results, err := st.Search(ctx, brainID, "marker", SearchOptions{})
 	if err != nil {
 		t.Fatalf("search: %v", err)
 	}
@@ -301,6 +331,7 @@ func TestSearch_SnippetTruncatedTo300Chars(t *testing.T) {
 func TestSearch_SanitizesFTSOperators(t *testing.T) {
 	st := newTestStorage(t)
 	ctx := context.Background()
+	brainID := defaultBrainID(t, st)
 
 	m := sampleMemory()
 	m.TopicKey = "scene/safe"
@@ -317,7 +348,7 @@ func TestSearch_SanitizesFTSOperators(t *testing.T) {
 		`(broken`,
 	}
 	for _, q := range queries {
-		_, err := st.Search(ctx, q, SearchOptions{})
+		_, err := st.Search(ctx, brainID, q, SearchOptions{})
 		if err != nil {
 			t.Errorf("query %q should not error after sanitization, got: %v", q, err)
 		}
@@ -327,6 +358,7 @@ func TestSearch_SanitizesFTSOperators(t *testing.T) {
 func TestSearch_LimitDefaultsTo10(t *testing.T) {
 	st := newTestStorage(t)
 	ctx := context.Background()
+	brainID := defaultBrainID(t, st)
 
 	for i := 0; i < 15; i++ {
 		m := sampleMemory()
@@ -336,7 +368,7 @@ func TestSearch_LimitDefaultsTo10(t *testing.T) {
 		seed(t, st, m)
 	}
 
-	results, err := st.Search(ctx, "lantern", SearchOptions{})
+	results, err := st.Search(ctx, brainID, "lantern", SearchOptions{})
 	if err != nil {
 		t.Fatalf("search: %v", err)
 	}
@@ -348,6 +380,7 @@ func TestSearch_LimitDefaultsTo10(t *testing.T) {
 func TestSearch_LimitClampsAt50(t *testing.T) {
 	st := newTestStorage(t)
 	ctx := context.Background()
+	brainID := defaultBrainID(t, st)
 
 	for i := 0; i < 60; i++ {
 		m := sampleMemory()
@@ -357,7 +390,7 @@ func TestSearch_LimitClampsAt50(t *testing.T) {
 		seed(t, st, m)
 	}
 
-	results, err := st.Search(ctx, "lantern", SearchOptions{Limit: 999})
+	results, err := st.Search(ctx, brainID, "lantern", SearchOptions{Limit: 999})
 	if err != nil {
 		t.Fatalf("search: %v", err)
 	}
@@ -369,6 +402,7 @@ func TestSearch_LimitClampsAt50(t *testing.T) {
 func TestSearch_OffsetSkipsResults(t *testing.T) {
 	st := newTestStorage(t)
 	ctx := context.Background()
+	brainID := defaultBrainID(t, st)
 
 	for i := 0; i < 5; i++ {
 		m := sampleMemory()
@@ -378,11 +412,11 @@ func TestSearch_OffsetSkipsResults(t *testing.T) {
 		seed(t, st, m)
 	}
 
-	page1, err := st.Search(ctx, "lantern", SearchOptions{Limit: 2, Offset: 0})
+	page1, err := st.Search(ctx, brainID, "lantern", SearchOptions{Limit: 2, Offset: 0})
 	if err != nil {
 		t.Fatalf("search page1: %v", err)
 	}
-	page2, err := st.Search(ctx, "lantern", SearchOptions{Limit: 2, Offset: 2})
+	page2, err := st.Search(ctx, brainID, "lantern", SearchOptions{Limit: 2, Offset: 2})
 	if err != nil {
 		t.Fatalf("search page2: %v", err)
 	}
@@ -402,6 +436,7 @@ func TestSearch_OffsetSkipsResults(t *testing.T) {
 func TestSearch_EmptyResultSet(t *testing.T) {
 	st := newTestStorage(t)
 	ctx := context.Background()
+	brainID := defaultBrainID(t, st)
 
 	m := sampleMemory()
 	m.TopicKey = "scene/x"
@@ -409,7 +444,7 @@ func TestSearch_EmptyResultSet(t *testing.T) {
 	m.Content = "lantern lantern"
 	seed(t, st, m)
 
-	results, err := st.Search(ctx, "zxqvbn", SearchOptions{})
+	results, err := st.Search(ctx, brainID, "zxqvbn", SearchOptions{})
 	if err != nil {
 		t.Fatalf("search: %v", err)
 	}
@@ -421,6 +456,7 @@ func TestSearch_EmptyResultSet(t *testing.T) {
 func TestSearch_FilterByTopicKeyGlob(t *testing.T) {
 	st := newTestStorage(t)
 	ctx := context.Background()
+	brainID := defaultBrainID(t, st)
 
 	a := sampleMemory()
 	a.TopicKey = "design/auth/oauth"
@@ -435,7 +471,7 @@ func TestSearch_FilterByTopicKeyGlob(t *testing.T) {
 	seed(t, st, b)
 
 	// FTS query "tokens" matches both, but the topic_key filter restricts.
-	results, err := st.Search(ctx, "tokens", SearchOptions{TopicKey: "design/*"})
+	results, err := st.Search(ctx, brainID, "tokens", SearchOptions{TopicKey: "design/*"})
 	if err != nil {
 		t.Fatalf("search: %v", err)
 	}
@@ -450,6 +486,7 @@ func TestSearch_FilterByTopicKeyGlob(t *testing.T) {
 func TestSearch_RevisionCountIncluded(t *testing.T) {
 	st := newTestStorage(t)
 	ctx := context.Background()
+	brainID := defaultBrainID(t, st)
 
 	m := sampleMemory()
 	m.TopicKey = "scene/rev"
@@ -458,11 +495,11 @@ func TestSearch_RevisionCountIncluded(t *testing.T) {
 	saved1 := seed(t, st, m)
 
 	m.Content = "second version of the bake notes lantern"
-	if _, _, err := st.Save(ctx, m); err != nil {
+	if _, _, err := st.Save(ctx, brainID, m); err != nil {
 		t.Fatalf("upsert: %v", err)
 	}
 
-	results, err := st.Search(ctx, "lantern", SearchOptions{})
+	results, err := st.Search(ctx, brainID, "lantern", SearchOptions{})
 	if err != nil {
 		t.Fatalf("search: %v", err)
 	}

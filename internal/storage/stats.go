@@ -1,3 +1,9 @@
+// Package note — Stats() is intentionally a cross-brain aggregate view.
+// It queries by project (string) rather than brainID so it can serve the
+// dashboard and tl_stats MCP tool without requiring a brain resolution step.
+// A per-brain breakdown (Stats by brainID) is deferred to a future change;
+// the existing project-scoped behaviour is correct for the current single-user,
+// single-project-per-brain model. See apply-progress for the full rationale.
 package storage
 
 import (
@@ -243,20 +249,27 @@ func (s *Storage) querySessionCounts(ctx context.Context, project string, out *S
 }
 
 // recentMemoriesForStats returns up to `limit` of the most recently updated
-// active memories, optionally scoped to a project. Same envelope as Recent()
-// so dashboard rendering is uniform.
+// active memories, optionally scoped to a project. This is the stats-internal
+// path that speaks the old project-string API (Phase 8 will update the server
+// layer to pass brainIDs). It does NOT call Recent() which now requires brainID.
 func (s *Storage) recentMemoriesForStats(ctx context.Context, project string, limit int) ([]SearchResult, error) {
+	// Build WHERE clause — project filter is optional for cross-project stats.
+	where := "deleted_at IS NULL"
+	args := []any{}
 	if project != "" {
-		return s.Recent(ctx, project, limit)
+		where += " AND project = ?"
+		args = append(args, project)
 	}
-	// Cross-project recency. Soft-deleted excluded.
-	rows, err := s.db.QueryContext(ctx, `
-		SELECT id, sync_id, project, scope, type, topic_key,
+	// Cross-project (or project-scoped) recency. Soft-deleted excluded.
+	args = append(args, limit)
+	rows, err := s.db.QueryContext(ctx,
+		fmt.Sprintf(`SELECT id, sync_id, project, scope, type, topic_key,
 		       title, content, tags, revision_count, updated_at
 		FROM memories
-		WHERE deleted_at IS NULL
+		WHERE %s
 		ORDER BY updated_at DESC
-		LIMIT ?`, limit,
+		LIMIT ?`, where),
+		args...,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("recent memories cross-project: %w", err)

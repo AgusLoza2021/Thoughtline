@@ -29,10 +29,13 @@ func (p UpdatePatch) IsEmpty() bool {
 	return p.Title == nil && p.Content == nil && p.Tags == nil
 }
 
-// UpdateByID applies a partial mutation to the memory with the given id.
+// UpdateByID applies a partial mutation to the memory with the given id,
+// scoped to brainID. Cross-brain access returns ErrMemoryNotFound (existence
+// of the row in another brain is not leaked).
 //
 // Behaviour:
-//   - If the row does not exist or is soft-deleted, returns ErrMemoryNotFound.
+//   - If the row does not exist, is soft-deleted, or belongs to a different
+//     brain, returns ErrMemoryNotFound.
 //   - Empty patch (all nil) is a true noop: returns the current row unchanged
 //     without bumping revision_count or updated_at.
 //   - The merged Memory is re-validated against memory.Validate; any rule
@@ -43,7 +46,7 @@ func (p UpdatePatch) IsEmpty() bool {
 //     / project / scope.
 //   - FTS5 stays in sync via the existing memories_au trigger (eviction +
 //     re-insert with new title/content).
-func (s *Storage) UpdateByID(ctx context.Context, id int64, patch UpdatePatch) (memory.Memory, error) {
+func (s *Storage) UpdateByID(ctx context.Context, brainID int64, id int64, patch UpdatePatch) (memory.Memory, error) {
 	current, err := s.getByID(ctx, id)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -52,6 +55,9 @@ func (s *Storage) UpdateByID(ctx context.Context, id int64, patch UpdatePatch) (
 		return memory.Memory{}, fmt.Errorf("update lookup: %w", err)
 	}
 	if current.DeletedAt != nil {
+		return memory.Memory{}, ErrMemoryNotFound
+	}
+	if current.BrainID != brainID {
 		return memory.Memory{}, ErrMemoryNotFound
 	}
 

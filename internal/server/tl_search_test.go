@@ -11,9 +11,15 @@ import (
 
 // seedMemory persists a Memory directly through storage so tests can prepare
 // the search index without going through the tl_save handler.
+// It auto-creates the brain for m.Project if it doesn't exist yet.
 func seedMemory(t *testing.T, st *storage.Storage, m memory.Memory) memory.Memory {
 	t.Helper()
-	saved, _, err := st.Save(context.Background(), m)
+	ctx := context.Background()
+	brainID, err := st.ResolveOrCreateBrainID(ctx, m.Project)
+	if err != nil {
+		t.Fatalf("seed resolve brain: %v", err)
+	}
+	saved, _, err := st.Save(ctx, brainID, m)
 	if err != nil {
 		t.Fatalf("seed save: %v", err)
 	}

@@ -120,7 +120,61 @@ CREATE INDEX IF NOT EXISTS idx_pending_events_session
     WHERE session_id IS NOT NULL;
 `
 
+// v4 DDL is appended to schemaSQL. All new statements use CREATE … IF NOT EXISTS
+// so the concatenated Exec is idempotent on every Open.
+const schemaV4SQL = `
+CREATE TABLE IF NOT EXISTS brains (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    slug          TEXT    NOT NULL,
+    display_name  TEXT    NOT NULL,
+    kind          TEXT    NOT NULL CHECK (kind IN ('real','synthetic','sandbox')),
+    description   TEXT    NOT NULL DEFAULT '',
+    config_json   TEXT    NOT NULL DEFAULT '{}',
+    created_at    INTEGER NOT NULL,
+    updated_at    INTEGER NOT NULL,
+    archived_at   INTEGER
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_brains_slug_active
+    ON brains(slug)
+    WHERE archived_at IS NULL;
+
+CREATE TABLE IF NOT EXISTS global_config (
+    id          INTEGER PRIMARY KEY CHECK (id = 1),
+    config_json TEXT    NOT NULL,
+    updated_at  INTEGER NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS memory_links (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    brain_id   INTEGER NOT NULL REFERENCES brains(id)   ON DELETE CASCADE,
+    from_id    INTEGER NOT NULL REFERENCES memories(id) ON DELETE CASCADE,
+    to_id      INTEGER NOT NULL REFERENCES memories(id) ON DELETE CASCADE,
+    relation   TEXT    NOT NULL CHECK (relation IN (
+                  'supersedes','contradicts','refines','depends_on',
+                  'references','related','derived_from')),
+    weight     REAL    NOT NULL DEFAULT 1.0,
+    source     TEXT    NOT NULL DEFAULT 'manual'
+                       CHECK (source IN ('manual','auto','imported')),
+    note       TEXT    NOT NULL DEFAULT '',
+    created_at INTEGER NOT NULL,
+
+    UNIQUE(from_id, to_id, relation)
+);
+
+CREATE INDEX IF NOT EXISTS idx_links_brain_from ON memory_links(brain_id, from_id);
+CREATE INDEX IF NOT EXISTS idx_links_brain_to   ON memory_links(brain_id, to_id);
+`
+
+// schemaV4MemoriesBrainIndexSQL is applied after the ALTER TABLE that adds
+// memories.brain_id, since SQLite requires the column to exist before indexing it.
+const schemaV4MemoriesBrainIndexSQL = `
+CREATE INDEX IF NOT EXISTS idx_memories_brain
+    ON memories(brain_id, updated_at DESC)
+    WHERE deleted_at IS NULL;
+`
+
 // currentSchemaVersion is bumped whenever schemaSQL changes in a way that
 // requires a migration. v1: M1 baseline. v2: M4 sessions table + memories.session_id.
-// v3: passive-capture pending_events table.
-const currentSchemaVersion = 3
+// v3: passive-capture pending_events table. v4: brains, global_config, memory_links.
+const currentSchemaVersion = 4

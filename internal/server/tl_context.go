@@ -2,6 +2,8 @@ package server
 
 import (
 	"context"
+	"database/sql"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -63,7 +65,17 @@ func doContext(ctx context.Context, s *storage.Storage, cfg Config, args context
 		return mcp.NewToolResultError("'project' is required (and could not be auto-detected). Pass it explicitly or restart the server in the project's working directory."), nil
 	}
 
-	results, err := s.Recent(ctx, project, args.Limit)
+	// Read path: resolve brain, return empty on not-found (never auto-create on reads).
+	brainID, err := s.ResolveBrainID(ctx, project)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			// Brain doesn't exist yet — no memories possible, return empty.
+			return mcp.NewToolResultText(formatContextResults(project, nil)), nil
+		}
+		return mcp.NewToolResultError(fmt.Sprintf("resolve brain: %v", err)), nil
+	}
+
+	results, err := s.Recent(ctx, brainID, args.Limit)
 	if err != nil {
 		return mcp.NewToolResultError(fmt.Sprintf("context lookup failed: %v", err)), nil
 	}

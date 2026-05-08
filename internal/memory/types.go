@@ -72,6 +72,11 @@ type Memory struct {
 	ID int64
 	// SyncID is a UUIDv7 stable across upserts. Set by storage on first save.
 	SyncID string
+	// BrainID is the id of the brain this memory belongs to. Populated by
+	// storage on every read; callers leave it zero on write (storage infers
+	// from the brainID argument). Non-zero on write is validated against the
+	// brainID arg — mismatch returns ErrBrainMismatch.
+	BrainID int64
 	// Project is the project identifier the memory belongs to. Required.
 	Project string
 	// Scope governs cross-project visibility.

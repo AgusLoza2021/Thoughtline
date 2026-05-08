@@ -14,22 +14,23 @@ type TagCount struct {
 	Count int
 }
 
-// TopTags returns the most-used tags across active memories, optionally
-// scoped to a project. limit <= 0 returns the default cap (20). Tags are
-// stored as JSON arrays in the memories.tags column; SQLite does not have
-// native JSON aggregation in the modernc driver, so we decode in Go.
+// TopTags returns the most-used tags across active memories scoped to brainID.
+// When brainID is 0 the filter is omitted (cross-brain, used by stats only).
+// limit <= 0 returns the default cap (20). Tags are stored as JSON arrays in
+// the memories.tags column; SQLite does not have native JSON aggregation in
+// the modernc driver, so we decode in Go.
 //
 // Soft-deleted memories are excluded.
-func (s *Storage) TopTags(ctx context.Context, project string, limit int) ([]TagCount, error) {
+func (s *Storage) TopTags(ctx context.Context, brainID int64, limit int) ([]TagCount, error) {
 	if limit <= 0 {
 		limit = 20
 	}
 
 	args := []any{}
 	where := "deleted_at IS NULL AND tags IS NOT NULL"
-	if project != "" {
-		where += " AND project = ?"
-		args = append(args, project)
+	if brainID != 0 {
+		where += " AND brain_id = ?"
+		args = append(args, brainID)
 	}
 
 	rows, err := s.db.QueryContext(ctx,

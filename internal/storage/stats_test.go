@@ -36,10 +36,11 @@ func TestStats_TotalMemoriesAndDeletedCount(t *testing.T) {
 	ctx := context.Background()
 
 	// Seed 3 memories, soft-delete 1.
+	brainID := defaultBrainID(t, st)
 	a := seed(t, st, sampleMemory())
 	_ = seed(t, st, withTopic(sampleMemory(), "scene/b"))
 	_ = seed(t, st, withTopic(sampleMemory(), "scene/c"))
-	if err := st.SoftDelete(ctx, a.ID); err != nil {
+	if err := st.SoftDelete(ctx, brainID, a.ID); err != nil {
 		t.Fatalf("soft delete: %v", err)
 	}
 

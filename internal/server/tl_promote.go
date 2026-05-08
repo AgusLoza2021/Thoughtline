@@ -165,7 +165,18 @@ func promoteOne(ctx context.Context, s *storage.Storage, cfg Config, item promot
 		return res
 	}
 
-	saved, _, saveErr := s.Save(ctx, m)
+	// Resolve project → brainID. Pending events capture a project string at
+	// hook time; tl_promote must resolve it. If no brain exists for this project,
+	// return an error rather than auto-creating — the event was captured before
+	// any tl_save ran for this project and creation policy is the user's call.
+	brainID, brainErr := s.ResolveBrainID(ctx, ev.Project)
+	if brainErr != nil {
+		res.Status = "error"
+		res.Error = fmt.Sprintf("no brain found for project: %s", ev.Project)
+		return res
+	}
+
+	saved, _, saveErr := s.Save(ctx, brainID, m)
 	if saveErr != nil {
 		res.Status = "error"
 		res.Error = fmt.Sprintf("save memory: %v", saveErr)
