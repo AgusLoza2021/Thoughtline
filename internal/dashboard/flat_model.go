@@ -115,8 +115,8 @@ func newFlatModel(st *storage.Storage, cfg Config) flatModel {
 		pal:       defaultPalette,
 		activeTab: TabHome,
 	}
-	// Populate tabs. Later commits will replace these with fully rewritten screens.
-	m.tabs[TabHome] = NewDashboardScreen(st, cfg.Project, cfg.Version)
+	// Populate tabs.
+	m.tabs[TabHome] = NewHomeScreen(st)
 	m.tabs[TabMemories] = newRecentScreen(st, cfg.Project, "")
 	m.tabs[TabSearch] = newSearchScreen(st, cfg.Project)
 	m.tabs[TabInbox] = newPendingScreen(st, cfg.Project)
