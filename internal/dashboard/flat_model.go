@@ -117,7 +117,7 @@ func newFlatModel(st *storage.Storage, cfg Config) flatModel {
 	}
 	// Populate tabs.
 	m.tabs[TabHome] = NewHomeScreen(st)
-	m.tabs[TabMemories] = newRecentScreen(st, cfg.Project, "")
+	m.tabs[TabMemories] = NewMemoriesScreen(st)
 	m.tabs[TabSearch] = newSearchScreen(st, cfg.Project)
 	m.tabs[TabInbox] = newPendingScreen(st, cfg.Project)
 	m.tabs[TabSessions] = &stubScreen{title: "Sessions tab — coming in commit 11"}
