@@ -37,7 +37,7 @@ func TestModel_DigitJumpsToTab(t *testing.T) {
 	m = drainInit(t, m)
 	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'3'}})
 	final := updated.(Model)
-	if final.tab != tabSearch {
+	if final.tab != legacyTabSearch {
 		t.Errorf("'3' should jump to Search, got %s", final.tab)
 	}
 }
@@ -47,7 +47,7 @@ func TestModel_HelpToggle(t *testing.T) {
 	m = drainInit(t, m)
 	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'?'}})
 	m = updated.(Model)
-	if m.tab != tabHelp {
+	if m.tab != legacyTabHelp {
 		t.Errorf("? should jump to Help, got %s", m.tab)
 	}
 	updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'?'}})
@@ -60,7 +60,7 @@ func TestModel_HelpToggle(t *testing.T) {
 func TestModel_HelpViewMentionsKeybindings(t *testing.T) {
 	m, _ := newTestModel(t)
 	m = drainInit(t, m)
-	m.tab = tabHelp
+	m.tab = legacyTabHelp
 	out := m.View()
 	for _, want := range []string{"Keybindings", "tab", "search", "refresh", "quit"} {
 		if !strings.Contains(strings.ToLower(out), strings.ToLower(want)) {
@@ -93,10 +93,10 @@ func TestModel_TickRefreshesOnlyOnOverview(t *testing.T) {
 }
 
 func TestNextTab_WrapsBothDirections(t *testing.T) {
-	if got := nextTab(tabOverview, -1); got != tabHelp {
+	if got := nextTab(tabOverview, -1); got != legacyTabHelp {
 		t.Errorf("overview -1 = %s, want Help", got)
 	}
-	if got := nextTab(tabHelp, +1); got != tabOverview {
+	if got := nextTab(legacyTabHelp, +1); got != tabOverview {
 		t.Errorf("help +1 = %s, want Overview", got)
 	}
 }

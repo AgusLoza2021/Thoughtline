@@ -108,7 +108,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				items = append(items, memoryItem{r: r})
 			}
 			m.resultList.SetItems(items)
-			m.tabsLoaded[tabSearch] = true
+			m.tabsLoaded[legacyTabSearch] = true
 		}
 		return m, nil
 
@@ -165,7 +165,7 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	}
 
 	// Search input is focused: most keys go to the textinput; enter submits.
-	if m.tab == tabSearch && m.searchFocused {
+	if m.tab == legacyTabSearch && m.searchFocused {
 		switch key {
 		case "esc":
 			m.searchFocused = false
@@ -200,10 +200,10 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, tea.Quit
 	case "?":
 		// Toggle Help: jump to Help tab, or back to Overview if already there.
-		if m.tab == tabHelp {
+		if m.tab == legacyTabHelp {
 			m.tab = tabOverview
 		} else {
-			m.tab = tabHelp
+			m.tab = legacyTabHelp
 		}
 		return m, nil
 	case "tab":
@@ -219,7 +219,7 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.tab = tabBrowse
 		return m, m.ensureTabLoaded()
 	case "3":
-		m.tab = tabSearch
+		m.tab = legacyTabSearch
 		return m, m.ensureTabLoaded()
 	case "4":
 		m.tab = tabSessions
@@ -228,7 +228,7 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.tab = tabTags
 		return m, m.ensureTabLoaded()
 	case "6":
-		m.tab = tabHelp
+		m.tab = legacyTabHelp
 		return m, nil
 	case "r":
 		// Refresh: re-fetch the data the active tab needs.
@@ -252,7 +252,7 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch m.tab {
 	case tabBrowse:
 		return m.handleBrowseKey(msg)
-	case tabSearch:
+	case legacyTabSearch:
 		return m.handleSearchKey(msg)
 	case tabSessions:
 		var cmd tea.Cmd
@@ -312,9 +312,9 @@ func (m *Model) ensureTabLoaded() tea.Cmd {
 	case tabTags:
 		m.loading = true
 		return loadTagsCmd(m.storage, m.cfg.Project)
-	case tabSearch:
+	case legacyTabSearch:
 		// Search is opt-in — only fires on the user's first query.
-		m.tabsLoaded[tabSearch] = true
+		m.tabsLoaded[legacyTabSearch] = true
 	}
 	return nil
 }
@@ -331,7 +331,7 @@ func (m *Model) refreshActive() tea.Cmd {
 	case tabTags:
 		m.loading = true
 		return loadTagsCmd(m.storage, m.cfg.Project)
-	case tabSearch:
+	case legacyTabSearch:
 		if m.lastQuery != "" {
 			m.searchLoading = true
 			return runSearchCmd(m.storage, m.cfg.Project, m.lastQuery)
@@ -340,7 +340,7 @@ func (m *Model) refreshActive() tea.Cmd {
 	return nil
 }
 
-func nextTab(t tabKey, delta int) tabKey {
+func nextTab(t legacyTabKey, delta int) legacyTabKey {
 	idx := int(t) + delta
 	n := len(allTabs)
 	idx = ((idx % n) + n) % n

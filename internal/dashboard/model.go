@@ -37,38 +37,44 @@ type Config struct {
 	CheckUpdates bool
 }
 
-// tabKey enumerates the dashboard tabs. Order in this enum is the order in
-// which tabs render in the header bar.
-type tabKey int
+// legacyTabKey enumerates the dashboard tabs of the legacy Model. Order in
+// this enum is the order in which tabs render in the header bar.
+//
+// NOTE: this was previously named `tabKey` but was renamed to free that name
+// for the new flat-workspace identifier in flat_model.go. The legacy Model
+// (model.go / view.go / update.go) is scheduled for deletion in a follow-up
+// commit per the tui-memory-workspace change; this rename is the minimal
+// decoupling step that keeps both worlds compiling during the transition.
+type legacyTabKey int
 
 const (
-	tabOverview tabKey = iota
+	tabOverview legacyTabKey = iota
 	tabBrowse
-	tabSearch
+	legacyTabSearch
 	tabSessions
 	tabTags
-	tabHelp
+	legacyTabHelp
 )
 
-func (t tabKey) String() string {
+func (t legacyTabKey) String() string {
 	switch t {
 	case tabOverview:
 		return "Overview"
 	case tabBrowse:
 		return "Browse"
-	case tabSearch:
+	case legacyTabSearch:
 		return "Search"
 	case tabSessions:
 		return "Sessions"
 	case tabTags:
 		return "Tags"
-	case tabHelp:
+	case legacyTabHelp:
 		return "Help"
 	}
 	return "?"
 }
 
-var allTabs = []tabKey{tabOverview, tabBrowse, tabSearch, tabSessions, tabTags, tabHelp}
+var allTabs = []legacyTabKey{tabOverview, tabBrowse, legacyTabSearch, tabSessions, tabTags, legacyTabHelp}
 
 // Model is the Bubbletea Model for the dashboard. It owns the per-tab
 // bubbles components (lists, textinput, viewport) and a coarse "loaded"
@@ -93,8 +99,8 @@ type Model struct {
 	Quitting bool
 
 	// New: tab navigation + lazy load tracking.
-	tab        tabKey
-	tabsLoaded map[tabKey]bool
+	tab        legacyTabKey
+	tabsLoaded map[legacyTabKey]bool
 	tickActive bool
 
 	// Browse tab.
@@ -219,7 +225,7 @@ func New(st *storage.Storage, cfg Config) Model {
 		screens:     []Screen{rootScreen},
 		pal:         defaultPalette,
 		tab:         tabOverview,
-		tabsLoaded:  make(map[tabKey]bool),
+		tabsLoaded:  make(map[legacyTabKey]bool),
 		browseList:  browseList,
 		resultList:  resultList,
 		sessionList: sessList,

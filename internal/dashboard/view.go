@@ -67,13 +67,13 @@ func (m Model) View() string {
 			b.WriteString(m.renderOverview())
 		case tabBrowse:
 			b.WriteString(m.renderBrowse())
-		case tabSearch:
+		case legacyTabSearch:
 			b.WriteString(m.renderSearch())
 		case tabSessions:
 			b.WriteString(m.renderSessions())
 		case tabTags:
 			b.WriteString(m.renderTags())
-		case tabHelp:
+		case legacyTabHelp:
 			b.WriteString(m.renderHelp())
 		}
 	}
@@ -452,7 +452,7 @@ func (m Model) footerHint() string {
 			footerKeyStyle.Render(" [esc] close "),
 			footerKeyStyle.Render(" [↑/↓ pgup/pgdn] scroll "),
 		}
-	} else if m.tab == tabSearch && m.searchFocused {
+	} else if m.tab == legacyTabSearch && m.searchFocused {
 		chunks = []string{
 			footerKeyStyle.Render(" [enter] run query "),
 			footerKeyStyle.Render(" [esc] cancel "),

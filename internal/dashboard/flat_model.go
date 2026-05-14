@@ -17,6 +17,51 @@ import (
 // The legacy Model (in model.go) is left untouched so its test suite stays
 // green; flatModel is the entry point used by Run() and is what the user
 // sees when they invoke `thoughtline ui`.
+// tabKey identifies one of the six top-level tabs in the new memory-workspace
+// TUI. The legacy multi-tab Model used a tabKey enum in tabs.go which is being
+// deleted in a later commit; this is the new identifier.
+type tabKey int
+
+const (
+	TabHome tabKey = iota
+	TabMemories
+	TabSearch
+	TabInbox
+	TabSessions
+	TabHelp
+)
+
+// tabDef describes one tab in the flat workspace.
+type tabDef struct {
+	Key    tabKey
+	Label  string
+	Hotkey rune
+}
+
+// defaultTabs is the ordered list of tabs presented in the workspace.
+var defaultTabs = [6]tabDef{
+	{TabHome, "Home", '1'},
+	{TabMemories, "Memories", '2'},
+	{TabSearch, "Search", '3'},
+	{TabInbox, "Inbox", '4'},
+	{TabSessions, "Sessions", '5'},
+	{TabHelp, "Help", '6'},
+}
+
+// inputFocuser is the optional interface a Screen implements to signal whether
+// it currently owns a focused text input/textarea. The Update ladder in
+// flatModel uses this (via interface assertion) to suppress global hotkeys.
+type inputFocuser interface {
+	InputFocused() bool
+}
+
+// originator is the optional interface a pushed Screen implements to declare
+// which tab it was launched from. On esc-pop, flatModel reads this and sets
+// activeTab accordingly so the user returns to the right tab.
+type originator interface {
+	OriginatingTab() tabKey
+}
+
 type flatModel struct {
 	storage  *storage.Storage
 	cfg      Config
@@ -25,6 +70,14 @@ type flatModel struct {
 	height   int
 	stack    []Screen
 	Quitting bool
+
+	// activeTab is the currently-rendered tab. Tab dispatch and rendering
+	// against `tabs` is implemented in a follow-up commit (Group G); this
+	// field exists now so the RED tests for the tab layer can compile.
+	activeTab tabKey
+	// tabs holds one Screen per tab. Populated in a follow-up commit; nil
+	// entries are tolerated by the stub-phase tests.
+	tabs [6]Screen
 }
 
 // newFlatModel constructs the flat TUI model with the welcome dashboard
