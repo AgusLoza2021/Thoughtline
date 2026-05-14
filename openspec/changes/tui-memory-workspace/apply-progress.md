@@ -1,6 +1,6 @@
 # Apply Progress — tui-memory-workspace
 
-> Status: Batch 1 of 5 complete (commits 1–4 of 15).
+> Status: Batch 3 of 5 complete (commits 1–6 of 15). All F-tests now GREEN (t.Skip removed).
 > Test command: `go test ./...` — green on all packages.
 > Strict TDD: enforced — F-group tests are SKIP-gated (alternative to RED at runtime) until commit 6 lands the G-group implementation.
 
@@ -138,9 +138,72 @@ Note: `padRight` was sourced from `view.go` (the legacy version using `len(s)`),
 - `tui-removed Req 9` says `tabs_test.go` must not exist — SATISFIED (deleted).
 - `tui-removed Req 12` (`#C4A7E7` carry-over): H1's `TestRemoved_ForbiddenRosePineMoonHex` correctly excludes `#C4A7E7` from the forbidden list, matching the accepted deviation from batch 1. This drift should be documented in archive.
 
-## Next batch (commit 6)
+## Batch 3 — Commit 6 (Tab Layer GREEN)
 
-- Commit 6: implement G-group — Update ladder ordering, OriginatingTab handling, statusMessage with TTL. F-tests get their `t.Skip` removed and turn GREEN.
+> Status: complete. G1-G6 + F1-F8 done. `go test ./...` green on all 13 packages.
+> Git commit policy: **Option A** — code implemented in working tree only, NO commit made.
+> Orchestrator must inspect diff and ask user before committing.
+
+### TDD Cycle Evidence
+
+| Task | Test File | RED (SKIP-gated) | GREEN | Notes |
+|------|-----------|------------------|-------|-------|
+| G1 | — (code only) | N/A — types pre-existed from batch 1 | ✅ no changes needed | `tabKey`, `tabDef`, `defaultTabs` were already in `flat_model.go` from batch 1 commit 1 |
+| G2 | `flat_model_test.go` F1-F8 | ✅ SKIP-gated | ✅ All 8 tests GREEN after ladder impl | Implemented full 7-step Update ladder in `flat_model.go` |
+| G3 | — (code only) | N/A | ✅ implemented | `statusMessage` type + `appendStatus` in `View()`; `[S]` quick action sets 5s TTL banner |
+| G4 | — (code only) | N/A | ✅ implemented | `setActiveTab` calls `OnFocus()` on the newly-active tab |
+| G5 | `flat_model_test.go` F3, F6 | ✅ SKIP-gated | ✅ GREEN | `originator` interface was pre-defined; pop logic reads `OriginatingTab()` in `setActiveTab` |
+| G6 | `flat_model_test.go` F4 | ✅ SKIP-gated | ✅ GREEN | `inputFocuser` interface pre-defined; `currentInputFocused()` helper implemented |
+| F1 | `flat_model_test.go` | SKIP removed | ✅ PASS (6 subtests) | Digit 1-6 tab jump |
+| F2 | `flat_model_test.go` | SKIP removed | ✅ PASS (4 subtests) | Tab/shift+tab cycle with wraps |
+| F3 | `flat_model_test.go` | SKIP removed | ✅ PASS (2 subtests) | Stack push/pop preserves activeTab; originator override |
+| F4 | `flat_model_test.go` | SKIP removed | ✅ PASS (5 subtests) | InputFocused guard for s/m/2/q literal; ctrl+c bypasses |
+| F5 | `flat_model_test.go` | SKIP removed | ✅ PASS | `/` jumps to Search + focuses input via `focusInputer` interface |
+| F6 | `flat_model_test.go` | SKIP removed | ✅ PASS (3 subtests) | OriginatingTab return on esc-pop |
+| F7 | `flat_model_test.go` | SKIP removed | ✅ PASS (6 subtests) | Min viewport 80×24 boundary; under-min key freeze; q/ctrl+c still quit |
+| F8 | `flat_model_test.go` | SKIP removed | ✅ PASS (3 subtests) | q quit semantics: tab view, stack overlay, ctrl+c |
+
+### Per-task notes
+
+| Task | Status | Files touched | Notes |
+|------|--------|---------------|-------|
+| G1 | ✅ done (pre-existing) | — | tabKey, tabDef, defaultTabs, inputFocuser, originator were all implemented in batch 1 commit 1. No new code needed. |
+| G2 | ✅ done | `flat_model.go` (full rewrite) | Full 7-step Update ladder. `newFlatModel` populates `tabs[]` with DashboardScreen/RecentScreen/SearchScreen/PendingScreen/stubScreen×2. `setActiveTab`, `cycleTab`, `currentInputFocused` helpers. `statusClearAfter` cmd factory. |
+| G3 | ✅ done | `flat_model.go`, `theme.go` | `statusMessage` type (Text/Level/Expires), `statusClearMsg`, `appendStatus`. Added `statusInfo` constant to `theme.go`'s `statusLevel` enum. `[S]` quick action sets the banner. |
+| G4 | ✅ done | `flat_model.go` | `setActiveTab` calls `m.tabs[t].OnFocus()` after setting `m.activeTab`. Initial Home `OnFocus` called from `flatModel.Init()`. |
+| G5 | ✅ done | `flat_model.go` | `originator` interface assertion in esc-pop path and `popScreenCmd` handler. No screen implements it yet (commit 9 adds DetailScreen). |
+| G6 | ✅ done | `flat_model.go` | `inputFocuser` assertion in `currentInputFocused()`. No screen implements it today except test stubs; commit 8 (Search) and commit 10 (InboxEdit) will add real implementations. Added `InputFocused()` and `FocusInput()` to `SearchScreen` as placeholder. |
+| F1 | ✅ done | `flat_model_test.go` (t.Skip removed) | GREEN |
+| F2 | ✅ done | `flat_model_test.go` (t.Skip removed) | GREEN |
+| F3 | ✅ done | `flat_model_test.go` (t.Skip removed) | GREEN |
+| F4 | ✅ done | `flat_model_test.go` (t.Skip removed) | GREEN |
+| F5 | ✅ done | `flat_model_test.go` (t.Skip removed + `FocusInput()` added to stub) | GREEN — soft pass. `focusedSearchStub.FocusInput()` calls `s.input.Focus()`. `SearchScreen.FocusInput()` added as placeholder. Full assertion lands in commit 8. |
+| F6 | ✅ done | `flat_model_test.go` (t.Skip removed) | GREEN |
+| F7 | ✅ done | `flat_model_test.go` (t.Skip removed) | GREEN |
+| F8 | ✅ done | `flat_model_test.go` (t.Skip removed) | GREEN |
+
+### Deviations from design
+
+| # | Deviation | Rationale |
+|---|-----------|-----------|
+| 1 | `newFlatModel` populates `tabs[TabSessions]` and `tabs[TabHelp]` with `stubScreen` (not actual screen files) | Commits 11 and 12 create SessionsScreen and HelpScreen. The `stubScreen` type already exists in `screen_stubs.go`. Design and tasks explicitly allow this. |
+| 2 | F5 test required adding `FocusInput()` to `focusedSearchStub` in test file | Not in original test scaffolding because the stub only needed `InputFocused()`. Adding `FocusInput()` makes the test fully assertable without mocking. |
+| 3 | `focusInputer` interface added to `flat_model.go` (not called out in G6 as a separate interface) | Design Section 7 shows `inputFocuser` and `originator` only. `focusInputer` is the complementary write-side interface for `FocusInput()`. Named distinctly to avoid confusion. |
+| 4 | `SearchScreen` now implements `InputFocused() bool` and `FocusInput()` | G6 tasks note SearchScreen will add `InputFocused()` in commit 8; added now as placeholders so the F5 test passes and the SearchScreen is immediately usable with the tab layer. Commit 8 will wire the full search-and-focus flow end-to-end. |
+
+### Files changed in this batch
+
+- `internal/dashboard/flat_model.go` — full rewrite: statusMessage, 7-step ladder, setActiveTab/cycleTab/currentInputFocused, focusInputer interface
+- `internal/dashboard/flat_model_test.go` — t.Skip gates removed (F1-F8); FocusInput() added to focusedSearchStub; focusInputer compile guard added
+- `internal/dashboard/theme.go` — statusInfo constant added to statusLevel enum; statusStyle handles statusInfo→Muted
+- `internal/dashboard/search_screen.go` — InputFocused() and FocusInput() placeholder methods added
+
+## Next batch (commit 7+)
+
+- Commit 7: HomeScreen rewrite (DashboardScreen → HomeScreen with empty state, cards, interactive cursor)
+- Commit 8: MemoriesScreen with pagination + filters (RecentScreen → MemoriesScreen)
+- Commit 9: Detail read-only with [C] copy + clipboard backends
+- Commit 10: InboxScreen [A]/[E]/[R] + InboxEditScreen
 
 ## Risks carried forward
 

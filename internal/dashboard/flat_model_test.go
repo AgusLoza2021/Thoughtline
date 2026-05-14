@@ -73,6 +73,11 @@ func newFocusedSearchStub() *focusedSearchStub {
 
 func (s *focusedSearchStub) InputFocused() bool { return s.input.Focused() }
 
+// FocusInput focuses the stub's text input, satisfying the optional
+// focusInputer interface. The '/' Quick Action in flatModel calls this so
+// the F5 test can assert the input is focused after the jump.
+func (s *focusedSearchStub) FocusInput() { s.input.Focus() }
+
 func (s *focusedSearchStub) Update(msg tea.Msg) (Screen, tea.Cmd) {
 	if k, ok := msg.(tea.KeyMsg); ok {
 		s.lastK = k.String()
@@ -109,9 +114,6 @@ func runeKey(r rune) tea.KeyMsg {
 // -----------------------------------------------------------------------------
 
 func TestFlatModel_F1_TabDigitJump(t *testing.T) {
-	if true { // gated until commit 6 (G-group implements tab intercept)
-		t.Skip("Tab intercept lands in commit 6 (G-group); test asserts target contract")
-	}
 	cases := []struct {
 		digit rune
 		want  tabKey
@@ -146,9 +148,6 @@ func TestFlatModel_F1_TabDigitJump(t *testing.T) {
 // -----------------------------------------------------------------------------
 
 func TestFlatModel_F2_TabCycle(t *testing.T) {
-	if true { // gated until commit 6 (G-group implements tab intercept)
-		t.Skip("Tab intercept lands in commit 6 (G-group); test asserts target contract")
-	}
 	t.Run("forward from Inbox→Sessions", func(t *testing.T) {
 		m := newFlatModelForTabTests(t)
 		m.activeTab = TabInbox
@@ -195,9 +194,6 @@ func TestFlatModel_F2_TabCycle(t *testing.T) {
 // -----------------------------------------------------------------------------
 
 func TestFlatModel_F3_TabSurvivesPushPop(t *testing.T) {
-	if true { // gated until commit 6 (G-group implements tab intercept)
-		t.Skip("Tab intercept lands in commit 6 (G-group); test asserts target contract")
-	}
 	t.Run("esc pop returns to active tab when no originator", func(t *testing.T) {
 		m := newFlatModelForTabTests(t)
 		m.activeTab = TabMemories
@@ -230,9 +226,6 @@ func TestFlatModel_F3_TabSurvivesPushPop(t *testing.T) {
 // -----------------------------------------------------------------------------
 
 func TestFlatModel_F4_InputFocusGuard(t *testing.T) {
-	if true { // gated until commit 6 (G-group implements tab intercept)
-		t.Skip("Tab intercept lands in commit 6 (G-group); test asserts target contract")
-	}
 	setup := func(t *testing.T) (flatModel, *focusedSearchStub) {
 		m := newFlatModelForTabTests(t)
 		m.activeTab = TabSearch
@@ -303,9 +296,6 @@ func TestFlatModel_F4_InputFocusGuard(t *testing.T) {
 // -----------------------------------------------------------------------------
 
 func TestFlatModel_F5_SlashJumpsAndFocuses(t *testing.T) {
-	if true { // gated until commit 6 (G-group implements tab intercept)
-		t.Skip("Tab intercept lands in commit 6 (G-group); test asserts target contract")
-	}
 	m := newFlatModelForTabTests(t)
 	m.activeTab = TabHome
 	// Install a Search stub that can report focus state.
@@ -328,9 +318,6 @@ func TestFlatModel_F5_SlashJumpsAndFocuses(t *testing.T) {
 // -----------------------------------------------------------------------------
 
 func TestFlatModel_F6_OriginatingTabReturn(t *testing.T) {
-	if true { // gated until commit 6 (G-group implements tab intercept)
-		t.Skip("Tab intercept lands in commit 6 (G-group); test asserts target contract")
-	}
 	cases := []struct {
 		name       string
 		startTab   tabKey
@@ -359,9 +346,6 @@ func TestFlatModel_F6_OriginatingTabReturn(t *testing.T) {
 // -----------------------------------------------------------------------------
 
 func TestFlatModel_F7_MinViewport(t *testing.T) {
-	if true { // gated until commit 6 (G-group implements tab intercept)
-		t.Skip("Tab intercept lands in commit 6 (G-group); test asserts target contract")
-	}
 	t.Run("exactly 80x24 is OK (no warning)", func(t *testing.T) {
 		m := newFlatModelForTabTests(t)
 		m.width, m.height = 80, 24
@@ -427,9 +411,6 @@ func TestFlatModel_F7_MinViewport(t *testing.T) {
 // -----------------------------------------------------------------------------
 
 func TestFlatModel_F8_QuitSemantics(t *testing.T) {
-	if true { // gated until commit 6 (G-group implements tab intercept)
-		t.Skip("Tab intercept lands in commit 6 (G-group); test asserts target contract")
-	}
 	t.Run("q_quits_on_memories", func(t *testing.T) {
 		m := newFlatModelForTabTests(t)
 		m.activeTab = TabMemories
@@ -464,6 +445,7 @@ var _ Screen = (*focusedSearchStub)(nil)
 var _ Screen = (*originScreenStub)(nil)
 var _ inputFocuser = (*focusedSearchStub)(nil)
 var _ originator = (*originScreenStub)(nil)
+var _ focusInputer = (*focusedSearchStub)(nil)
 
 // keep storage import used so go-vet doesn't complain on Windows builds where
 // we touch storage.StatsOptions in the seeded helpers indirectly.

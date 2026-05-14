@@ -2,6 +2,7 @@ package dashboard
 
 import (
 	"fmt"
+	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 
@@ -16,14 +17,15 @@ const (
 )
 
 // flatModel is the lightweight tea.Model that drives the new flat-screen TUI.
-// It owns only the screen stack, palette, terminal size, and a Quitting flag.
-// All real work (loading data, rendering, key handling) happens inside the
-// Screen at the top of the stack — flatModel just routes messages and
-// reacts to push/pop commands.
+// It owns the tab layer, the screen stack for overlays, palette, terminal size,
+// and a global status message banner. All real work (loading data, rendering,
+// key handling) happens inside the Screen at the top of the stack or the active
+// tab — flatModel just routes messages, intercepts navigation keys, and reacts
+// to push/pop commands.
 
 // tabKey identifies one of the six top-level tabs in the new memory-workspace
-// TUI. The legacy multi-tab Model used a tabKey enum in tabs.go which is being
-// deleted in a later commit; this is the new identifier.
+// TUI. The legacy multi-tab Model used a tabKey enum in tabs.go which was
+// deleted in commit 5; this is the new identifier.
 type tabKey int
 
 const (
@@ -66,6 +68,25 @@ type originator interface {
 	OriginatingTab() tabKey
 }
 
+// focusInputer is the optional interface a Screen implements to allow the
+// global '/' Quick Action to programmatically focus its text input. Only
+// SearchScreen (and future screens with a search box) implement it.
+type focusInputer interface {
+	FocusInput()
+}
+
+// statusMessage is a time-bounded banner rendered at the bottom of the screen.
+// It is used by Quick Actions (e.g., 's' shows a save hint) and by system
+// notifications (e.g., clipboard result, promoted confirmation).
+type statusMessage struct {
+	Text    string
+	Level   statusLevel // statusOK / statusWARN / statusERR / statusInfo
+	Expires time.Time
+}
+
+// statusClearMsg is sent after a status message's TTL expires to clear it.
+type statusClearMsg struct{}
+
 type flatModel struct {
 	storage  *storage.Storage
 	cfg      Config
@@ -75,90 +96,226 @@ type flatModel struct {
 	stack    []Screen
 	Quitting bool
 
-	// activeTab is the currently-rendered tab. Tab dispatch and rendering
-	// against `tabs` is implemented in a follow-up commit (Group G); this
-	// field exists now so the RED tests for the tab layer can compile.
+	// activeTab is the currently-rendered tab.
 	activeTab tabKey
-	// tabs holds one Screen per tab. Populated in a follow-up commit; nil
-	// entries are tolerated by the stub-phase tests.
+	// tabs holds one Screen per tab. Populated by newFlatModel; nil entries
+	// are tolerated by stub-phase tests.
 	tabs [6]Screen
+
+	// status is the global footer status message (expires after TTL).
+	status statusMessage
 }
 
-// newFlatModel constructs the flat TUI model with the welcome dashboard
-// (engram-style menu) as the root of the navigation stack. Selecting an
-// action from the welcome menu pushes the v2 WorkstationScreen with the
-// matching section pre-focused. esc/q in the workstation pops back to
-// the welcome screen.
+// newFlatModel constructs the flat TUI model with the six-tab workspace.
+// Tab 0 (Home) is the initial active tab and receives an OnFocus call.
 func newFlatModel(st *storage.Storage, cfg Config) flatModel {
-	root := NewDashboardScreen(st, cfg.Project, cfg.Version)
-	return flatModel{
-		storage: st,
-		cfg:     cfg,
-		pal:     defaultPalette,
-		stack:   []Screen{root},
+	m := flatModel{
+		storage:   st,
+		cfg:       cfg,
+		pal:       defaultPalette,
+		activeTab: TabHome,
 	}
+	// Populate tabs. Later commits will replace these with fully rewritten screens.
+	m.tabs[TabHome] = NewDashboardScreen(st, cfg.Project, cfg.Version)
+	m.tabs[TabMemories] = newRecentScreen(st, cfg.Project, "")
+	m.tabs[TabSearch] = newSearchScreen(st, cfg.Project)
+	m.tabs[TabInbox] = newPendingScreen(st, cfg.Project)
+	m.tabs[TabSessions] = &stubScreen{title: "Sessions tab — coming in commit 11"}
+	m.tabs[TabHelp] = &stubScreen{title: "Help tab — coming in commit 12"}
+	return m
 }
 
-// Init returns the root screen's initial command.
+// Init calls Init on the active tab and returns its command.
 func (m flatModel) Init() tea.Cmd {
-	if len(m.stack) == 0 {
+	if m.tabs[m.activeTab] == nil {
 		return nil
 	}
-	return m.stack[0].Init()
+	return tea.Batch(m.tabs[m.activeTab].Init(), m.tabs[m.activeTab].OnFocus())
 }
 
-// Update routes messages to the active (top-of-stack) screen, intercepting
-// only the events flatModel itself owns: window resizing, global quit
-// shortcuts, and push/pop screen commands emitted by child screens.
+// Update routes messages through the seven-step dispatch ladder documented in
+// the tui-memory-workspace design (Section 5, Section 2b(B)).
+//
+// Ladder order:
+//
+//	(1) tea.WindowSizeMsg  — fan out to all tabs + stack; store size; return
+//	(2) ctrl+c             — quit unconditionally
+//	(3) 'q' quit           — when stack empty AND !inputFocused (AND not under-min)
+//	(4) stack non-empty    — dispatch to top-of-stack; esc pops with originator handling
+//	(5) under-min guard    — freeze all navigation below min viewport (q/ctrl+c handled above)
+//	(6) InputFocused guard — pass key directly to active tab Screen
+//	(7) tab intercept      — '1'-'6', tab, shift+tab
+//	(8) Quick Actions      — 's', '/', 'm', 'i'
+//	(9) fall-through       — dispatch to tabs[activeTab]
 func (m flatModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 
+	// ── (1) Window resize — fan out to all tabs + stack ─────────────────────
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
-		// fall through to also let the active screen react if it wants
-
-	case tea.KeyMsg:
-		// ctrl+c always quits, regardless of which screen is active.
-		if msg.String() == "ctrl+c" {
-			m.Quitting = true
-			return m, tea.Quit
+		var cmds []tea.Cmd
+		for i, tab := range m.tabs {
+			if tab == nil {
+				continue
+			}
+			updated, cmd := tab.Update(msg)
+			m.tabs[i] = updated
+			if cmd != nil {
+				cmds = append(cmds, cmd)
+			}
 		}
-		// esc pops the stack down to the dashboard. esc is a non-typeable
-		// key so it's safe to intercept globally.
-		if msg.String() == "esc" && len(m.stack) > 1 {
-			m.stack = m.stack[:len(m.stack)-1]
-			return m, m.focusTop()
+		for i, s := range m.stack {
+			updated, cmd := s.Update(msg)
+			m.stack[i] = updated
+			if cmd != nil {
+				cmds = append(cmds, cmd)
+			}
 		}
-		// 'q' is intentionally NOT handled here. Each screen owns its own
-		// 'q' semantics — most pop, the welcome dashboard quits, and
-		// SearchScreen lets it through as a typeable character (otherwise
-		// queries containing the letter q would be impossible).
+		return m, tea.Batch(cmds...)
 
+	// ── Push/pop commands from child screens ────────────────────────────────
 	case pushScreenCmd:
 		m.stack = append(m.stack, msg.screen)
 		return m, msg.screen.Init()
 
 	case popScreenCmd:
-		if len(m.stack) > 1 {
+		if len(m.stack) > 0 {
+			popped := m.stack[len(m.stack)-1]
 			m.stack = m.stack[:len(m.stack)-1]
-			return m, m.focusTop()
+			if orig, ok := popped.(originator); ok {
+				cmd := m.setActiveTab(orig.OriginatingTab())
+				return m, cmd
+			}
 		}
 		return m, nil
+
+	// ── Status TTL expiry ────────────────────────────────────────────────────
+	case statusClearMsg:
+		m.status = statusMessage{}
+		return m, nil
+
+	// ── Key messages run through the full ladder ─────────────────────────────
+	case tea.KeyMsg:
+
+		// ── (2) ctrl+c quits unconditionally ────────────────────────────────
+		if msg.Type == tea.KeyCtrlC {
+			m.Quitting = true
+			return m, tea.Quit
+		}
+
+		// ── (3) 'q' quit when stack empty AND not focused ───────────────────
+		if msg.String() == "q" && len(m.stack) == 0 && !m.currentInputFocused() {
+			m.Quitting = true
+			return m, tea.Quit
+		}
+
+		// ── (4) stack non-empty — dispatch to top-of-stack ──────────────────
+		if len(m.stack) > 0 {
+			top := m.stack[len(m.stack)-1]
+
+			// esc pops the overlay and reads the originating tab.
+			if msg.Type == tea.KeyEsc {
+				m.stack = m.stack[:len(m.stack)-1]
+				if orig, ok := top.(originator); ok {
+					cmd := m.setActiveTab(orig.OriginatingTab())
+					return m, cmd
+				}
+				return m, nil
+			}
+
+			// All other keys go to the top of the stack.
+			updated, cmd := top.Update(msg)
+			m.stack[len(m.stack)-1] = updated
+			return m, cmd
+		}
+
+		// ── (5) under-min guard — freeze navigation ──────────────────────────
+		// ctrl+c (step 2) and q quit (step 3) already handled above.
+		// 'q' under-min quits (handled in step 3: stack is empty and not focused).
+		// All other nav keys are frozen when under-min.
+		if m.width > 0 && m.height > 0 && (m.width < minWidth || m.height < minHeight) {
+			return m, nil
+		}
+
+		// ── (6) InputFocused guard ────────────────────────────────────────────
+		if m.currentInputFocused() {
+			tab := m.tabs[m.activeTab]
+			if tab != nil {
+				updated, cmd := tab.Update(msg)
+				m.tabs[m.activeTab] = updated
+				return m, cmd
+			}
+			return m, nil
+		}
+
+		// ── (7) Tab intercept: '1'-'6', tab, shift+tab ───────────────────────
+		switch msg.Type {
+		case tea.KeyTab:
+			cmd := m.cycleTab(+1)
+			return m, cmd
+		case tea.KeyShiftTab:
+			cmd := m.cycleTab(-1)
+			return m, cmd
+		}
+
+		if len(msg.Runes) == 1 {
+			switch msg.Runes[0] {
+			case '1':
+				return m, m.setActiveTab(TabHome)
+			case '2':
+				return m, m.setActiveTab(TabMemories)
+			case '3':
+				return m, m.setActiveTab(TabSearch)
+			case '4':
+				return m, m.setActiveTab(TabInbox)
+			case '5':
+				return m, m.setActiveTab(TabSessions)
+			case '6':
+				return m, m.setActiveTab(TabHelp)
+			}
+		}
+
+		// ── (8) Quick Actions ─────────────────────────────────────────────────
+		if len(msg.Runes) == 1 {
+			switch msg.Runes[0] {
+			case 's':
+				m.status = statusMessage{
+					Text:    "Save: use 'tl save ...' (CLI) or tl_save (MCP). In-TUI save coming in a follow-up change.",
+					Level:   statusInfo,
+					Expires: time.Now().Add(5 * time.Second),
+				}
+				return m, statusClearAfter(5 * time.Second)
+
+			case '/':
+				cmd := m.setActiveTab(TabSearch)
+				// Call FocusInput if the Search screen implements it.
+				if fi, ok := m.tabs[TabSearch].(focusInputer); ok {
+					fi.FocusInput()
+				}
+				return m, cmd
+
+			case 'm':
+				return m, m.setActiveTab(TabMemories)
+
+			case 'i':
+				return m, m.setActiveTab(TabInbox)
+			}
+		}
 	}
 
-	// Forward everything else to the top screen.
-	if len(m.stack) == 0 {
+	// ── (9) fall-through: dispatch to active tab ──────────────────────────────
+	tab := m.tabs[m.activeTab]
+	if tab == nil {
 		return m, nil
 	}
-	top := m.stack[len(m.stack)-1]
-	updated, cmd := top.Update(msg)
-	m.stack[len(m.stack)-1] = updated
+	updated, cmd := tab.Update(msg)
+	m.tabs[m.activeTab] = updated
 	return m, cmd
 }
 
-// View renders the top screen, gated by the same minimum-size guard the
-// legacy Model uses.
+// View renders the active tab (or the top-of-stack overlay), gated by the
+// minimum-size guard. Also renders the global status message when not expired.
 func (m flatModel) View() string {
 	if m.Quitting {
 		return ""
@@ -169,14 +326,74 @@ func (m flatModel) View() string {
 			m.width, m.height, minWidth, minHeight,
 		)
 	}
-	if len(m.stack) == 0 {
+
+	// Render from stack overlay if present.
+	if len(m.stack) > 0 {
+		top := m.stack[len(m.stack)-1]
+		content := top.View(m.width, m.height, m.pal)
+		return m.appendStatus(content)
+	}
+
+	// Render active tab.
+	tab := m.tabs[m.activeTab]
+	if tab == nil {
 		return ""
 	}
-	return m.stack[len(m.stack)-1].View(m.width, m.height, m.pal)
+	content := tab.View(m.width, m.height, m.pal)
+	return m.appendStatus(content)
 }
 
-// focusTop calls OnFocus on the top of the stack so it can refresh data
-// when a child screen is popped off.
+// appendStatus appends the status message line to the rendered content when
+// the message has not yet expired.
+func (m flatModel) appendStatus(content string) string {
+	if m.status.Text == "" || time.Now().After(m.status.Expires) {
+		return content
+	}
+	style := statusStyle(m.status.Level, m.pal)
+	return content + "\n" + style.Render(m.status.Text)
+}
+
+// setActiveTab updates activeTab, calls OnFocus on the newly-active tab, and
+// returns the resulting tea.Cmd. Safe to call when tabs[t] is nil.
+func (m *flatModel) setActiveTab(t tabKey) tea.Cmd {
+	m.activeTab = t
+	if m.tabs[t] == nil {
+		return nil
+	}
+	return m.tabs[t].OnFocus()
+}
+
+// currentInputFocused returns true when the currently-active input owner
+// (top of stack if non-empty, else active tab) reports InputFocused() == true.
+func (m flatModel) currentInputFocused() bool {
+	if len(m.stack) > 0 {
+		if f, ok := m.stack[len(m.stack)-1].(inputFocuser); ok {
+			return f.InputFocused()
+		}
+	}
+	if f, ok := m.tabs[m.activeTab].(inputFocuser); ok {
+		return f.InputFocused()
+	}
+	return false
+}
+
+// cycleTab advances (direction +1) or retreats (direction -1) through the six
+// tabs, wrapping at both ends. Returns the OnFocus cmd for the new tab.
+func (m *flatModel) cycleTab(direction int) tea.Cmd {
+	next := (int(m.activeTab) + direction + 6) % 6
+	return m.setActiveTab(tabKey(next))
+}
+
+// statusClearAfter returns a tea.Cmd that sends statusClearMsg after the given
+// duration. Used to automatically expire the global status banner.
+func statusClearAfter(d time.Duration) tea.Cmd {
+	return tea.Tick(d, func(_ time.Time) tea.Msg {
+		return statusClearMsg{}
+	})
+}
+
+// focusTop calls OnFocus on the top of the stack (used internally when a
+// child screen is popped off via popScreenCmd).
 func (m flatModel) focusTop() tea.Cmd {
 	if len(m.stack) == 0 {
 		return nil

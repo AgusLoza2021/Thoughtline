@@ -100,12 +100,15 @@ var defaultPalette = palette{
 }
 
 // statusLevel encodes the three disk/DB health states shown in the header.
+// statusInfo is also used as a neutral informational level in the global
+// status message banner (flatModel.status).
 type statusLevel int
 
 const (
 	statusOK   statusLevel = iota
 	statusWARN statusLevel = iota
 	statusERR  statusLevel = iota
+	statusInfo statusLevel = iota
 )
 
 // statusStyle returns a lipgloss.Style with the foreground colour that matches
@@ -116,6 +119,8 @@ func statusStyle(l statusLevel, p palette) lipgloss.Style {
 		return lipgloss.NewStyle().Foreground(p.StatusWarn)
 	case statusERR:
 		return lipgloss.NewStyle().Foreground(p.StatusErr)
+	case statusInfo:
+		return lipgloss.NewStyle().Foreground(p.Muted)
 	default: // statusOK
 		return lipgloss.NewStyle().Foreground(p.StatusOK)
 	}

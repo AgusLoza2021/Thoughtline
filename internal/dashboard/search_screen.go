@@ -45,6 +45,17 @@ func (s *SearchScreen) Init() tea.Cmd {
 
 func (s *SearchScreen) OnFocus() tea.Cmd { return textinput.Blink }
 
+// InputFocused reports whether the text input is currently focused.
+// Implements the optional inputFocuser interface used by flatModel's
+// InputFocused guard (Reconciliation #4).
+func (s *SearchScreen) InputFocused() bool { return s.input.Focused() }
+
+// FocusInput focuses the text input. Called by the '/' Quick Action in
+// flatModel so the user can immediately start typing a query. Full
+// integration lands in commit 8; this is the placeholder that makes the
+// F5 test (and the Quick Action) work immediately.
+func (s *SearchScreen) FocusInput() { s.input.Focus() }
+
 func (s *SearchScreen) Update(msg tea.Msg) (Screen, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
