@@ -29,12 +29,14 @@ const (
 // SearchOptions filters and paginates a Search call. Empty string filters
 // (Project, Scope, Type, TopicKey) mean "no filter for this column".
 type SearchOptions struct {
-	Project  string
-	Scope    string
-	Type     string
-	TopicKey string // GLOB pattern (e.g. "design/*"); exact when no wildcard
-	Limit    int
-	Offset   int
+	Project    string
+	Scope      string
+	Type       string
+	TopicKey   string   // GLOB pattern (e.g. "design/*"); exact when no wildcard
+	Tags       []string // AND filter: every tag must be present in the memory's tags JSON array
+	RecentFirst bool    // when true, sort by updated_at DESC instead of BM25 score
+	Limit      int
+	Offset     int
 }
 
 // SearchResult is a single hit from Search. Snippet is at most SnippetMaxChars.
@@ -172,6 +174,11 @@ func (s *Storage) searchByFTS(ctx context.Context, brainID int64, raw string, op
 	args := []any{q, brainID}
 	addCommonFiltersAliased(&where, &args, opts, "m")
 
+	orderClause := "fts.rank"
+	if opts.RecentFirst {
+		orderClause = "m.updated_at DESC"
+	}
+
 	sqlStr := `
 		SELECT m.id, m.sync_id, m.project, m.scope, m.type, m.topic_key,
 		       m.title,
@@ -180,7 +187,7 @@ func (s *Storage) searchByFTS(ctx context.Context, brainID int64, raw string, op
 		FROM memories_fts fts
 		JOIN memories m ON m.id = fts.rowid
 		WHERE ` + strings.Join(where, " AND ") + `
-		ORDER BY fts.rank
+		ORDER BY ` + orderClause + `
 		LIMIT ? OFFSET ?`
 	args = append(args, limit, offset)
 
@@ -218,6 +225,9 @@ func (s *Storage) searchByFTS(ctx context.Context, brainID int64, raw string, op
 		}
 		r.Snippet = truncateRunes(snip, SnippetMaxChars)
 		r.UpdatedAt = time.UnixMilli(updatedMS)
+		if opts.RecentFirst {
+			r.Score = 0.0
+		}
 		out = append(out, r)
 	}
 	if err := rows.Err(); err != nil {
@@ -245,6 +255,10 @@ func addCommonFilters(where *[]string, args *[]any, opts SearchOptions) {
 		*where = append(*where, "topic_key GLOB ?")
 		*args = append(*args, opts.TopicKey)
 	}
+	for _, tag := range opts.Tags {
+		*where = append(*where, "EXISTS (SELECT 1 FROM json_each(tags) WHERE value = ?)")
+		*args = append(*args, tag)
+	}
 }
 
 // addCommonFiltersAliased is like addCommonFilters but qualifies columns with
@@ -266,6 +280,10 @@ func addCommonFiltersAliased(where *[]string, args *[]any, opts SearchOptions, a
 	if opts.TopicKey != "" {
 		*where = append(*where, a+"topic_key GLOB ?")
 		*args = append(*args, opts.TopicKey)
+	}
+	for _, tag := range opts.Tags {
+		*where = append(*where, "EXISTS (SELECT 1 FROM json_each("+a+"tags) WHERE value = ?)")
+		*args = append(*args, tag)
 	}
 }
 

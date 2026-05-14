@@ -15,13 +15,15 @@ import (
 
 // searchArgs is the typed shape of a tl_search call.
 type searchArgs struct {
-	Query    string
-	Type     string
-	Scope    string
-	Project  string
-	TopicKey string
-	Limit    int
-	Offset   int
+	Query       string
+	Type        string
+	Scope       string
+	Project     string
+	TopicKey    string
+	Tags        []string
+	RecentFirst bool
+	Limit       int
+	Offset      int
 }
 
 func registerTLSearch(srv *server.MCPServer, s *storage.Storage, cfg Config) {
@@ -55,6 +57,13 @@ func registerTLSearch(srv *server.MCPServer, s *storage.Storage, cfg Config) {
 			mcp.WithNumber("offset",
 				mcp.Description("Skip the first N matches; pair with limit for pagination."),
 			),
+			mcp.WithArray("tags",
+				mcp.Description("Filter by tags (AND semantics). Only memories containing ALL specified tags are returned."),
+				mcp.Items(map[string]any{"type": "string"}),
+			),
+			mcp.WithBoolean("recent_first",
+				mcp.Description("Sort by most recently updated instead of BM25 relevance. Use when you want session context, not keyword matches."),
+			),
 		),
 		func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 			args := decodeSearchArgs(req)
@@ -72,13 +81,15 @@ Topic-key shortcut: a query containing '/' is treated as a topic_key GLOB lookup
 func decodeSearchArgs(req mcp.CallToolRequest) searchArgs {
 	a := req.GetArguments()
 	out := searchArgs{
-		Query:    asString(a, "query"),
-		Type:     asString(a, "type"),
-		Scope:    asString(a, "scope"),
-		Project:  asString(a, "project"),
-		TopicKey: asString(a, "topic_key"),
-		Limit:    asInt(a, "limit"),
-		Offset:   asInt(a, "offset"),
+		Query:       asString(a, "query"),
+		Type:        asString(a, "type"),
+		Scope:       asString(a, "scope"),
+		Project:     asString(a, "project"),
+		TopicKey:    asString(a, "topic_key"),
+		Tags:        asStringSlice(a, "tags"),
+		RecentFirst: asBool(a, "recent_first"),
+		Limit:       asInt(a, "limit"),
+		Offset:      asInt(a, "offset"),
 	}
 	out.Query = strings.TrimSpace(out.Query)
 	out.Type = strings.TrimSpace(out.Type)
@@ -110,12 +121,14 @@ func doSearch(ctx context.Context, s *storage.Storage, cfg Config, args searchAr
 	}
 
 	opts := storage.SearchOptions{
-		Project:  project,
-		Scope:    args.Scope,
-		Type:     args.Type,
-		TopicKey: args.TopicKey,
-		Limit:    args.Limit,
-		Offset:   args.Offset,
+		Project:     project,
+		Scope:       args.Scope,
+		Type:        args.Type,
+		TopicKey:    args.TopicKey,
+		Tags:        args.Tags,
+		RecentFirst: args.RecentFirst,
+		Limit:       args.Limit,
+		Offset:      args.Offset,
 	}
 
 	results, err := s.Search(ctx, brainID, args.Query, opts)
@@ -201,4 +214,11 @@ func asInt64(a map[string]any, k string) int64 {
 	default:
 		return 0
 	}
+}
+
+func asBool(a map[string]any, k string) bool {
+	if v, ok := a[k].(bool); ok {
+		return v
+	}
+	return false
 }

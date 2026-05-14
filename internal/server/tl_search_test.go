@@ -4,6 +4,7 @@ import (
 	"context"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/AgusLoza2021/Thoughtline/internal/memory"
 	"github.com/AgusLoza2021/Thoughtline/internal/storage"
@@ -257,5 +258,93 @@ func TestDoSearch_LimitOverride(t *testing.T) {
 	gotResults := strings.Count(body, "Title: ")
 	if gotResults != 2 {
 		t.Errorf("limit=2 should produce 2 result blocks, got %d in:\n%s", gotResults, body)
+	}
+}
+
+func TestDoSearch_TagsFilter(t *testing.T) {
+	st := newTestStorage(t)
+	ctx := context.Background()
+
+	tagged := sampleSceneMemory("Lantern unity android", "lantern lantern", "scene/tagged")
+	tagged.Tags = []string{"engine:unity", "platform:android"}
+	seedMemory(t, st, tagged)
+
+	untagged := sampleSceneMemory("Lantern no tags", "lantern lantern", "scene/untagged")
+	seedMemory(t, st, untagged)
+
+	res, err := doSearch(ctx, st, Config{}, searchArgs{
+		Query:   "lantern",
+		Project: "enchanted-inn",
+		Tags:    []string{"engine:unity"},
+	})
+	if err != nil {
+		t.Fatalf("doSearch: %v", err)
+	}
+	body := textContent(res)
+	if !strings.Contains(body, "Lantern unity android") {
+		t.Errorf("tags filter should include tagged memory, got:\n%s", body)
+	}
+	if strings.Contains(body, "Lantern no tags") {
+		t.Errorf("tags filter should exclude untagged memory, got:\n%s", body)
+	}
+}
+
+func TestDoSearch_TagsFilter_ANDSemantics(t *testing.T) {
+	st := newTestStorage(t)
+	ctx := context.Background()
+
+	both := sampleSceneMemory("Lantern both tags", "lantern lantern", "scene/both")
+	both.Tags = []string{"engine:unity", "platform:android"}
+	seedMemory(t, st, both)
+
+	oneOnly := sampleSceneMemory("Lantern one tag", "lantern lantern", "scene/one")
+	oneOnly.Tags = []string{"engine:unity"}
+	seedMemory(t, st, oneOnly)
+
+	res, err := doSearch(ctx, st, Config{}, searchArgs{
+		Query:   "lantern",
+		Project: "enchanted-inn",
+		Tags:    []string{"engine:unity", "platform:android"},
+	})
+	if err != nil {
+		t.Fatalf("doSearch: %v", err)
+	}
+	body := textContent(res)
+	if !strings.Contains(body, "Lantern both tags") {
+		t.Errorf("AND filter should include memory with both tags, got:\n%s", body)
+	}
+	if strings.Contains(body, "Lantern one tag") {
+		t.Errorf("AND filter should exclude memory missing one tag, got:\n%s", body)
+	}
+}
+
+func TestDoSearch_RecentFirst(t *testing.T) {
+	st := newTestStorage(t)
+	ctx := context.Background()
+
+	older := sampleSceneMemory("Lantern older", "lantern lantern", "scene/older")
+	savedOlder := seedMemory(t, st, older)
+
+	st.SetClock(func() time.Time { return savedOlder.UpdatedAt.Add(5 * time.Second) })
+
+	newer := sampleSceneMemory("Lantern newer", "lantern lantern", "scene/newer")
+	seedMemory(t, st, newer)
+
+	res, err := doSearch(ctx, st, Config{}, searchArgs{
+		Query:       "lantern",
+		Project:     "enchanted-inn",
+		RecentFirst: true,
+	})
+	if err != nil {
+		t.Fatalf("doSearch: %v", err)
+	}
+	body := textContent(res)
+	newerPos := strings.Index(body, "Lantern newer")
+	olderPos := strings.Index(body, "Lantern older")
+	if newerPos == -1 || olderPos == -1 {
+		t.Fatalf("both memories should appear in results:\n%s", body)
+	}
+	if newerPos > olderPos {
+		t.Errorf("recent_first=true: newer memory should appear before older, got:\n%s", body)
 	}
 }

@@ -4,6 +4,7 @@ import (
 	"context"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/AgusLoza2021/Thoughtline/internal/memory"
 )
@@ -480,6 +481,157 @@ func TestSearch_FilterByTopicKeyGlob(t *testing.T) {
 	}
 	if !strings.HasPrefix(results[0].TopicKey, "design/") {
 		t.Errorf("expected topic_key prefix design/, got %q", results[0].TopicKey)
+	}
+}
+
+func TestSearch_FilterByTags_SingleTag(t *testing.T) {
+	st := newTestStorage(t)
+	ctx := context.Background()
+	brainID := defaultBrainID(t, st)
+
+	tagged := sampleMemory()
+	tagged.TopicKey = "scene/tagged"
+	tagged.Title = "Lantern tagged"
+	tagged.Content = "lantern lantern lantern"
+	tagged.Tags = []string{"engine:unity", "platform:android"}
+	seed(t, st, tagged)
+
+	untagged := sampleMemory()
+	untagged.TopicKey = "scene/untagged"
+	untagged.Title = "Lantern untagged"
+	untagged.Content = "lantern lantern lantern"
+	seed(t, st, untagged)
+
+	results, err := st.Search(ctx, brainID, "lantern", SearchOptions{Tags: []string{"engine:unity"}})
+	if err != nil {
+		t.Fatalf("search: %v", err)
+	}
+	if len(results) != 1 {
+		t.Fatalf("expected 1 result with tag engine:unity, got %d", len(results))
+	}
+	if results[0].TopicKey != "scene/tagged" {
+		t.Errorf("expected tagged row, got topic_key=%q", results[0].TopicKey)
+	}
+}
+
+func TestSearch_FilterByTags_ANDSemantics(t *testing.T) {
+	st := newTestStorage(t)
+	ctx := context.Background()
+	brainID := defaultBrainID(t, st)
+
+	both := sampleMemory()
+	both.TopicKey = "scene/both"
+	both.Title = "Lantern both tags"
+	both.Content = "lantern lantern lantern"
+	both.Tags = []string{"engine:unity", "platform:android"}
+	seed(t, st, both)
+
+	oneOnly := sampleMemory()
+	oneOnly.TopicKey = "scene/one"
+	oneOnly.Title = "Lantern one tag"
+	oneOnly.Content = "lantern lantern lantern"
+	oneOnly.Tags = []string{"engine:unity"}
+	seed(t, st, oneOnly)
+
+	// Require both tags — only "both" should match.
+	results, err := st.Search(ctx, brainID, "lantern", SearchOptions{Tags: []string{"engine:unity", "platform:android"}})
+	if err != nil {
+		t.Fatalf("search: %v", err)
+	}
+	if len(results) != 1 {
+		t.Fatalf("AND semantics: expected 1 result, got %d", len(results))
+	}
+	if results[0].TopicKey != "scene/both" {
+		t.Errorf("expected scene/both, got topic_key=%q", results[0].TopicKey)
+	}
+}
+
+func TestSearch_FilterByTags_NoMatch(t *testing.T) {
+	st := newTestStorage(t)
+	ctx := context.Background()
+	brainID := defaultBrainID(t, st)
+
+	m := sampleMemory()
+	m.TopicKey = "scene/x"
+	m.Title = "Lantern"
+	m.Content = "lantern lantern"
+	m.Tags = []string{"engine:playcanvas"}
+	seed(t, st, m)
+
+	results, err := st.Search(ctx, brainID, "lantern", SearchOptions{Tags: []string{"engine:unity"}})
+	if err != nil {
+		t.Fatalf("search: %v", err)
+	}
+	if len(results) != 0 {
+		t.Errorf("tag filter with no match should return 0 results, got %d", len(results))
+	}
+}
+
+func TestSearch_RecentFirst_OrdersByUpdatedAt(t *testing.T) {
+	st := newTestStorage(t)
+	ctx := context.Background()
+	brainID := defaultBrainID(t, st)
+
+	older := sampleMemory()
+	older.TopicKey = "scene/older"
+	older.Title = "Lantern older"
+	older.Content = "lantern lantern"
+	savedOlder := seed(t, st, older)
+
+	// Advance the clock so the second memory has a later updated_at.
+	st.SetClock(func() time.Time { return savedOlder.UpdatedAt.Add(5 * time.Second) })
+
+	newer := sampleMemory()
+	newer.TopicKey = "scene/newer"
+	newer.Title = "Lantern newer"
+	newer.Content = "lantern lantern"
+	seed(t, st, newer)
+
+	results, err := st.Search(ctx, brainID, "lantern", SearchOptions{RecentFirst: true})
+	if err != nil {
+		t.Fatalf("search: %v", err)
+	}
+	if len(results) != 2 {
+		t.Fatalf("expected 2 results, got %d", len(results))
+	}
+	if results[0].TopicKey != "scene/newer" {
+		t.Errorf("recent_first: expected scene/newer first, got %q", results[0].TopicKey)
+	}
+	if results[0].Score != 0.0 {
+		t.Errorf("recent_first: score must be 0.0, got %v", results[0].Score)
+	}
+}
+
+func TestSearch_RecentFirst_FalseKeepsBM25Order(t *testing.T) {
+	st := newTestStorage(t)
+	ctx := context.Background()
+	brainID := defaultBrainID(t, st)
+
+	// Weak BM25 match but inserted later — BM25 should still win without recent_first.
+	weak := sampleMemory()
+	weak.TopicKey = "scene/weak"
+	weak.Title = "Lantern weak"
+	weak.Content = "lantern once"
+	savedWeak := seed(t, st, weak)
+
+	st.SetClock(func() time.Time { return savedWeak.UpdatedAt.Add(5 * time.Second) })
+
+	strong := sampleMemory()
+	strong.TopicKey = "scene/strong"
+	strong.Title = "Lantern strong"
+	strong.Content = "lantern lantern lantern lantern lantern"
+	seed(t, st, strong)
+
+	// Without recent_first, BM25 should rank the strong match first.
+	results, err := st.Search(ctx, brainID, "lantern", SearchOptions{RecentFirst: false})
+	if err != nil {
+		t.Fatalf("search: %v", err)
+	}
+	if len(results) != 2 {
+		t.Fatalf("expected 2 results, got %d", len(results))
+	}
+	if results[0].TopicKey != "scene/strong" {
+		t.Errorf("BM25 order: expected scene/strong first, got %q", results[0].TopicKey)
 	}
 }
 

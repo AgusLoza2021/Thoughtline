@@ -37,6 +37,9 @@ func New(s *storage.Storage, cfg Config) *server.MCPServer {
 	registerTLSessionStart(srv, s, cfg)
 	registerTLSessionSummary(srv, s)
 	registerTLStats(srv, s, cfg)
+	registerTLJudge(srv, s, cfg)
+	registerTLLink(srv, s, cfg)
+	registerTLRelated(srv, s, cfg)
 	// Passive capture tools (v3).
 	registerTLPendingList(srv, s, cfg)
 	registerTLPendingGet(srv, s, cfg)
