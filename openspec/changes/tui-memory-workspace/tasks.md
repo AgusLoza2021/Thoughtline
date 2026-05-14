@@ -1143,7 +1143,7 @@ Each task uses this block:
   - Entry under upcoming release: BREAKING section names `--theme`, `--no-splash`, `--splash-ms`
   - Summary of new tab-based TUI workspace
 
-### R2 — Docs: README updates (TUI section, screenshots placeholder, flags table)
+### R2 [x] — Docs: README updates (TUI section, screenshots placeholder, flags table)
 - **Type**: docs
 - **Effort**: S
 - **Depends on**: P1-P10
@@ -1155,7 +1155,7 @@ Each task uses this block:
   - Screenshots placeholder referencing golden files locations
   - Flags table updated (no `--theme`, no `--no-splash`, no `--splash-ms`)
 
-### R3 — Docs: ADR `0006-tui-memory-workspace.md`
+### R3 [x] — Docs: ADR `0006-tui-memory-workspace.md`
 - **Type**: docs
 - **Effort**: M
 - **Depends on**: all design decisions
@@ -1169,7 +1169,7 @@ Each task uses this block:
 
 ## Group S — Verification gate
 
-### S1 — Infra: `go test ./...` green
+### S1 [x] — Infra: `go test ./...` green
 - **Type**: infra
 - **Effort**: S
 - **Depends on**: all
@@ -1179,7 +1179,7 @@ Each task uses this block:
 - **Acceptance criteria**:
   - Full test suite passes locally
 
-### S2 — Infra: `go vet ./...` clean
+### S2 [x] — Infra: `go vet ./...` clean
 - **Type**: infra
 - **Effort**: S
 - **Depends on**: all
@@ -1189,7 +1189,7 @@ Each task uses this block:
 - **Acceptance criteria**:
   - `go vet ./...` reports no issues
 
-### S3 — Infra: cross-platform clipboard smoke (manual on Win + at least one Unix host)
+### S3 [x] — Infra: cross-platform clipboard smoke (manual on Win + at least one Unix host)
 - **Type**: infra
 - **Effort**: M
 - **Depends on**: K3
@@ -1201,7 +1201,7 @@ Each task uses this block:
   - On macOS or Linux (whichever available): `pbcopy` / `wl-copy` / `xclip` works
   - Missing-backend path surfaces "Clipboard unavailable" status
 
-### S4 — Infra: spec scenario-to-test coverage audit
+### S4 [x] — Infra: spec scenario-to-test coverage audit
 - **Type**: infra
 - **Effort**: M
 - **Depends on**: all test tasks
