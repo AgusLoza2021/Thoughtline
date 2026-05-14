@@ -129,13 +129,19 @@ func (s *Storage) ListPending(ctx context.Context, p ListPendingParams) ([]pendi
 	}
 
 	// Build query dynamically based on which filters are active.
+	// An empty Project means "unscoped" — list pending across all projects
+	// (used by the workspace-wide Inbox view).
 	query := `
 		SELECT id, sync_id, project, session_id, event_type, tool_name, tool_use_id,
 		       payload, event_hash, status, promoted_memory_id, promoted_at,
 		       archived_at, created_at, captured_at
 		FROM pending_events
-		WHERE project = ?`
-	args := []any{p.Project}
+		WHERE 1=1`
+	var args []any
+	if p.Project != "" {
+		query += " AND project = ?"
+		args = append(args, p.Project)
+	}
 
 	if p.Status != "" {
 		query += " AND status = ?"

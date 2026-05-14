@@ -2,6 +2,7 @@ package dashboard
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -99,12 +100,14 @@ func (is *InboxScreen) handleKey(msg tea.KeyMsg) (Screen, tea.Cmd) {
 		return is, nil
 
 	case "E":
-		// Edit: push InboxEditScreen with pre-filled payload
+		// Edit: push InboxEditScreen with pre-filled payload. Pass the full
+		// event so the submit path can preserve Project / SessionID /
+		// CapturedAt from the pending row (fidelity is contract per spec
+		// Req 24 — see fix(dashboard): Inbox promotion fidelity).
 		if len(is.events) > 0 && is.cursor < len(is.events) {
 			ev := is.events[is.cursor]
-			editScreen := NewInboxEditScreen(ev.ID, ev.EventType, ev.EventType, ev.Payload)
+			editScreen := NewInboxEditScreen(ev)
 			editScreen.storage = is.storage
-			editScreen.pendingID = ev.ID
 			return is, func() tea.Msg {
 				return pushScreenCmd{screen: editScreen}
 			}
@@ -202,18 +205,13 @@ func (is *InboxScreen) loadCmd() tea.Cmd {
 	return func() tea.Msg {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
+		// The Inbox is workspace-wide (per spec Req 24) — query unscoped so
+		// pending captures from every project show up. Filtering by project
+		// is a future UI concern, not a load-time invariant.
 		events, err := st.ListPending(ctx, storage.ListPendingParams{
-			Project: "test-workspace",
-			Status:  "pending",
-			Limit:   50,
+			Status: "pending",
+			Limit:  50,
 		})
-		if err != nil {
-			// Try with empty project (global)
-			events, err = st.ListPending(ctx, storage.ListPendingParams{
-				Status: "pending",
-				Limit:  50,
-			})
-		}
 		return inboxLoadedMsg{events: events, err: err}
 	}
 }
@@ -224,22 +222,40 @@ func (is *InboxScreen) acceptCmd(ev pending.Event) tea.Cmd {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 
-		// Save the payload as a memory
+		// Parse the optional proposed_* fields out of the payload, falling
+		// back to sensible defaults when the payload is unstructured. This
+		// preserves the capture even when the hook didn't shape the fields,
+		// and — critically — keeps the memory.Type as a real memory type
+		// rather than a raw hook EventType string (e.g. "PostToolUse").
+		proposedType, proposedTitle, proposedContent := parseProposedMemory(ev.Payload, ev.EventType)
+
 		brainID, err := st.ResolveOrCreateBrainID(ctx, ev.Project)
 		if err != nil {
 			return inboxActionMsg{err: err}
 		}
 		m := memory.Memory{
-			Project:  ev.Project,
-			Scope:    memory.ScopeProject,
-			Type:     memory.Type(ev.EventType),
-			Title:    "Inbox capture",
-			Content:  ev.Payload,
-			TopicKey: fmt.Sprintf("inbox/%s/%d", ev.EventType, ev.ID),
+			Project:   ev.Project,
+			Scope:     memory.ScopeProject,
+			Type:      memory.Type(proposedType),
+			Title:     proposedTitle,
+			Content:   proposedContent,
+			TopicKey:  fmt.Sprintf("inbox/%s/%d", ev.EventType, ev.ID),
+			SessionID: ev.SessionID,
+			CreatedAt: ev.CapturedAt,
 		}
 		saved, _, err := st.Save(ctx, brainID, m)
 		if err != nil {
-			return inboxActionMsg{err: err}
+			// If the pending event references a session that no longer
+			// exists (or was never persisted as a Session row), retry
+			// without the link rather than losing the capture. Audit
+			// fidelity matters less than not dropping the promoted memory.
+			if errors.Is(err, storage.ErrSessionNotFound) && m.SessionID != "" {
+				m.SessionID = ""
+				saved, _, err = st.Save(ctx, brainID, m)
+			}
+			if err != nil {
+				return inboxActionMsg{err: err}
+			}
 		}
 		if err := st.MarkPromoted(ctx, ev.ID, saved.ID); err != nil {
 			return inboxActionMsg{err: err}

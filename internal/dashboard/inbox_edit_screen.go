@@ -2,6 +2,7 @@ package dashboard
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -12,6 +13,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 
 	"github.com/AgusLoza2021/Thoughtline/internal/memory"
+	"github.com/AgusLoza2021/Thoughtline/internal/pending"
 	"github.com/AgusLoza2021/Thoughtline/internal/storage"
 )
 
@@ -32,6 +34,7 @@ type inboxEditSubmitMsg struct {
 // Tab cycles through fields. ctrl+s submits (save memory + MarkPromoted).
 // esc cancels without any DB changes (pushes popScreenCmd).
 type InboxEditScreen struct {
+	ev         pending.Event
 	pendingID  int64
 	typeField  textinput.Model
 	titleField textinput.Model
@@ -42,28 +45,36 @@ type InboxEditScreen struct {
 	done       bool
 }
 
-// NewInboxEditScreen constructs an InboxEditScreen pre-filled with the
-// supplied values. focus starts at 0 (type field).
-func NewInboxEditScreen(pendingID int64, typeName, title, body string) *InboxEditScreen {
+// NewInboxEditScreen constructs an InboxEditScreen pre-filled from the
+// pending event. The initial type/title/body come from parseProposedMemory,
+// which honors the inline proposed_* fields when present and falls back to
+// sensible defaults otherwise. Project, SessionID and CapturedAt are kept on
+// the screen so the submit command can preserve them on the saved memory
+// (fidelity contract — see fix(dashboard): Inbox promotion fidelity).
+// focus starts at 0 (type field).
+func NewInboxEditScreen(ev pending.Event) *InboxEditScreen {
+	proposedType, proposedTitle, proposedBody := parseProposedMemory(ev.Payload, ev.EventType)
+
 	tf := textinput.New()
 	tf.Placeholder = "memory type (e.g. decision)"
 	tf.CharLimit = 50
-	tf.SetValue(typeName)
+	tf.SetValue(proposedType)
 	tf.Focus()
 
 	ti := textinput.New()
 	ti.Placeholder = "title"
 	ti.CharLimit = 200
-	ti.SetValue(title)
+	ti.SetValue(proposedTitle)
 
 	ta := textarea.New()
 	ta.Placeholder = "memory body…"
-	ta.SetValue(body)
+	ta.SetValue(proposedBody)
 	ta.SetWidth(60)
 	ta.SetHeight(6)
 
 	return &InboxEditScreen{
-		pendingID:  pendingID,
+		ev:         ev,
+		pendingID:  ev.ID,
 		typeField:  tf,
 		titleField: ti,
 		bodyField:  ta,
@@ -209,6 +220,7 @@ func (s *InboxEditScreen) View(width, height int, p palette) string {
 
 func (s *InboxEditScreen) promoteCmd() tea.Cmd {
 	st := s.storage
+	ev := s.ev
 	pendingID := s.pendingID
 	typeName := s.typeField.Value()
 	title := s.titleField.Value()
@@ -218,23 +230,36 @@ func (s *InboxEditScreen) promoteCmd() tea.Cmd {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 
-		// Resolve or create brain from project — use empty project (global).
-		brainID, err := st.ResolveOrCreateBrainID(ctx, "test-workspace")
+		// Resolve the brain for the pending event's project — NOT a
+		// hardcoded literal. This preserves cross-project fidelity per the
+		// passive-capture spec (Req 24).
+		brainID, err := st.ResolveOrCreateBrainID(ctx, ev.Project)
 		if err != nil {
 			return inboxEditSubmitMsg{err: err}
 		}
 
 		m := memory.Memory{
-			Project:  "test-workspace",
-			Scope:    memory.ScopeProject,
-			Type:     memory.Type(typeName),
-			Title:    title,
-			Content:  body,
-			TopicKey: fmt.Sprintf("inbox/edit/%s/%d", typeName, pendingID),
+			Project:   ev.Project,
+			Scope:     memory.ScopeProject,
+			Type:      memory.Type(typeName),
+			Title:     title,
+			Content:   body,
+			TopicKey:  fmt.Sprintf("inbox/edit/%s/%d", typeName, pendingID),
+			SessionID: ev.SessionID,
+			CreatedAt: ev.CapturedAt,
 		}
 		saved, _, err := st.Save(ctx, brainID, m)
 		if err != nil {
-			return inboxEditSubmitMsg{err: err}
+			// Same fallback as inbox_screen.acceptCmd: don't lose the capture
+			// when the linked session no longer exists. Retry without the
+			// SessionID link.
+			if errors.Is(err, storage.ErrSessionNotFound) && m.SessionID != "" {
+				m.SessionID = ""
+				saved, _, err = st.Save(ctx, brainID, m)
+			}
+			if err != nil {
+				return inboxEditSubmitMsg{err: err}
+			}
 		}
 		if err := st.MarkPromoted(ctx, pendingID, saved.ID); err != nil {
 			return inboxEditSubmitMsg{err: err}

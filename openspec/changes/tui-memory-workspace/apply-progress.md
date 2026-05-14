@@ -440,3 +440,50 @@ Strict TDD: every code task preceded by its test task in the same commit.
 ### Ready for sdd-archive
 
 The change is complete. Recommended next phase: `sdd-archive` to sync the delta specs into the main spec set and move `openspec/changes/tui-memory-workspace/` under `openspec/changes/archive/`.
+
+## Fix-up — C1/C2/C3 remediation (post-verify)
+
+`sdd-verify` flagged three CRITICAL findings on the Inbox promotion subsystem
+that were hidden by a fixture coincidence: every test seeded pending events
+with `Project: "test-workspace"` and every production path hardcoded the same
+literal, so the bugs (lost `ev.Project`, raw `EventType` used as `memory.Type`,
+dropped `SessionID` and `CapturedAt`, hardcoded `loadCmd` filter) were
+invisible at the assertion layer. This fix-up closes the gap.
+
+### Findings addressed
+
+| Finding | Location | Fix |
+|---------|----------|-----|
+| C1 | `internal/dashboard/inbox_screen.go` `acceptCmd` | Use `ev.Project` (not `"test-workspace"`); parse `ev.Payload` JSON for `proposed_type` / `proposed_title` / `proposed_content` via the new `parseProposedMemory` helper with sensible fallbacks (`convention` for tool/session hooks, `decision` otherwise; title defaults to `"<EventType> capture"`; content falls back to the raw payload). Preserve `ev.SessionID` and `ev.CapturedAt` on the saved memory. |
+| C2 | `internal/dashboard/inbox_edit_screen.go` | `NewInboxEditScreen` now takes a full `pending.Event` instead of the loose `(pendingID, typeName, title, body)` tuple. Initial field values come from the shared `parseProposedMemory` helper. Submit path uses `ev.Project` / `ev.SessionID` / `ev.CapturedAt`. |
+| C3 | `internal/dashboard/inbox_screen.go` `loadCmd` | Removed the hardcoded `Project: "test-workspace"` filter and the dead fallback. Inbox now queries pending events unscoped — workspace-wide per the spec spirit (Req 24). |
+
+### Supporting changes
+
+- `internal/storage/pending.go` `ListPending` now treats an empty `Project` parameter as "unscoped" (no `project = ?` predicate) instead of literally filtering on the empty string. Existing callers with a non-empty `Project` keep their old behavior.
+- `internal/dashboard/helpers.go` adds `parseProposedMemory(payload, eventType)` and `defaultTypeForEvent` — shared between Accept and Edit paths.
+- Both promotion paths gained a defensive retry: if `Save` returns `ErrSessionNotFound` because the pending event references a session that was never persisted as a `Session` row, retry once without the link rather than dropping the capture. Audit fidelity (the link) is preferred but not at the cost of losing a promoted memory.
+
+### L6 integration tests (new)
+
+- `TestInboxScreen_L6_AcceptPreservesProjectAndContent` seeds a pending event with project `my-game-x` and asserts the saved memory lands in `my-game-x` with `Type=decision`, `Title="Use WAL"`, content containing `"Enable WAL via DSN"`, and that nothing leaks into `test-workspace`.
+- `TestInboxEditScreen_L6_SubmitPreservesProjectAndSession` seeds with project `another-game`, edits the fields to `bugfix` / `"edited title"` / `"edited body"`, then asserts the saved memory matches the edited values in the originating project.
+
+Both tests use distinct project names (`my-game-x`, `another-game`) precisely to defeat the fixture coincidence that hid the bugs. They would have failed against the pre-fix-up code.
+
+### Commit
+
+- `fix(dashboard): Inbox promotion fidelity — preserve project/session/captured_at from pending event` *(this commit)*
+
+### Verification
+
+- `go test ./...` — 13/13 packages green.
+- `go vet ./...` — clean.
+
+### Drift surfaced
+
+None new. The three findings were the drift; this commit lands the remediation. The reconciliation table in earlier batches stands.
+
+### Next phase
+
+Re-run `sdd-verify` to confirm C1/C2/C3 are CLEAR before proceeding to `sdd-archive`. WARNINGs W1–W5 and SUGGESTIONs S1–S4 from the verify report are unchanged and still scoped as out-of-band follow-ups.

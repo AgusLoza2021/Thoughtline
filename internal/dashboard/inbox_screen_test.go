@@ -4,9 +4,11 @@ import (
 	"context"
 	"strings"
 	"testing"
+	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 
+	"github.com/AgusLoza2021/Thoughtline/internal/pending"
 	"github.com/AgusLoza2021/Thoughtline/internal/storage"
 )
 
@@ -164,7 +166,12 @@ func TestInboxScreen_L4_RKeyRejects(t *testing.T) {
 // ─── L8: InboxEditScreen.InputFocused always returns true ────────────────────
 
 func TestInboxEditScreen_L8_InputFocusedAlwaysTrue(t *testing.T) {
-	ies := NewInboxEditScreen(1, "decision", "proposed title", "proposed body")
+	ies := NewInboxEditScreen(pending.Event{
+		ID:        1,
+		Project:   "test-workspace",
+		EventType: "PostToolUse",
+		Payload: `{"proposed_type":"decision","proposed_title":"proposed title","proposed_content":"proposed body"}`,
+	})
 	if !ies.InputFocused() {
 		t.Error("InboxEditScreen.InputFocused() must always return true")
 	}
@@ -173,7 +180,12 @@ func TestInboxEditScreen_L8_InputFocusedAlwaysTrue(t *testing.T) {
 // ─── L5: InboxEditScreen field cycling with tab ──────────────────────────────
 
 func TestInboxEditScreen_L5_FieldCycling(t *testing.T) {
-	ies := NewInboxEditScreen(1, "decision", "proposed title", "proposed body")
+	ies := NewInboxEditScreen(pending.Event{
+		ID:        1,
+		Project:   "test-workspace",
+		EventType: "PostToolUse",
+		Payload: `{"proposed_type":"decision","proposed_title":"proposed title","proposed_content":"proposed body"}`,
+	})
 
 	if ies.focus != 0 {
 		t.Errorf("initial focus should be 0 (type field), got %d", ies.focus)
@@ -207,7 +219,12 @@ func TestInboxEditScreen_L7_EscCancels(t *testing.T) {
 		t.Fatalf("count before: %v", err)
 	}
 
-	ies := NewInboxEditScreen(1, "decision", "proposed title", "proposed body")
+	ies := NewInboxEditScreen(pending.Event{
+		ID:        1,
+		Project:   "test-workspace",
+		EventType: "PostToolUse",
+		Payload: `{"proposed_type":"decision","proposed_title":"proposed title","proposed_content":"proposed body"}`,
+	})
 
 	_, cmd := ies.Update(tea.KeyMsg{Type: tea.KeyEsc})
 	if cmd == nil {
@@ -228,6 +245,171 @@ func TestInboxEditScreen_L7_EscCancels(t *testing.T) {
 	}
 }
 
+// ─── L6: Inbox promotion fidelity ────────────────────────────────────────────
+//
+// L6 closes the gap surfaced by sdd-verify on the tui-memory-workspace change:
+// every other Inbox test seeded pending events with the literal project
+// "test-workspace" and the production paths happened to hardcode the same
+// literal — so the bugs (lost ev.Project, raw EventType used as memory.Type,
+// dropped SessionID/CapturedAt, hardcoded loadCmd filter) were invisible.
+//
+// These two tests use DISTINCT project names ("my-game-x" and "another-game")
+// so any hardcoded "test-workspace" anywhere in the promotion path will leak
+// into the assertions.
+
+func TestInboxScreen_L6_AcceptPreservesProjectAndContent(t *testing.T) {
+	st := newWorkspaceStorage(t)
+	ctx := context.Background()
+
+	// Seed a pending event with a project that is NOT "test-workspace".
+	ev := pending.Event{
+		Project:    "my-game-x",
+		SessionID:  "sess-l6-accept",
+		EventType:  "PostToolUse",
+		Payload:    `{"proposed_type":"decision","proposed_title":"Use WAL","proposed_content":"Enable WAL via DSN"}`,
+		Hash:       "test-hash-l6-accept",
+		SyncID:     "sync-l6-accept",
+		Status:     pending.StatusPending,
+		CapturedAt: time.Date(2026, 5, 1, 12, 0, 0, 0, time.UTC),
+		CreatedAt:  time.Date(2026, 5, 1, 12, 0, 0, 0, time.UTC),
+	}
+	if _, err := st.InsertPending(ctx, ev); err != nil {
+		t.Fatalf("InsertPending: %v", err)
+	}
+
+	// Reload to get the assigned ID via the unscoped list.
+	events, err := st.ListPending(ctx, storage.ListPendingParams{Status: "pending", Limit: 50})
+	if err != nil {
+		t.Fatalf("ListPending: %v", err)
+	}
+	if len(events) != 1 {
+		t.Fatalf("expected 1 pending event after seed, got %d", len(events))
+	}
+	loaded := events[0]
+	if loaded.Project != "my-game-x" {
+		t.Fatalf("seeded pending should remain in my-game-x, got %s", loaded.Project)
+	}
+
+	// Drive Accept directly via the command (the cmd is what carries the work).
+	is := NewInboxScreen(st)
+	is.events = events
+	is.cursor = 0
+	cmd := is.acceptCmd(loaded)
+	if cmd == nil {
+		t.Fatal("acceptCmd returned nil")
+	}
+	msg := cmd()
+	if action, ok := msg.(inboxActionMsg); ok && action.err != nil {
+		t.Fatalf("acceptCmd: %v", action.err)
+	}
+
+	// Load saved memories from the originating project and assert every field.
+	results, err := st.RecentAll(ctx, "my-game-x", 10)
+	if err != nil {
+		t.Fatalf("RecentAll(my-game-x): %v", err)
+	}
+	if len(results) != 1 {
+		t.Fatalf("expected 1 saved memory in my-game-x, got %d", len(results))
+	}
+	saved := results[0]
+	if saved.Project != "my-game-x" {
+		t.Errorf("Project: want my-game-x, got %s", saved.Project)
+	}
+	if saved.Type != "decision" {
+		t.Errorf("Type: want decision, got %s", saved.Type)
+	}
+	if saved.Title != "Use WAL" {
+		t.Errorf("Title: want 'Use WAL', got %s", saved.Title)
+	}
+	if !strings.Contains(saved.Snippet, "Enable WAL via DSN") {
+		t.Errorf("Content snippet: want to contain 'Enable WAL via DSN', got %q", saved.Snippet)
+	}
+
+	// Nothing should have leaked into "test-workspace".
+	leaked, err := st.RecentAll(ctx, "test-workspace", 10)
+	if err != nil {
+		t.Fatalf("RecentAll(test-workspace): %v", err)
+	}
+	if len(leaked) != 0 {
+		t.Errorf("no memories should land in test-workspace, got %d (project leak)", len(leaked))
+	}
+}
+
+func TestInboxEditScreen_L6_SubmitPreservesProjectAndSession(t *testing.T) {
+	st := newWorkspaceStorage(t)
+	ctx := context.Background()
+
+	// Seed a pending event in a DIFFERENT project to defeat fixture coincidence.
+	ev := pending.Event{
+		Project:    "another-game",
+		SessionID:  "sess-l6-edit",
+		EventType:  "UserPromptSubmit",
+		Payload:    `{"proposed_type":"convention","proposed_title":"original title","proposed_content":"original body"}`,
+		Hash:       "test-hash-l6-edit",
+		SyncID:     "sync-l6-edit",
+		Status:     pending.StatusPending,
+		CapturedAt: time.Date(2026, 5, 1, 12, 0, 0, 0, time.UTC),
+		CreatedAt:  time.Date(2026, 5, 1, 12, 0, 0, 0, time.UTC),
+	}
+	if _, err := st.InsertPending(ctx, ev); err != nil {
+		t.Fatalf("InsertPending: %v", err)
+	}
+	events, err := st.ListPending(ctx, storage.ListPendingParams{Status: "pending", Limit: 50})
+	if err != nil {
+		t.Fatalf("ListPending: %v", err)
+	}
+	if len(events) != 1 {
+		t.Fatalf("expected 1 pending event, got %d", len(events))
+	}
+	loaded := events[0]
+
+	// Build the edit screen with the full event and override the fields with
+	// edited values to simulate the user editing before pressing ctrl+s.
+	ies := NewInboxEditScreen(loaded)
+	ies.storage = st
+	ies.typeField.SetValue("bugfix")
+	ies.titleField.SetValue("edited title")
+	ies.bodyField.SetValue("edited body")
+
+	cmd := ies.promoteCmd()
+	if cmd == nil {
+		t.Fatal("promoteCmd returned nil")
+	}
+	msg := cmd()
+	if submit, ok := msg.(inboxEditSubmitMsg); ok && submit.err != nil {
+		t.Fatalf("promoteCmd: %v", submit.err)
+	}
+
+	results, err := st.RecentAll(ctx, "another-game", 10)
+	if err != nil {
+		t.Fatalf("RecentAll(another-game): %v", err)
+	}
+	if len(results) != 1 {
+		t.Fatalf("expected 1 saved memory in another-game, got %d", len(results))
+	}
+	saved := results[0]
+	if saved.Project != "another-game" {
+		t.Errorf("Project: want another-game, got %s", saved.Project)
+	}
+	if saved.Type != "bugfix" {
+		t.Errorf("Type: want bugfix, got %s", saved.Type)
+	}
+	if saved.Title != "edited title" {
+		t.Errorf("Title: want 'edited title', got %s", saved.Title)
+	}
+	if !strings.Contains(saved.Snippet, "edited body") {
+		t.Errorf("Content snippet: want to contain 'edited body', got %q", saved.Snippet)
+	}
+
+	leaked, err := st.RecentAll(ctx, "test-workspace", 10)
+	if err != nil {
+		t.Fatalf("RecentAll(test-workspace): %v", err)
+	}
+	if len(leaked) != 0 {
+		t.Errorf("no memories should land in test-workspace, got %d (project leak)", len(leaked))
+	}
+}
+
 // ─── View smoke ───────────────────────────────────────────────────────────────
 
 func TestInboxScreen_ImplementsScreen(t *testing.T) {
@@ -239,7 +421,12 @@ func TestInboxScreen_ImplementsScreen(t *testing.T) {
 }
 
 func TestInboxEditScreen_ImplementsScreen(t *testing.T) {
-	ies := NewInboxEditScreen(1, "decision", "title", "body")
+	ies := NewInboxEditScreen(pending.Event{
+		ID:        1,
+		Project:   "test-workspace",
+		EventType: "PostToolUse",
+		Payload:   `{"proposed_type":"decision","proposed_title":"title","proposed_content":"body"}`,
+	})
 	var _ Screen = ies
 	if ies.Title() == "" {
 		t.Error("InboxEditScreen.Title() must not be empty")

@@ -8,6 +8,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 
 	"github.com/AgusLoza2021/Thoughtline/internal/memory"
+	"github.com/AgusLoza2021/Thoughtline/internal/pending"
 	"github.com/AgusLoza2021/Thoughtline/internal/storage"
 )
 
@@ -146,8 +147,13 @@ func TestGolden_InboxThree(t *testing.T) {
 
 // P6 — InboxEditScreen pre-filled with type, title, body.
 func TestGolden_InboxEditForm(t *testing.T) {
-	s := NewInboxEditScreen(42, "decision", "Choose WAL for SQLite",
-		"We pick WAL journal mode because concurrent MCP readers + writer\nneed shared access without lock errors.")
+	s := NewInboxEditScreen(pending.Event{
+		ID:        42,
+		Project:   "test-workspace",
+		EventType: "PostToolUse",
+		Payload: `{"proposed_type":"decision","proposed_title":"Choose WAL for SQLite",` +
+			`"proposed_content":"We pick WAL journal mode because concurrent MCP readers + writer\nneed shared access without lock errors."}`,
+	})
 	assertGolden(t, "inbox_edit_form", s.View(goldenW, goldenH, defaultPalette))
 }
 

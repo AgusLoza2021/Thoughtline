@@ -1,6 +1,7 @@
 package dashboard
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
@@ -9,6 +10,65 @@ import (
 
 	"github.com/AgusLoza2021/Thoughtline/internal/storage"
 )
+
+// parseProposedMemory extracts the (type, title, content) triple that an Inbox
+// promotion should propose for a pending event's payload.
+//
+// The hook payload is raw JSON. When it carries the optional inline fields
+// "proposed_type", "proposed_title", "proposed_content" we use those verbatim
+// (this is the hook contract for callers that already shaped the capture).
+// Otherwise we fall back to sensible defaults derived from the hook event_type
+// so the user can still edit the entry rather than losing the capture.
+//
+// Fallback rules:
+//   - type    → "convention" for tool/session hook events, else "decision"
+//   - title   → fmt.Sprintf("%s capture", eventType)
+//   - content → the raw payload string (so nothing is lost on promote)
+//
+// Non-JSON or partial payloads are tolerated — we never return an error.
+func parseProposedMemory(payload, eventType string) (proposedType, proposedTitle, proposedContent string) {
+	var parsed struct {
+		ProposedType    string `json:"proposed_type"`
+		ProposedTitle   string `json:"proposed_title"`
+		ProposedContent string `json:"proposed_content"`
+	}
+	// json.Unmarshal silently leaves the fields zero when the payload is not
+	// JSON or doesn't carry the expected shape — exactly the fallback we want.
+	_ = json.Unmarshal([]byte(payload), &parsed)
+
+	proposedType = parsed.ProposedType
+	if proposedType == "" {
+		proposedType = defaultTypeForEvent(eventType)
+	}
+
+	proposedTitle = parsed.ProposedTitle
+	if proposedTitle == "" {
+		if eventType == "" {
+			proposedTitle = "Inbox capture"
+		} else {
+			proposedTitle = fmt.Sprintf("%s capture", eventType)
+		}
+	}
+
+	proposedContent = parsed.ProposedContent
+	if proposedContent == "" {
+		proposedContent = payload
+	}
+
+	return proposedType, proposedTitle, proposedContent
+}
+
+// defaultTypeForEvent picks a fallback memory type when the payload does not
+// supply "proposed_type". Tool/session lifecycle hooks default to convention;
+// anything else falls back to decision (the most general memory type).
+func defaultTypeForEvent(eventType string) string {
+	switch eventType {
+	case "PreToolUse", "PostToolUse", "SessionStart", "SessionEnd", "Stop":
+		return "convention"
+	default:
+		return "decision"
+	}
+}
 
 // helpers.go holds pure rendering / formatting helpers shared across multiple
 // Screens. The functions in this file were originally defined alongside
