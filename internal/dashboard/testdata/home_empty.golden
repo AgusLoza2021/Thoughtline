@@ -1,0 +1,23 @@
+🧠 Thoughtline  Local memory for game projects
+
+Quick: [S]ave  [/]search  [M]emories  [I]nbox
+
+
+                                   Welcome — no memories yet                                    
+
+        Thoughtline remembers the gamedev decisions you'd otherwise forget. Try:
+
+        scene-pattern   — how you wired a Unity / UE5 / PlayCanvas scene
+        perf-gotcha     — the GPU stall that took you a day to find
+        pipeline-step   — the FBX → glTF → engine import you almost wrote down
+
+        Save your first one from the CLI:
+          $ tl save --type perf-gotcha --title "dx11 instancing" --content "…"
+
+        Or from Claude (MCP):
+          > Save this to Thoughtline as a scene-pattern
+            (calls tl_save automatically)
+
+        Then press r here to refresh.
+
+↑↓ select · enter open · r refresh · q quit

@@ -1,0 +1,24 @@
+Detail  (esc back)
+
+[decision] decision/sqlite-wal                                                  
+                                                                                
+**What**: Enable WAL via DSN pragma.                                            
+**Why**: Co                                                                     
+ncurrent MCP tool calls need readers + writer simultaneously.                   
+**Where**: interna                                                              
+l/storage/storage.go                                                            
+**Learned**: busy_timeout=5000 prevents lock errors under l                     
+oad.                                                                            
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+
+↑↓ scroll · [C] copy · esc back 100%

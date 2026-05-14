@@ -1,0 +1,26 @@
+🧠 Thoughtline  Local memory for game projects
+
+Quick: [S]ave  [/]search  [M]emories  [I]nbox
+
+┌────────────────────────────────────┐  ┌──────────────────────────────────────────────────────┐
+│ Project Health                     │  │ Latest Memories                                      │
+│ Memories:    10                    │  │ ▸ [scene-p…] seed/scene-pattern/09         <reltime>  │
+│ Sessions:    0                     │  │ project                                              │
+│ Pending:     0                     │  │   [perf-go…] seed/perf-gotcha/08           <reltime>  │
+│ Disk free:   —                     │  │ project                                              │
+│ Storage:     —                     │  │   [bugfix] seed/bugfix/07                <reltime>    │
+└────────────────────────────────────┘  │ project                                              │
+                                        │   [scene-p…] seed/scene-pattern/06         <reltime>  │
+                                        │ project                                              │
+                                        │   [perf-go…] seed/perf-gotcha/05           <reltime>  │
+                                        │ project                                              │
+                                        └──────────────────────────────────────────────────────┘
+┌────────────────────────────────────────────────────────────────────────────────────────────────┐
+│ Recent Activity                                                                                │
+│ saved    seed/scene-pattern/09                     <reltime>                                    │
+│ saved    seed/perf-gotcha/08                       <reltime>                                    │
+│ saved    seed/bugfix/07                            <reltime>                                    │
+│ saved    seed/scene-pattern/06                     <reltime>                                    │
+│ saved    seed/perf-gotcha/05                       <reltime>                                    │
+└────────────────────────────────────────────────────────────────────────────────────────────────┘
+↑↓ select · enter open · r refresh · q quit

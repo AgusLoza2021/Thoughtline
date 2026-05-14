@@ -1,0 +1,35 @@
+🧠 Thoughtline  Local memory for game projects
+
+┌─────────────────────────────────────────────┐  ┌─────────────────────────────────────────────┐
+│ Keybindings                                 │  │ Roadmap                                     │
+│                                             │  │                                             │
+│ Navigation                                  │  │   ✓ M0  Bootstrap                           │
+│   1-6                 jump to tab           │  │   ✓ M1  Save                                │
+│   tab / shift+tab     cycle tabs            │  │   ✓ M2  Search                              │
+│   esc                 back / pop overlay    │  │   ✓ M3  Context / Update / Delete           │
+│   q / ctrl+c          quit                  │  │   ✓ M4  Sessions                            │
+│                                             │  │   ✓ M5  Dashboard (TUI + tl_stats)          │
+│ Quick Actions                               │  │   · M6  Smarts (embeddings)                 │
+│   s                   save (CLI/MCP for     │  │                                             │
+│ now)                                        │  │                                             │
+│   /                   search                │  └─────────────────────────────────────────────┘
+│   m                   memories              │                                                 
+│   i                   inbox                 │                                                 
+│                                             │                                                 
+│ Memories tab                                │                                                 
+│   ↑↓              select row                │                                                 
+│   n / p               next / prev page      │                                                 
+│   f                   cycle filter focus    │                                                 
+│   c                   clear filters         │                                                 
+│   enter               open detail           │                                                 
+│                                             │                                                 
+│ Detail view                                 │                                                 
+│   ↑↓ / PgUp / PgDn  scroll                  │                                                 
+│   C                   copy to clipboard     │                                                 
+│                                             │                                                 
+│ Inbox                                       │                                                 
+│   A                   accept (promote as-   │                                                 
+│ is)                                         │                                                 
+│   E                   edit then promote     │                                                 
+│   R                   reject                │                                                 
+└─────────────────────────────────────────────┘                                                 

@@ -1,0 +1,13 @@
+Edit Capture
+
+Type: > decision 
+Title: > Choose WAL for SQLite 
+Body:
+┃   1 We pick WAL journal mode because concurrent MCP       
+┃     readers + writer                                      
+┃   2 need shared access without lock errors.               
+┃                                                           
+┃                                                           
+┃                                                           
+
+tab cycle fields · ctrl+s save · esc cancel

@@ -1019,7 +1019,7 @@ Each task uses this block:
 
 ## Group P — Golden files
 
-### P1 — Test/Infra: `home_default.golden` at 100×30
+### P1 [x] — Test/Infra: `home_default.golden` at 100×30
 - **Type**: test
 - **Effort**: S
 - **Depends on**: I8, B2, C2, E2
@@ -1029,7 +1029,7 @@ Each task uses this block:
 - **Acceptance criteria**:
   - Render Home at 100×30 with seeded data, compare to golden; `-update` regenerates
 
-### P2 — Test/Infra: `home_empty.golden` at 100×30
+### P2 [x] — Test/Infra: `home_empty.golden` at 100×30
 - **Type**: test
 - **Effort**: S
 - **Depends on**: I8
@@ -1038,7 +1038,7 @@ Each task uses this block:
 - **Files**: `internal/dashboard/testdata/home_empty.golden`
 - **Acceptance criteria**: empty state golden locked
 
-### P3 — Test/Infra: `memories_page1.golden` at 100×30
+### P3 [x] — Test/Infra: `memories_page1.golden` at 100×30
 - **Type**: test
 - **Effort**: S
 - **Depends on**: J9
@@ -1046,7 +1046,7 @@ Each task uses this block:
 - **Design ref**: Section 4.2
 - **Files**: `internal/dashboard/testdata/memories_page1.golden`
 
-### P4 — Test/Infra: `memories_filtered.golden` at 100×30
+### P4 [x] — Test/Infra: `memories_filtered.golden` at 100×30
 - **Type**: test
 - **Effort**: S
 - **Depends on**: J9
@@ -1054,7 +1054,7 @@ Each task uses this block:
 - **Design ref**: Section 4.2 (filter bar visible variant)
 - **Files**: `internal/dashboard/testdata/memories_filtered.golden`
 
-### P5 — Test/Infra: `inbox_three.golden` at 100×30
+### P5 [x] — Test/Infra: `inbox_three.golden` at 100×30
 - **Type**: test
 - **Effort**: S
 - **Depends on**: L7
@@ -1062,7 +1062,7 @@ Each task uses this block:
 - **Design ref**: Section 4.4
 - **Files**: `internal/dashboard/testdata/inbox_three.golden`
 
-### P6 — Test/Infra: `inbox_edit_form.golden` at 100×30
+### P6 [x] — Test/Infra: `inbox_edit_form.golden` at 100×30
 - **Type**: test
 - **Effort**: S
 - **Depends on**: L8
@@ -1070,7 +1070,7 @@ Each task uses this block:
 - **Design ref**: Section 4.5
 - **Files**: `internal/dashboard/testdata/inbox_edit_form.golden`
 
-### P7 — Test/Infra: `detail.golden` at 100×30
+### P7 [x] — Test/Infra: `detail.golden` at 100×30
 - **Type**: test
 - **Effort**: S
 - **Depends on**: K4
@@ -1078,7 +1078,7 @@ Each task uses this block:
 - **Design ref**: Section 4.3
 - **Files**: `internal/dashboard/testdata/detail.golden`
 
-### P8 — Test/Infra: `help.golden` at 100×30
+### P8 [x] — Test/Infra: `help.golden` at 100×30
 - **Type**: test
 - **Effort**: S
 - **Depends on**: N4
@@ -1086,7 +1086,7 @@ Each task uses this block:
 - **Design ref**: Section 4.7
 - **Files**: `internal/dashboard/testdata/help.golden`
 
-### P9 — Test/Infra: `sessions.golden` at 100×30
+### P9 [x] — Test/Infra: `sessions.golden` at 100×30
 - **Type**: test
 - **Effort**: S
 - **Depends on**: M2
@@ -1094,7 +1094,7 @@ Each task uses this block:
 - **Design ref**: Section 4.6
 - **Files**: `internal/dashboard/testdata/sessions.golden`
 
-### P10 — Test/Infra: `brand.golden` (text-only logo block)
+### P10 [x] — Test/Infra: `brand.golden` (text-only logo block)
 - **Type**: test
 - **Effort**: S
 - **Depends on**: E2
