@@ -722,82 +722,8 @@ func (w *WorkstationScreen) renderBottomBar(width int, p palette) string {
 }
 
 // --- helpers ---
-
-func paneBox(body string, width, height int, p palette) string {
-	style := lipgloss.NewStyle().
-		Border(lipgloss.NormalBorder()).
-		BorderForeground(p.Border).
-		Width(width - 2).
-		Height(height - 2).
-		Padding(0, 1)
-	return style.Render(body)
-}
-
-func centerString(s string, width, height int, p palette) string {
-	muted := lipgloss.NewStyle().Foreground(p.Muted)
-	pad := strings.Repeat("\n", height/2-1)
-	return pad + lipgloss.PlaceHorizontal(width, lipgloss.Center, muted.Render(s))
-}
-
-func clampCursor(c, n int) int {
-	if c >= n {
-		c = n - 1
-	}
-	if c < 0 {
-		c = 0
-	}
-	return c
-}
-
-func truncateLeft(s string, max int) string {
-	if max < 4 {
-		max = 4
-	}
-	if lipgloss.Width(s) <= max {
-		return s
-	}
-	if max < 3 {
-		return s[:max]
-	}
-	return s[:max-1] + "…"
-}
-
-func wrap(s string, width int) string {
-	if width < 8 {
-		width = 8
-	}
-	var out strings.Builder
-	for len(s) > width {
-		out.WriteString(s[:width])
-		out.WriteString("\n")
-		s = s[width:]
-	}
-	out.WriteString(s)
-	return out.String()
-}
-
-func relTime(t time.Time) string {
-	if t.IsZero() {
-		return "—"
-	}
-	d := time.Since(t)
-	switch {
-	case d < time.Minute:
-		return "just now"
-	case d < time.Hour:
-		return fmt.Sprintf("%dm ago", int(d.Minutes()))
-	case d < 24*time.Hour:
-		return fmt.Sprintf("%dh ago", int(d.Hours()))
-	case d < 30*24*time.Hour:
-		return fmt.Sprintf("%dd ago", int(d.Hours()/24))
-	default:
-		return t.Format("2006-01-02")
-	}
-}
-
-func formatLastSave(items []storage.SearchResult) string {
-	if len(items) == 0 {
-		return ""
-	}
-	return relTime(items[0].UpdatedAt)
-}
+//
+// paneBox, centerString, clampCursor, truncateLeft, wrap, relTime, and
+// formatLastSave were moved to helpers.go as part of the tui-memory-workspace
+// refactor (commit 2). They are imported implicitly via the package and used
+// unchanged by the rendering methods above.

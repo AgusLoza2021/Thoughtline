@@ -558,12 +558,7 @@ func truncate(s string, n int) string {
 	return string(r[:n-1]) + "…"
 }
 
-func padRight(s string, n int) string {
-	if len(s) >= n {
-		return s
-	}
-	return s + strings.Repeat(" ", n-len(s))
-}
+// padRight moved to helpers.go as part of the tui-memory-workspace refactor.
 
 func sortedProjectKeys(m map[string]int) []string {
 	out := make([]string, 0, len(m))
