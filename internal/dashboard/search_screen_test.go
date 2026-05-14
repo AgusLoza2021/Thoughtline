@@ -67,15 +67,42 @@ func TestSearchScreen_NonEmptyQueryExecutesSearch(t *testing.T) {
 }
 
 // TestSearchScreen_EscReturnsToDashboard verifies esc returns a popScreenCmd.
-func TestSearchScreen_EscReturnsToDashboard(t *testing.T) {
+// TestSearchScreen_EscBlursInputInsteadOfPopping verifies the bugfix where
+// esc on the Search TAB (not a stack-pushed screen) was emitting popScreenCmd
+// which is a no-op against an empty stack, leaving the user trapped with the
+// textinput focused. The fix: esc blurs the input so the user can navigate
+// tabs with 1-6 / tab / Quick Actions afterward. A second esc (with input
+// already blurred) is a no-op (still no popScreenCmd, since tabs aren't
+// stack-poppable).
+func TestSearchScreen_EscBlursInputInsteadOfPopping(t *testing.T) {
 	screen, _ := newTestSearchScreen(t)
 
-	_, cmd := screen.Update(escKey)
-	if cmd == nil {
-		t.Fatal("esc must return a non-nil cmd")
+	// Precondition: input is focused on entry (newSearchScreenFull calls
+	// ti.Focus()).
+	if !screen.input.Focused() {
+		t.Fatal("precondition: input should be focused on entry")
 	}
-	if _, ok := cmd().(popScreenCmd); !ok {
-		t.Errorf("esc must return popScreenCmd")
+
+	// First esc: input must blur, no popScreenCmd emitted.
+	_, cmd := screen.Update(escKey)
+	if screen.input.Focused() {
+		t.Errorf("after first esc: input must be blurred")
+	}
+	if cmd != nil {
+		if msg, ok := cmd().(popScreenCmd); ok {
+			t.Errorf("first esc must NOT emit popScreenCmd (got %T)", msg)
+		}
+	}
+
+	// Second esc (input already blurred): no-op, still no popScreenCmd.
+	_, cmd2 := screen.Update(escKey)
+	if screen.input.Focused() {
+		t.Errorf("after second esc: input must remain blurred")
+	}
+	if cmd2 != nil {
+		if msg, ok := cmd2().(popScreenCmd); ok {
+			t.Errorf("second esc must NOT emit popScreenCmd (got %T)", msg)
+		}
 	}
 }
 

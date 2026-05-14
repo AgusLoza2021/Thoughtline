@@ -108,11 +108,27 @@ func (h *HomeScreen) Update(msg tea.Msg) (Screen, tea.Cmd) {
 	return h, nil
 }
 
+// visibleLatestMemoriesCount returns the number of rows the Latest Memories
+// card actually renders. The cursor must stay within this range so the
+// '▸' marker remains visible. Kept in sync with the maxRows constant in
+// renderLatestMemories.
+func (h *HomeScreen) visibleLatestMemoriesCount() int {
+	const maxRows = 5
+	if len(h.latestMemories) < maxRows {
+		return len(h.latestMemories)
+	}
+	return maxRows
+}
+
 func (h *HomeScreen) handleKey(msg tea.KeyMsg) (Screen, tea.Cmd) {
 	switch msg.String() {
 	case "j", "down":
-		max := len(h.latestMemories)
-		if max > 0 && h.cursor < max-1 {
+		// Clamp cursor to the number of VISIBLE rows in the Latest Memories
+		// card (not the total loaded). Without this clamp, pressing down past
+		// row 4 with 6+ memories loaded made the '▸' marker disappear because
+		// the render loop only iterates the first 5 rows.
+		visible := h.visibleLatestMemoriesCount()
+		if visible > 0 && h.cursor < visible-1 {
 			h.cursor++
 		}
 		return h, nil

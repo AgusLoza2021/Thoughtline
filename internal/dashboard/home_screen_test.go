@@ -108,6 +108,44 @@ func TestHomeScreen_I3_LatestMemoriesCard(t *testing.T) {
 	}
 }
 
+// TestHomeScreen_LatestMemoriesCursorClampsToVisibleRows guards the bug where
+// the Latest Memories card renders at most 5 rows (maxRows in
+// renderLatestMemories) but the cursor could be incremented past index 4 when
+// 6+ memories were loaded. The result: the '▸' cursor marker disappeared
+// because the render loop never reached the highlighted index, leaving the
+// user with no visual feedback.
+func TestHomeScreen_LatestMemoriesCursorClampsToVisibleRows(t *testing.T) {
+	hs, st := newHomeScreen(t)
+	// Seed 7 memories — RecentAll returns 7 (loadHomeCmd asks for up to 7),
+	// but renderLatestMemories caps at 5 rows. The cursor must stay <=4.
+	seedMemories(t, st, 7)
+	hs = loadHome(t, hs)
+
+	if hs.visibleLatestMemoriesCount() != 5 {
+		t.Fatalf("visible row count: got %d, want 5", hs.visibleLatestMemoriesCount())
+	}
+
+	// Press 'j' ten times — far more than enough to exceed the 5-row card.
+	for i := 0; i < 10; i++ {
+		s, _ := hs.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'j'}})
+		hs = s.(*HomeScreen)
+	}
+
+	// Cursor must be clamped to maxRows-1 = 4, NOT len(latestMemories)-1 = 6.
+	if hs.cursor != 4 {
+		t.Errorf("cursor after 10×j with 7 memories loaded (5 visible): got %d, want 4 (clamped to visible rows)", hs.cursor)
+	}
+
+	// Sanity: cursor down from clamped position stays clamped (no further advance).
+	for i := 0; i < 3; i++ {
+		s, _ := hs.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'j'}})
+		hs = s.(*HomeScreen)
+	}
+	if hs.cursor != 4 {
+		t.Errorf("cursor must remain at 4 (no over-scroll): got %d", hs.cursor)
+	}
+}
+
 func TestHomeScreen_I3_CursorMovesOnJK(t *testing.T) {
 	hs, st := newHomeScreen(t)
 	seedMemories(t, st, 5)

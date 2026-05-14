@@ -61,7 +61,15 @@ func (s *SearchScreen) Update(msg tea.Msg) (Screen, tea.Cmd) {
 	case tea.KeyMsg:
 		switch msg.Type {
 		case tea.KeyEsc:
-			return s, func() tea.Msg { return popScreenCmd{} }
+			// SearchScreen is a tab (not a stack-pushed screen), so popScreenCmd
+			// is a no-op here. Instead, esc blurs the input so the user can
+			// switch tabs with 1-6 / tab / global Quick Actions. A second esc
+			// (with input already blurred) is a no-op.
+			if s.input.Focused() {
+				s.input.Blur()
+				return s, nil
+			}
+			return s, nil
 		case tea.KeyEnter:
 			q := strings.TrimSpace(s.input.Value())
 			if q == "" {
