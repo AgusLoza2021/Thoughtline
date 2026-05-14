@@ -27,12 +27,20 @@ func stripANSI(s string) string { return ansiRE.ReplaceAllString(s, "") }
 // "<reltime>" placeholder so wall-clock drift doesn't break the snapshots.
 var relTimeRE = regexp.MustCompile(`(just now|\d+m ago|\d+h ago|\d+d ago|\d{4}-\d{2}-\d{2})`)
 
-// normalizeForGolden strips ANSI escapes AND substitutes <reltime> for any
-// dynamic relative-time string. This is the single normalization point —
-// goldens generated with -update are saved AFTER normalization.
+// normalizeForGolden strips ANSI escapes, substitutes <reltime> for any
+// dynamic relative-time string, AND normalizes line endings to LF. This is
+// the single normalization point — goldens generated with -update are saved
+// AFTER normalization.
+//
+// CRLF normalization is critical for CI: the repo has `.gitattributes *
+// text=auto`, which causes Git to materialize text files with CRLF on
+// Windows checkout. Without this normalization, the bytes read from
+// testdata/*.golden on Windows runners contain \r\n while the rendered
+// output from lipgloss uses \n, producing spurious golden mismatches.
 func normalizeForGolden(s string) string {
 	s = stripANSI(s)
 	s = relTimeRE.ReplaceAllString(s, "<reltime>")
+	s = strings.ReplaceAll(s, "\r\n", "\n")
 	return s
 }
 
