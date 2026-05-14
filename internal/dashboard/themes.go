@@ -2,8 +2,16 @@ package dashboard
 
 import "github.com/charmbracelet/lipgloss"
 
-// Theme is a named palette. All package-level styles in styles.go are
-// derived from `currentTheme` — call ApplyTheme to swap and rebuild.
+// Theme is the legacy multi-theme container used by the soon-to-be-deleted
+// legacy Model (model.go / view.go / update.go). The active TUI no longer
+// honors theme cycling — styles.go is now driven by the single semantic
+// palette in theme.go. ApplyTheme is retained only as a no-op shim so the
+// legacy Model continues to compile until it is deleted in a follow-up
+// commit. Once that happens this entire file goes with it.
+//
+// Theme was previously used as the source-of-truth for styles.go; the
+// multi-theme infrastructure was decoupled in commit 3 of the
+// tui-memory-workspace change.
 //
 // Colors use AdaptiveColor so a single theme renders well on both light
 // and dark terminal backgrounds. The "ZBrush" theme breaks that
@@ -102,7 +110,7 @@ func ThemeByName(name string) Theme {
 }
 
 // nextTheme returns the next theme in AllThemes after the current one,
-// wrapping around. Used by the [t] hotkey.
+// wrapping around. Used by the [t] hotkey on the legacy Model.
 func nextTheme(current Theme) Theme {
 	for i, t := range AllThemes {
 		if t.Name == current.Name {
@@ -110,4 +118,15 @@ func nextTheme(current Theme) Theme {
 		}
 	}
 	return AllThemes[0]
+}
+
+// ApplyTheme is a legacy no-op shim retained so the legacy Model's update path
+// (m.theme = nextTheme(m.theme); ApplyTheme(m.theme)) keeps compiling. Styles
+// are no longer rebuilt — the active TUI uses a single semantic palette built
+// once at init time in styles.go via rebuildStyles(defaultPalette).
+//
+// This function will be deleted alongside the legacy Model in a follow-up
+// commit of the tui-memory-workspace change.
+func ApplyTheme(_ Theme) {
+	// no-op: see styles.go and theme.go
 }

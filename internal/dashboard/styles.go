@@ -2,36 +2,21 @@ package dashboard
 
 import "github.com/charmbracelet/lipgloss"
 
-// All package-level styles below are RECOMPUTED by ApplyTheme. They
-// are declared as `var`s rather than constants because lipgloss styles
-// are values, not constants, and we want to swap them at runtime when
-// the user cycles themes via the [t] hotkey.
+// styles.go owns the lipgloss style values used by every Screen. As of the
+// tui-memory-workspace refactor (commit 3), styles depend on EXACTLY ONE
+// source of truth: the single semantic `defaultPalette` declared in
+// theme.go. The legacy multi-theme machinery has been decoupled — see
+// themes.go for the no-op shim retained so the legacy Model continues to
+// compile until it is deleted in a follow-up commit. The legacy shims no
+// longer drive the style vars below.
 //
-// Order of init: package init runs `ApplyTheme(ThemeBrand)` so the
-// styles are valid even if no theme has been explicitly applied yet
-// (e.g. during tests that call New() directly).
+// The package-level style vars below are populated once at init time via
+// rebuildStyles(defaultPalette). The legacy Model continues to render
+// correctly because it reads these same vars (which never change again
+// once init has run).
 
-var currentTheme Theme
-
-// Color shorthands kept as package-level vars for readability in
-// view.go. They are rebuilt by ApplyTheme.
-var (
-	colBrand       lipgloss.AdaptiveColor
-	colBrandSolid  lipgloss.Color
-	colAccent      lipgloss.AdaptiveColor
-	colSuccess     lipgloss.AdaptiveColor
-	colWarning     lipgloss.AdaptiveColor
-	colDanger      lipgloss.AdaptiveColor
-	colText        lipgloss.AdaptiveColor
-	colTextOnBrand lipgloss.Color
-	colMuted       lipgloss.AdaptiveColor
-	colSubtle      lipgloss.AdaptiveColor
-	colBorder      lipgloss.AdaptiveColor
-	colSurface     lipgloss.AdaptiveColor
-)
-
-// Style instances. These all read from the colors above so swapping
-// the theme means rebuilding these structs.
+// Style instances. Read by view.go (legacy), workstation_screen.go, and the
+// upcoming Home / Memories / Inbox / Search / Sessions / Help tab screens.
 var (
 	// Header
 	brandPillStyle     lipgloss.Style
@@ -87,110 +72,93 @@ var (
 	cubeStyle lipgloss.Style
 )
 
-// ApplyTheme rebuilds every package-level style from the given theme.
-// Call this once at startup and again whenever the user cycles themes.
-// Concurrency note: Bubbletea runs Update on a single goroutine, so we
-// don't lock here.
-func ApplyTheme(t Theme) {
-	currentTheme = t
-
-	colBrand = t.Brand
-	colBrandSolid = t.BrandSolid
-	colAccent = t.Accent
-	colSuccess = t.Success
-	colWarning = t.Warning
-	colDanger = t.Danger
-	colText = t.Text
-	colTextOnBrand = t.TextOnBrand
-	colMuted = t.Muted
-	colSubtle = t.Subtle
-	colBorder = t.Border
-	colSurface = t.Surface
-
+// rebuildStyles populates every lipgloss style var above from the given
+// palette. Called once from init() against defaultPalette. No multi-theme
+// runtime swap path — the package has one palette and it does not change.
+func rebuildStyles(p palette) {
 	// Header
 	brandPillStyle = lipgloss.NewStyle().
 		Bold(true).
-		Foreground(colTextOnBrand).
-		Background(colBrandSolid).
+		Foreground(p.Foreground).
+		Background(p.Border).
 		Padding(0, 1)
 
 	versionPillStyle = lipgloss.NewStyle().
-		Foreground(colText).
-		Background(colSurface).
+		Foreground(p.Foreground).
+		Background(p.Border).
 		Padding(0, 1)
 
 	breadcrumbSepStyle = lipgloss.NewStyle().
-		Foreground(colSubtle).
+		Foreground(p.Muted).
 		SetString(" › ")
 
-	headerMetaStyle = lipgloss.NewStyle().Foreground(colMuted)
-	headerKeyStyle = lipgloss.NewStyle().Foreground(colAccent)
+	headerMetaStyle = lipgloss.NewStyle().Foreground(p.Muted)
+	headerKeyStyle = lipgloss.NewStyle().Foreground(p.StatusOK)
 
 	// Status bar
 	statusBarStyle = lipgloss.NewStyle().
-		Foreground(colText).
-		Background(colSurface).
+		Foreground(p.Foreground).
 		Padding(0, 1)
-	statusOnlineStyle = lipgloss.NewStyle().Bold(true).Foreground(colSuccess)
-	statusMetricStyle = lipgloss.NewStyle().Foreground(colMuted)
-	statusValueStyle = lipgloss.NewStyle().Bold(true).Foreground(colText)
+	statusOnlineStyle = lipgloss.NewStyle().Bold(true).Foreground(p.StatusOK)
+	statusMetricStyle = lipgloss.NewStyle().Foreground(p.Muted)
+	statusValueStyle = lipgloss.NewStyle().Bold(true).Foreground(p.Foreground)
 	statusUpdateStyle = lipgloss.NewStyle().
 		Bold(true).
-		Foreground(colTextOnBrand).
-		Background(colWarning).
+		Foreground(p.Foreground).
+		Background(p.StatusWarn).
 		Padding(0, 1)
-	statusSepStyle = lipgloss.NewStyle().Foreground(colBorder).SetString(" · ")
+	statusSepStyle = lipgloss.NewStyle().Foreground(p.Border).SetString(" · ")
 
 	// Title / subtle
-	titleStyle = lipgloss.NewStyle().Bold(true).Foreground(colBrand)
-	subtleStyle = lipgloss.NewStyle().Foreground(colMuted)
+	titleStyle = lipgloss.NewStyle().Bold(true).Foreground(p.Tag)
+	subtleStyle = lipgloss.NewStyle().Foreground(p.Muted)
 
 	// Panels
 	panelStyle = lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
-		BorderForeground(colBorder).
+		BorderForeground(p.Border).
 		Padding(0, 1)
-	panelTitleStyle = lipgloss.NewStyle().Bold(true).Foreground(colAccent)
+	panelTitleStyle = lipgloss.NewStyle().Bold(true).Foreground(p.StatusOK)
 
 	// Stats
-	statsNumberStyle = lipgloss.NewStyle().Bold(true).Foreground(colBrand)
-	statsLabelStyle = lipgloss.NewStyle().Foreground(colMuted)
+	statsNumberStyle = lipgloss.NewStyle().Bold(true).Foreground(p.Tag)
+	statsLabelStyle = lipgloss.NewStyle().Foreground(p.Muted)
 
 	// Roadmap
-	doneStyle = lipgloss.NewStyle().Foreground(colSuccess)
-	nextStyle = lipgloss.NewStyle().Bold(true).Foreground(colAccent)
-	inProgressStyle = lipgloss.NewStyle().Bold(true).Foreground(colWarning)
-	deferredStyle = lipgloss.NewStyle().Foreground(colSubtle).Faint(true)
+	doneStyle = lipgloss.NewStyle().Foreground(p.StatusOK)
+	nextStyle = lipgloss.NewStyle().Bold(true).Foreground(p.StatusOK)
+	inProgressStyle = lipgloss.NewStyle().Bold(true).Foreground(p.StatusWarn)
+	deferredStyle = lipgloss.NewStyle().Foreground(p.Muted).Faint(true)
 
-	errStyle = lipgloss.NewStyle().Bold(true).Foreground(colDanger)
+	errStyle = lipgloss.NewStyle().Bold(true).Foreground(p.StatusErr)
 
 	// Tabs
 	tabActiveStyle = lipgloss.NewStyle().
 		Bold(true).
-		Foreground(colBrand).
+		Foreground(p.Tag).
 		Underline(true).
 		Padding(0, 1)
-	tabInactiveStyle = lipgloss.NewStyle().Foreground(colMuted).Padding(0, 1)
-	tabSepStyle = lipgloss.NewStyle().Foreground(colBorder).SetString("│")
+	tabInactiveStyle = lipgloss.NewStyle().Foreground(p.Muted).Padding(0, 1)
+	tabSepStyle = lipgloss.NewStyle().Foreground(p.Border).SetString("│")
 
 	// Footer
 	footerKeyStyle = lipgloss.NewStyle().
 		Bold(true).
-		Foreground(colTextOnBrand).
-		Background(colBrand).
+		Foreground(p.Foreground).
+		Background(p.Tag).
 		Padding(0, 1)
-	footerLabelStyle = lipgloss.NewStyle().Foreground(colMuted)
-	footerSepStyle = lipgloss.NewStyle().Foreground(colBorder).SetString(" · ")
+	footerLabelStyle = lipgloss.NewStyle().Foreground(p.Muted)
+	footerSepStyle = lipgloss.NewStyle().Foreground(p.Border).SetString(" · ")
 	footerStyle = lipgloss.NewStyle().MarginTop(1)
 
 	// Help
-	keyStyle = lipgloss.NewStyle().Bold(true).Foreground(colBrand)
-	hintStyle = lipgloss.NewStyle().Foreground(colAccent)
+	keyStyle = lipgloss.NewStyle().Bold(true).Foreground(p.Tag)
+	hintStyle = lipgloss.NewStyle().Foreground(p.StatusOK)
 
 	// Cube
-	cubeStyle = lipgloss.NewStyle().Foreground(colBrand)
+	cubeStyle = lipgloss.NewStyle().Foreground(p.Tag)
 }
 
 func init() {
-	ApplyTheme(ThemeBrand)
+	rebuildStyles(defaultPalette)
 }
