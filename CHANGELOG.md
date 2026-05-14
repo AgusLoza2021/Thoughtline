@@ -6,6 +6,35 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+### Removed (BREAKING) — TUI flags (`tui-memory-workspace`)
+- `--theme {brand|zbrush|mono}` CLI flag — single semantic palette replaces the multi-theme system
+- `--no-splash` CLI flag — splash screen removed
+- `--splash-ms N` CLI flag — splash duration setting removed
+
+Invoking any of the removed flags prints a friendly migration error to stderr and exits with code 2:
+```
+thoughtline ui: --theme was removed in v0.2 (single semantic palette). See CHANGELOG.md.
+```
+
+### Added — Tabbed Memory Workspace TUI (`tui-memory-workspace`)
+- 6 tabs (Home, Memories, Search, Inbox, Sessions, Help) reachable with digit keys 1-6 or `tab` / `shift+tab`
+- Global Quick Actions hotkeys: `[S]` save (CLI/MCP hint), `[/]` search, `[M]` memories, `[I]` inbox
+- Inbox tab with `[A]` accept, `[E]` edit-then-promote, `[R]` reject for pending captures from `tl_capture`
+- Memory Detail content now wraps at viewport width and scrolls with `↑/↓` + `PgUp/PgDn`
+- `[C]` copy-to-clipboard from Memory Detail (cross-platform: `clip.exe` on Windows, `pbcopy` on macOS, `wl-copy` / `xclip` on Linux)
+- Friendly empty state with gamedev-type examples (scene-pattern, perf-gotcha, pipeline-step) when no memories exist
+- Help tab with a single-source-of-truth keybindings registry and roadmap rendered from `roadmap.yaml`
+- Drift test guards `keybindings.go` against silent divergence from `flat_model.go`'s Update ladder
+
+### Changed — TUI (`tui-memory-workspace`)
+- Single semantic palette replaces the multi-theme system: cyan/blue = navigation, purple `#C4A7E7` = brand, green = success, yellow = warn, red = error, gray = meta. Carry-over: the gamedev-purple Brand color is preserved from the predecessor Rose-Pine-Moon palette.
+- Brand surface: text `🧠 Thoughtline` (with the muted tagline `Local memory for game projects`) replaces the block-letter ASCII art
+- Project Health card on the Home tab now shows GLOBAL counts across all projects (previously scoped to the cwd basename which caused 0-count bugs in v0.1.0)
+
+### Storage (`tui-memory-workspace`)
+- New `storage.MarkRejected(ctx, id)` method backing the inbox `[R]` reject action
+- Schema migrated to v5 (adds `rejected` to the `pending_events` status CHECK constraint) — runs automatically on first start and preserves all existing data
+
 ## [0.1.0] - 2026-05-07
 
 This is the first numbered release. It folds in the M5 launch-readiness work (TUI overhaul, distribution, plugin) plus two structured changes built under SDD: passive capture from Claude Code hooks, and the v2 workstation-style TUI.

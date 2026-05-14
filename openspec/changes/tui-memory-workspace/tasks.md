@@ -988,7 +988,7 @@ Each task uses this block:
 
 ## Group O — CLI flag migration
 
-### O1 — Test: migration error on `--theme`/`--no-splash`/`--splash-ms` with exit 2 and exact stderr
+### O1 [x] — Test: migration error on `--theme`/`--no-splash`/`--splash-ms` with exit 2 and exact stderr
 - **Type**: test
 - **Effort**: M
 - **Depends on**: none
@@ -1001,7 +1001,7 @@ Each task uses this block:
   - False-positive guard: `["--no-splashy"]` (per Reconciliation #7) does NOT match `--no-splash`
   - Verbatim scenarios: tui-removed Req 1/2/3 "Source-level absence" — separate assertion that `flag.String("theme", ...)` / `"no-splash"` / `"splash-ms"` literals are NOT present in `main.go`
 
-### O2 — Code: pre-`flag.Parse` migration scan + remove Config fields
+### O2 [x] — Code: pre-`flag.Parse` migration scan + remove Config fields
 - **Type**: code
 - **Effort**: M
 - **Depends on**: O1
@@ -1132,7 +1132,7 @@ Each task uses this block:
 
 ## Group R — Documentation
 
-### R1 — Docs: CHANGELOG entry with BREAKING flag removal + new TUI summary
+### R1 [x] — Docs: CHANGELOG entry with BREAKING flag removal + new TUI summary
 - **Type**: docs
 - **Effort**: S
 - **Depends on**: O2

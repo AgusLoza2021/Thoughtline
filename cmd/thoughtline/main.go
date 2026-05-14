@@ -29,8 +29,8 @@ import (
 	"os/signal"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"syscall"
-	"time"
 
 	mcpserver "github.com/mark3labs/mcp-go/server"
 
@@ -78,9 +78,31 @@ func main() {
 	}
 
 	if err != nil {
+		// Removed-flag migration errors already carry the "thoughtline ui:"
+		// prefix and an exit-2 contract.
+		if errors.Is(err, errRemovedUIFlag) {
+			fmt.Fprintln(os.Stderr, err.Error())
+			os.Exit(2)
+		}
 		fmt.Fprintf(os.Stderr, "thoughtline: %v\n", err)
 		os.Exit(1)
 	}
+}
+
+// removedFlagError is the error type returned by checkRemovedUIFlags. It
+// carries the exact stderr message and triggers exit code 2 from main().
+type removedFlagError struct{ msg string }
+
+func (e *removedFlagError) Error() string { return e.msg }
+
+// errRemovedUIFlag is matched via errors.Is to detect the migration error
+// regardless of how it is wrapped on the way back to main().
+var errRemovedUIFlag = &removedFlagError{}
+
+// Is satisfies errors.Is so any *removedFlagError matches errRemovedUIFlag.
+func (e *removedFlagError) Is(target error) bool {
+	_, ok := target.(*removedFlagError)
+	return ok
 }
 
 // printUsage prints a short subcommand reference. Kept tight on purpose —
@@ -92,8 +114,7 @@ Usage:
   thoughtline              run the MCP stdio server (default; what your AI client launches)
   thoughtline serve        same as no-arg invocation
   thoughtline ui           open the interactive dashboard (TUI)
-                           flags: --theme {brand|zbrush|mono}, --no-splash,
-                                  --no-update-check, --splash-ms N
+                           flags: --no-update-check
   thoughtline protocol     emit the active-protocol markdown to stdout
                            flags: --event {session-start|post-compaction},
                                   --project NAME, -o FILE
@@ -151,12 +172,40 @@ func runServer(ctx context.Context) error {
 	return nil
 }
 
+// checkRemovedUIFlags scans args for the three CLI flags removed in v0.2
+// (--theme, --no-splash, --splash-ms) and returns a friendly migration error
+// when one is found. Both --flag and --flag=value forms match; --flag value
+// (space separator) is caught because the bare token --flag matches.
+//
+// False-positive guard: --no-splashy does NOT match --no-splash because we
+// only match on exact-token equality or `--flag=` prefix (with the trailing
+// equals sign).
+//
+// Returns nil when no removed flag is present.
+func checkRemovedUIFlags(args []string) error {
+	removed := []string{"--theme", "--no-splash", "--splash-ms"}
+	for _, a := range args {
+		for _, flagName := range removed {
+			if a == flagName || strings.HasPrefix(a, flagName+"=") {
+				return &removedFlagError{msg: fmt.Sprintf(
+					"thoughtline ui: %s was removed in v0.2 (single semantic palette). See CHANGELOG.md.",
+					flagName,
+				)}
+			}
+		}
+	}
+	return nil
+}
+
 func runDashboard(ctx context.Context, args []string) error {
+	// Pre-flag.Parse migration scan for removed flags. Print friendly error
+	// to stderr and exit 2 via main()'s error propagation.
+	if err := checkRemovedUIFlags(args); err != nil {
+		return err
+	}
+
 	fs := flag.NewFlagSet("ui", flag.ContinueOnError)
-	themeName := fs.String("theme", "brand", "color palette: brand | zbrush | mono")
-	noSplash := fs.Bool("no-splash", false, "skip the intro splash screen")
 	noUpdateCheck := fs.Bool("no-update-check", false, "skip the GitHub release lookup")
-	splashMS := fs.Int("splash-ms", 1500, "splash duration in milliseconds")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
@@ -177,13 +226,10 @@ func runDashboard(ctx context.Context, args []string) error {
 	}()
 
 	cfg := dashboard.Config{
-		Version:        version,
-		DBPath:         dbPath,
-		Project:        resolveDefaultProject(),
-		ThemeName:      *themeName,
-		Splash:         !*noSplash,
-		SplashDuration: time.Duration(*splashMS) * time.Millisecond,
-		CheckUpdates:   !*noUpdateCheck,
+		Version:      version,
+		DBPath:       dbPath,
+		Project:      resolveDefaultProject(),
+		CheckUpdates: !*noUpdateCheck,
 	}
 	return dashboard.Run(ctx, st, cfg)
 }
