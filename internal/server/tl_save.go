@@ -101,6 +101,7 @@ func decodeSaveArgs(req mcp.CallToolRequest) saveArgs {
 		SessionID: asString(a, "session_id"),
 	}
 	out.Title = strings.TrimSpace(out.Title)
+	out.Content = strings.TrimSpace(out.Content)
 	out.Type = strings.TrimSpace(out.Type)
 	out.Scope = strings.TrimSpace(out.Scope)
 	out.TopicKey = strings.TrimSpace(out.TopicKey)

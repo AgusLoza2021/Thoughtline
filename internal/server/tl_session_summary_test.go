@@ -34,6 +34,9 @@ func TestDoSessionSummary_HappyPath(t *testing.T) {
 	if !strings.Contains(body, "Duration:") {
 		t.Errorf("response should include Duration, got:\n%s", body)
 	}
+	if strings.Contains(body, "compaction_recovered") {
+		t.Errorf("normal close must not include compaction_recovered, got:\n%s", body)
+	}
 }
 
 func TestDoSessionSummary_RequiresID(t *testing.T) {
@@ -107,5 +110,81 @@ func TestDoSessionSummary_AlreadyClosedRejected(t *testing.T) {
 	}
 	if !strings.Contains(strings.ToLower(textContent(res)), "already") {
 		t.Errorf("error must explain 'already ended', got:\n%s", textContent(res))
+	}
+}
+
+func TestExtractUUIDv7(t *testing.T) {
+	validID := uuid.Must(uuid.NewV7()).String()
+
+	tests := []struct {
+		name  string
+		input string
+		want  string
+	}{
+		{"empty", "", ""},
+		{"no uuid", "no identifiers here", ""},
+		{"plain uuid", validID, validID},
+		{"uuid in sentence", "Session ID: " + validID + " was started", validID},
+		{"multiple — returns last", "first: " + validID + " second: " + validID, validID},
+		{"v4 uuid ignored", "550e8400-e29b-41d4-a716-446655440000", ""},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got := extractUUIDv7(tc.input)
+			if got != strings.ToLower(tc.want) {
+				t.Errorf("extractUUIDv7(%q) = %q, want %q", tc.input, got, tc.want)
+			}
+		})
+	}
+}
+
+func TestDoSessionSummary_CompactionRecovery(t *testing.T) {
+	st := newTestStorage(t)
+	ctx := context.Background()
+
+	sess, err := st.StartSession(ctx, "enchanted-inn", "claude-code")
+	if err != nil {
+		t.Fatalf("seed start: %v", err)
+	}
+
+	compactionBlock := "## Previous Session\nSession ID: " + sess.ID + "\nWorked on lantern baking."
+
+	res, err := doSessionSummary(ctx, st, sessionSummaryArgs{
+		ID:              "",
+		Summary:         "## Goal\nLantern bake.\n## Accomplished\n- baked lanterns",
+		CompactionBlock: compactionBlock,
+	})
+	if err != nil {
+		t.Fatalf("doSessionSummary: %v", err)
+	}
+	if res.IsError {
+		t.Fatalf("expected success via compaction recovery, got error: %s", textContent(res))
+	}
+	body := textContent(res)
+	if !strings.Contains(body, "Session closed") {
+		t.Errorf("response should confirm closure, got:\n%s", body)
+	}
+	if !strings.Contains(body, "compaction_recovered: true") {
+		t.Errorf("response should include compaction_recovered: true, got:\n%s", body)
+	}
+}
+
+func TestDoSessionSummary_CompactionBlockNoUUID(t *testing.T) {
+	st := newTestStorage(t)
+	ctx := context.Background()
+
+	res, err := doSessionSummary(ctx, st, sessionSummaryArgs{
+		ID:              "",
+		Summary:         "some summary",
+		CompactionBlock: "This block has no UUID at all.",
+	})
+	if err != nil {
+		t.Fatalf("doSessionSummary: %v", err)
+	}
+	if !res.IsError {
+		t.Fatalf("no extractable ID must yield validation error")
+	}
+	if !strings.Contains(textContent(res), "'id' is required") {
+		t.Errorf("error must mention 'id' is required, got:\n%s", textContent(res))
 	}
 }

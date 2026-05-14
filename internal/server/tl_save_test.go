@@ -123,6 +123,7 @@ func TestDoSave_ValidationErrors(t *testing.T) {
 	}{
 		{"missing title", func(a *saveArgs) { a.Title = "" }, "'title' is required"},
 		{"missing content", func(a *saveArgs) { a.Content = "" }, "'content' is required"},
+		{"whitespace-only content", func(a *saveArgs) { a.Content = "   \t\n  " }, "'content' is required"},
 		{"bogus type", func(a *saveArgs) { a.Type = "made-up" }, "invalid 'type'"},
 		{"bogus scope", func(a *saveArgs) { a.Scope = "team" }, "invalid 'scope'"},
 		{"preference with project scope", func(a *saveArgs) {
