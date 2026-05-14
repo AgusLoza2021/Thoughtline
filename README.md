@@ -36,7 +36,7 @@ Memories are typed (`scene-pattern`, `asset-reference`, `perf-gotcha`, `pipeline
 **Any engine** — Unity, Unreal, Godot, PlayCanvas, Bevy, your own.
 **Any AI tool that speaks MCP** — Claude Code, Cursor, Zed, Rider, Visual Studio, JetBrains.
 
-> 📸 _Screenshots of the dashboard go here. Until then: `thoughtline ui` and see for yourself — animated header cube, ZBrush-warm theme, status bar, search, browse._
+> 📸 _Screenshots of the dashboard go here. Until then: `thoughtline ui` and see for yourself — a six-tab memory workspace (Home, Memories, Search, Inbox, Sessions, Help) with global quick actions, an Inbox you can accept/edit/reject from, and a read-only Detail view with [C] copy-to-clipboard. Golden snapshots of every tab live under `internal/dashboard/testdata/*.golden` for layout reference._
 
 ---
 
@@ -372,21 +372,30 @@ _(Full parameter reference for every tool moved to [`docs/TOOLS.md`](docs/TOOLS.
 
 ## Interactive dashboard (`thoughtline ui`)
 
-When you want a visual at-a-glance view of what's stored — without firing up the AI — Thoughtline ships an interactive terminal dashboard (Bubbletea TUI) with three themes (`brand`, `zbrush`, `mono`), an animated 3D cube in the header, status bar, full-text search, and live updates.
+When you want a visual at-a-glance view of what's stored — without firing up the AI — Thoughtline ships an interactive terminal **memory workspace** (Bubbletea TUI). It is organised as six tabs reachable via the digit keys `1`–`6` or `tab` / `shift+tab` to cycle:
+
+| # | Tab | What it does |
+|---|------|--------------|
+| 1 | Home | Project health card, latest memories, recent activity, first-run empty state |
+| 2 | Memories | Paginated list with type/tag/scope/sort filters; `f` cycles focus, `c` clears |
+| 3 | Search | Full-text FTS5 search with live results |
+| 4 | Inbox | Pending captures — `[A]` accept as-is, `[E]` edit-then-promote, `[R]` reject |
+| 5 | Sessions | Recent sessions across all projects (read-only) |
+| 6 | Help | Keybindings reference + roadmap snapshot |
 
 ```bash
-thoughtline ui                    # default theme
-thoughtline ui --theme zbrush     # warm tactile palette
-thoughtline ui --theme mono       # minimalist grayscale, screenshot-friendly
+thoughtline ui                    # launch the workspace
 ```
 
 > 📸 _TODO: replace these placeholders with real PNGs/GIFs before launch._
 >
-> ![Overview tab — brand theme](docs/media/screenshot-brand.png)
-> ![Overview tab — ZBrush theme](docs/media/screenshot-zbrush.png)
-> ![Search in action](docs/media/screenshot-search.gif)
+> Layout snapshots for every tab live under `internal/dashboard/testdata/*.golden` (rendered at 100×30) and are the source of truth for visual contracts.
 
-Hotkeys: `tab` cycles tabs, `/` searches, `r` refreshes, `t` cycles theme, `u` opens latest release, `?` toggles help, `q` quits. The dashboard is read-only — it never mutates the database.
+**Global hotkeys** (active when no input is focused): `[S]` save (CLI/MCP for now), `[/]` jump to Search, `[M]` jump to Memories, `[I]` jump to Inbox.
+**Navigation**: `1`-`6` jump to tab · `tab` / `shift+tab` cycle · `esc` pop overlay · `q` / `ctrl+c` quit.
+**Memory Detail**: `↑↓` scroll, `[C]` copy to OS clipboard (Windows `clip.exe`, macOS `pbcopy`, Linux `wl-copy` → `xclip`).
+
+The Memories tab and the Detail view are **read-only by design** — no edit/delete from the TUI to prevent accidental data loss. The Inbox is the only mutation path, and it always promotes to a memory via the same save pipeline that CLI/MCP use.
 
 For programmatic access from the AI, use the equivalent **`tl_stats` MCP tool**:
 

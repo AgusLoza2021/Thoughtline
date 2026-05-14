@@ -28,10 +28,6 @@ func newRecentScreen(st *storage.Storage, project, filterProject string) Screen 
 	return newRecentScreenFull(st, project, filterProject)
 }
 
-func newBrowseProjectsScreen(st *storage.Storage, stats storage.Stats) Screen {
-	return newBrowseProjectsScreenFull(st, stats)
-}
-
 func newPendingScreen(st *storage.Storage, project string) Screen {
 	return newPendingScreenFull(st, project)
 }

@@ -1106,7 +1106,7 @@ Each task uses this block:
 
 ## Group Q — Cleanup tail
 
-### Q1 — Code: delete `projects_screen.go` and `items.go`
+### Q1 [x] — Code: delete `projects_screen.go` and `items.go`
 - **Type**: code
 - **Effort**: S
 - **Depends on**: J9 (Memories tab absorbs project filter), H2 (legacy delete already done)
