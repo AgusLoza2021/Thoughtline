@@ -174,7 +174,32 @@ CREATE INDEX IF NOT EXISTS idx_memories_brain
     WHERE deleted_at IS NULL;
 `
 
+// schemaV5SQL adds the 'rejected' status to the pending_events CHECK constraint.
+// SQLite cannot ALTER a CHECK constraint, so we recreate the table via the
+// 12-step rename-copy-drop sequence inside a transaction.
+const schemaV5PendingEventsSQL = `
+CREATE TABLE IF NOT EXISTS pending_events_v5 (
+    id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+    sync_id             TEXT    NOT NULL UNIQUE,
+    project             TEXT    NOT NULL,
+    session_id          TEXT,
+    event_type          TEXT    NOT NULL,
+    tool_name           TEXT,
+    tool_use_id         TEXT,
+    payload             TEXT    NOT NULL,
+    event_hash          TEXT    NOT NULL,
+    status              TEXT    NOT NULL DEFAULT 'pending'
+                                CHECK (status IN ('pending','promoted','archived','rejected')),
+    promoted_memory_id  INTEGER,
+    promoted_at         INTEGER,
+    archived_at         INTEGER,
+    created_at          INTEGER NOT NULL,
+    captured_at         INTEGER NOT NULL
+);
+`
+
 // currentSchemaVersion is bumped whenever schemaSQL changes in a way that
 // requires a migration. v1: M1 baseline. v2: M4 sessions table + memories.session_id.
 // v3: passive-capture pending_events table. v4: brains, global_config, memory_links.
-const currentSchemaVersion = 4
+// v5: pending_events CHECK constraint adds 'rejected' status.
+const currentSchemaVersion = 5

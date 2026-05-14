@@ -204,6 +204,16 @@ func (s *Storage) migrate(ctx context.Context) error {
 		}
 	}
 
+	// v5 step: add 'rejected' to pending_events status CHECK via table recreate.
+	var v5Applied int
+	_ = s.db.QueryRowContext(ctx,
+		`SELECT COUNT(*) FROM schema_version WHERE version = 5`).Scan(&v5Applied)
+	if v5Applied == 0 {
+		if err := s.migrateV5(ctx); err != nil {
+			return fmt.Errorf("migrate v5: %w", err)
+		}
+	}
+
 	// Record / refresh the current schema version. INSERT OR IGNORE keeps the
 	// first applied_at intact per row, leaving an audit trail per version.
 	_, err = s.db.ExecContext(ctx,
@@ -211,6 +221,66 @@ func (s *Storage) migrate(ctx context.Context) error {
 		currentSchemaVersion, time.Now().UnixMilli(),
 	)
 	return err
+}
+
+// migrateV5 recreates pending_events with 'rejected' added to the status
+// CHECK constraint. Uses the SQLite 12-step rename-copy-drop sequence.
+func (s *Storage) migrateV5(ctx context.Context) error {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	// 1. Create the new table with the extended CHECK.
+	if _, err := tx.ExecContext(ctx, schemaV5PendingEventsSQL); err != nil {
+		return fmt.Errorf("v5 create pending_events_v5: %w", err)
+	}
+
+	// 2. Copy all existing rows.
+	if _, err := tx.ExecContext(ctx, `
+		INSERT INTO pending_events_v5
+		SELECT id, sync_id, project, session_id, event_type, tool_name, tool_use_id,
+		       payload, event_hash, status, promoted_memory_id, promoted_at,
+		       archived_at, created_at, captured_at
+		FROM pending_events`); err != nil {
+		return fmt.Errorf("v5 copy rows: %w", err)
+	}
+
+	// 3. Drop old table and rename new one. Indexes are dropped with the old table.
+	if _, err := tx.ExecContext(ctx, `DROP TABLE pending_events`); err != nil {
+		return fmt.Errorf("v5 drop old table: %w", err)
+	}
+	if _, err := tx.ExecContext(ctx, `ALTER TABLE pending_events_v5 RENAME TO pending_events`); err != nil {
+		return fmt.Errorf("v5 rename: %w", err)
+	}
+
+	// 4. Recreate indexes (dropped with the old table).
+	if _, err := tx.ExecContext(ctx, `
+		CREATE UNIQUE INDEX IF NOT EXISTS idx_pending_events_dedup
+		    ON pending_events(project, event_hash)`); err != nil {
+		return fmt.Errorf("v5 recreate dedup index: %w", err)
+	}
+	if _, err := tx.ExecContext(ctx, `
+		CREATE INDEX IF NOT EXISTS idx_pending_events_triage
+		    ON pending_events(project, status, captured_at DESC)`); err != nil {
+		return fmt.Errorf("v5 recreate triage index: %w", err)
+	}
+	if _, err := tx.ExecContext(ctx, `
+		CREATE INDEX IF NOT EXISTS idx_pending_events_session
+		    ON pending_events(session_id, captured_at DESC)
+		    WHERE session_id IS NOT NULL`); err != nil {
+		return fmt.Errorf("v5 recreate session index: %w", err)
+	}
+
+	// 5. Record migration.
+	if _, err := tx.ExecContext(ctx,
+		`INSERT OR IGNORE INTO schema_version(version, applied_at) VALUES (5, ?)`,
+		time.Now().UnixMilli()); err != nil {
+		return fmt.Errorf("v5 record version: %w", err)
+	}
+
+	return tx.Commit()
 }
 
 // migrateV4 creates the brains, global_config, and memory_links tables, adds

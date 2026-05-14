@@ -226,6 +226,51 @@ func (s *Storage) MarkPromoted(ctx context.Context, pendingID, memoryID int64) e
 	return nil
 }
 
+// ErrNotPending is returned when MarkRejected is called on a row that is not
+// in status=pending (e.g., already promoted, already rejected, or archived).
+var ErrNotPending = errors.New("storage: pending event is not in pending state")
+
+// MarkRejected transitions a pending event to rejected status.
+// The payload column is left byte-for-byte unchanged (audit fidelity).
+// Returns ErrPendingNotFound when no row exists for id.
+// Returns ErrNotPending when the row is not currently in status=pending
+// (e.g., already promoted or already rejected).
+func (s *Storage) MarkRejected(ctx context.Context, id int64) error {
+	// Check current status first.
+	var status string
+	err := s.db.QueryRowContext(ctx,
+		`SELECT status FROM pending_events WHERE id = ?`, id,
+	).Scan(&status)
+	if errors.Is(err, sql.ErrNoRows) {
+		return ErrPendingNotFound
+	}
+	if err != nil {
+		return fmt.Errorf("check status for reject: %w", err)
+	}
+	if status != string(pending.StatusPending) {
+		return ErrNotPending
+	}
+
+	res, err := s.db.ExecContext(ctx, `
+		UPDATE pending_events
+		SET status = 'rejected'
+		WHERE id = ? AND status = 'pending'`,
+		id,
+	)
+	if err != nil {
+		return fmt.Errorf("mark rejected: %w", err)
+	}
+	n, err := res.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("rows affected: %w", err)
+	}
+	if n == 0 {
+		// Race condition: another writer changed the status between check and update.
+		return ErrNotPending
+	}
+	return nil
+}
+
 // SweepPending runs two operations in sequence using the provided 'now' as the
 // reference clock (so tests can inject a fixed time):
 //

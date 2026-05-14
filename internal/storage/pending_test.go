@@ -514,3 +514,113 @@ func TestCountPending_ReturnsOnlyPendingStatus(t *testing.T) {
 		t.Errorf("CountPending(nonexistent) = %d, want 0", n3)
 	}
 }
+
+// ─── A4: MarkRejected tests ───────────────────────────────────────────────────
+
+// TestMarkRejected_HappyPath seeds a pending row, rejects it, and verifies
+// status=rejected, payload unchanged, CountPending decremented.
+func TestMarkRejected_HappyPath(t *testing.T) {
+	st := newTestStorage(t)
+	ctx := context.Background()
+
+	ev := samplePendingEvent()
+	ev.Payload = `{"hook_event_name":"PreToolUse","original":true}`
+	if _, err := st.InsertPending(ctx, ev); err != nil {
+		t.Fatalf("insert: %v", err)
+	}
+
+	var id int64
+	if err := st.db.QueryRowContext(ctx,
+		`SELECT id FROM pending_events WHERE sync_id = ?`, ev.SyncID,
+	).Scan(&id); err != nil {
+		t.Fatalf("get id: %v", err)
+	}
+
+	// Baseline pending count.
+	before, err := st.CountPending(ctx, ev.Project)
+	if err != nil {
+		t.Fatalf("count before: %v", err)
+	}
+
+	if err := st.MarkRejected(ctx, id); err != nil {
+		t.Fatalf("MarkRejected: %v", err)
+	}
+
+	// Status must be 'rejected'.
+	var status, payload string
+	if err := st.db.QueryRowContext(ctx,
+		`SELECT status, payload FROM pending_events WHERE id = ?`, id,
+	).Scan(&status, &payload); err != nil {
+		t.Fatalf("query after reject: %v", err)
+	}
+	if status != "rejected" {
+		t.Errorf("expected status=rejected, got %q", status)
+	}
+	// Payload must be byte-for-byte unchanged.
+	if payload != ev.Payload {
+		t.Errorf("payload changed after MarkRejected: got %q, want %q", payload, ev.Payload)
+	}
+
+	// CountPending must have decreased by 1.
+	after, err := st.CountPending(ctx, ev.Project)
+	if err != nil {
+		t.Fatalf("count after: %v", err)
+	}
+	if after != before-1 {
+		t.Errorf("CountPending after reject: %d, want %d", after, before-1)
+	}
+}
+
+// TestMarkRejected_AlreadyPromotedReturnsError verifies that rejecting an
+// already-promoted row returns an error and leaves the row unchanged.
+func TestMarkRejected_AlreadyPromotedReturnsError(t *testing.T) {
+	st := newTestStorage(t)
+	ctx := context.Background()
+
+	ev := samplePendingEvent()
+	ev.SyncID = "reject-promoted"
+	ev.Hash = "rp-hash"
+	if _, err := st.InsertPending(ctx, ev); err != nil {
+		t.Fatalf("insert: %v", err)
+	}
+
+	var id int64
+	if err := st.db.QueryRowContext(ctx,
+		`SELECT id FROM pending_events WHERE sync_id = ?`, ev.SyncID,
+	).Scan(&id); err != nil {
+		t.Fatalf("get id: %v", err)
+	}
+
+	// Promote the row first.
+	if err := st.MarkPromoted(ctx, id, 99); err != nil {
+		t.Fatalf("MarkPromoted: %v", err)
+	}
+
+	// Now try to reject — must fail.
+	err := st.MarkRejected(ctx, id)
+	if err == nil {
+		t.Error("expected error when rejecting an already-promoted row, got nil")
+	}
+
+	// Status must remain 'promoted'.
+	var status string
+	if err2 := st.db.QueryRowContext(ctx,
+		`SELECT status FROM pending_events WHERE id = ?`, id,
+	).Scan(&status); err2 != nil {
+		t.Fatalf("query: %v", err2)
+	}
+	if status != "promoted" {
+		t.Errorf("status must remain promoted after failed reject, got %q", status)
+	}
+}
+
+// TestMarkRejected_NotFoundReturnsError verifies MarkRejected on an unknown id.
+func TestMarkRejected_NotFoundReturnsError(t *testing.T) {
+	st := newTestStorage(t)
+	ctx := context.Background()
+
+	err := st.MarkRejected(ctx, 99999)
+	if err == nil {
+		t.Error("expected error for unknown id, got nil")
+	}
+}
