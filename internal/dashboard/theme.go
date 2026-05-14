@@ -14,10 +14,6 @@ import "github.com/charmbracelet/lipgloss"
 // on the canonical dark-terminal backgrounds (#1E1E1E VS Code dark+,
 // #0C0C0C Windows Terminal default).
 //
-// LogoGradient is retained ONLY as a transitional zero-value field so the
-// soon-to-be-deleted logo.go keeps compiling. It is no longer initialised
-// (no Rose-Pine-Moon mauve/lavender/teal block). When logo.go is removed
-// in a follow-up commit, this field goes with it.
 type palette struct {
 	// Core surface roles
 	Foreground lipgloss.Color
@@ -59,8 +55,6 @@ type palette struct {
 	Cursor         lipgloss.Color
 	MenuSelectedBg lipgloss.Color
 
-	// Transitional: zero-value while logo.go still compiles. Deleted with logo.go.
-	LogoGradient [5]lipgloss.Color
 }
 
 // defaultPalette is the one and only palette value used across all screens.
@@ -103,10 +97,6 @@ var defaultPalette = palette{
 	Cursor:         lipgloss.Color("#7AA2F7"),
 	MenuSelectedBg: lipgloss.Color("#1F2A44"),
 
-	// LogoGradient intentionally left as the zero array. logo.go renders
-	// black on black until it is deleted in a follow-up commit, which is
-	// acceptable because logo.go is only reachable from the legacy Model
-	// (also scheduled for deletion) and the new TUI uses renderBrand().
 }
 
 // statusLevel encodes the three disk/DB health states shown in the header.

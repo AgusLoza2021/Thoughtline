@@ -250,7 +250,7 @@ Each task uses this block:
 
 ## Group E — Brand text + logo replacement
 
-### E1 — Test: `renderBrand()` returns text logo (not ASCII art)
+### E1 [x] — Test: `renderBrand()` returns text logo (not ASCII art)
 - **Type**: test
 - **Effort**: S
 - **Depends on**: B2
@@ -262,7 +262,7 @@ Each task uses this block:
   - Verbatim scenario: Req 21 "Brand text renders without ASCII art" — assert no multi-line block-letter rendering of `THOUGHTLINE` is present
   - Test asserts the file `internal/dashboard/logo.go` does NOT exist (or that the symbol lives in `helpers.go` or `brand.go`)
 
-### E2 — Code: implement `renderBrand()` and delete `logo.go`
+### E2 [x] — Code: implement `renderBrand()` and delete `logo.go`
 - **Type**: code
 - **Effort**: S
 - **Depends on**: E1
@@ -468,7 +468,7 @@ Each task uses this block:
 
 > **Highest-risk commit. Groups F+G tests MUST be GREEN before H lands.**
 
-### H1 — Test: assert legacy files are absent and legacy symbols are not referenced
+### H1 [x] — Test: assert legacy files are absent and legacy symbols are not referenced
 - **Type**: test
 - **Effort**: M
 - **Depends on**: G6
@@ -481,7 +481,7 @@ Each task uses this block:
   - One sub-test asserting absence of `tabKey` (legacy enum on legacy Model — note: the NEW `tabKey` in `flat_model.go` is the SAME identifier; the test must distinguish by checking absence of `func (m Model) View()` and `func (m Model) Update(` as proxies for the legacy Model existence)
   - Verbatim: tui-removed Req 11 Scenario "No tabKey enum or legacy Model methods remain" — adjusted per the note above to grep for `func (m Model)` patterns specifically
 
-### H2 — Code: delete legacy files in a single commit
+### H2 [x] — Code: delete legacy files in a single commit
 - **Type**: code
 - **Effort**: L
 - **Depends on**: H1, C2, C3, D2, E2, G6
@@ -493,7 +493,7 @@ Each task uses this block:
   - `go test ./...` green — no broken imports
   - `commands.go` simplified: drop splash/cube ticks
 
-### H3 — Code: slim `model_test.go` to roadmap/status tests only
+### H3 [x] — Code: slim `model_test.go` to roadmap/status tests only
 - **Type**: code
 - **Effort**: S
 - **Depends on**: H2
@@ -504,7 +504,7 @@ Each task uses this block:
   - Only roadmap/status assertions remain (no test references to deleted legacy Model)
   - File compiles and tests pass
 
-### H4 — Code: `logo_test.go` is already rewritten for `renderBrand` in E1; verify here
+### H4 [x] — Code: `logo_test.go` is already rewritten for `renderBrand` in E1; verify here
 - **Type**: code
 - **Effort**: S
 - **Depends on**: H2
@@ -1118,7 +1118,7 @@ Each task uses this block:
   - `go test ./...` green (nothing references them)
   - tui-removed Req 8 scenario "File absent on disk" satisfied
 
-### Q2 — Code: delete `cube_test.go` and `splash_test.go` (if not already in H2)
+### Q2 [x] — Code: delete `cube_test.go` and `splash_test.go` (if not already in H2)
 - **Type**: code
 - **Effort**: S
 - **Depends on**: H2

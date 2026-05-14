@@ -148,8 +148,8 @@ func (d *DashboardScreen) View(width, height int, p palette) string {
 	b.WriteString(d.renderHeader(width, p))
 	b.WriteString("\n")
 
-	// Section 2: logo
-	b.WriteString(renderLogo(p, width))
+	// Section 2: brand
+	b.WriteString(renderBrand(p))
 	b.WriteString("\n")
 
 	// Section 3: tagline

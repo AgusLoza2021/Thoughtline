@@ -6,6 +6,37 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
+// stackModel is a minimal struct that owns only the screen stack. It is used
+// by unit tests that need Push/Pop/Peek without spinning up a full flatModel.
+type stackModel struct {
+	stack []Screen
+}
+
+// newStackModel returns an empty stackModel for testing.
+func newStackModel() *stackModel { return &stackModel{} }
+
+// Push adds s to the top of the stack and calls s.Init().
+func (m *stackModel) Push(s Screen) {
+	m.stack = append(m.stack, s)
+}
+
+// Pop removes the top screen. It is a no-op when the stack has ≤1 item
+// (the dashboard root is always present).
+func (m *stackModel) Pop() {
+	if len(m.stack) <= 1 {
+		return
+	}
+	m.stack = m.stack[:len(m.stack)-1]
+}
+
+// Peek returns the top screen without removing it. Returns nil on empty stack.
+func (m *stackModel) Peek() Screen {
+	if len(m.stack) == 0 {
+		return nil
+	}
+	return m.stack[len(m.stack)-1]
+}
+
 // mockScreen is a minimal Screen implementation used to verify that the
 // interface compiles and has the exact expected method set.
 type mockScreen struct {

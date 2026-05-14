@@ -91,18 +91,6 @@ func TestPalette_NoRosePineMoonHex(t *testing.T) {
 	}
 }
 
-// TestPalette_LogoGradientNotInitialised asserts the design decision to drop
-// the gradient: LogoGradient stays as the zero array (transitional, until
-// logo.go is deleted in a follow-up commit). Each entry must therefore be
-// the empty lipgloss.Color, not a Rose-Pine-Moon hex.
-func TestPalette_LogoGradientNotInitialised(t *testing.T) {
-	for i, c := range defaultPalette.LogoGradient {
-		if string(c) != "" {
-			t.Errorf("LogoGradient[%d] = %q, want empty (no gradient in new palette)", i, c)
-		}
-	}
-}
-
 // TestStatusStyle_ThreeDistinctStyles verifies that statusStyle returns
 // styles with distinct foreground color values for OK, WARN, and ERR after
 // the palette swap (task B3).

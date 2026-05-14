@@ -85,15 +85,66 @@ Note: `padRight` was sourced from `view.go` (the legacy version using `len(s)`),
 - `internal/dashboard/theme_test.go` — rewritten for new tokens (B1/B3)
 - `internal/dashboard/model.go`, `update.go`, `tabs_test.go` — legacy `tabKey` renamed to `legacyTabKey` to free the identifier
 
-## Next batch (commits 5–6)
+## Batch 2 — Commit 5 (legacy mass deletion)
 
-- Commit 5: delete legacy mass (`model.go`, `view.go`, `update.go`, `cube.go`, `splash.go`, `themes.go`, `tabs_test.go`, plus `logo.go` and its remaining `LogoGradient` field reference). Slim `model_test.go` to roadmap/status only. Rewrite `logo_test.go` for the new `renderBrand()`.
-- Commit 6: implement G-group (`tabKey` enum / `defaultTabs` array already exist; add Update ladder ordering, OriginatingTab handling, statusMessage with TTL). F-tests get their `t.Skip` removed and turn GREEN.
+> Status: complete. All 7 tasks done. `go test ./...` green on all 13 packages.
+> Git commit policy: **Option A** — code implemented in working tree only, NO commit made.
+> Orchestrator must inspect diff and ask user before committing.
+
+### TDD Cycle Evidence
+
+| Task | Test File | Layer | Safety Net | RED | GREEN | TRIANGULATE | REFACTOR |
+|------|-----------|-------|------------|-----|-------|-------------|----------|
+| E1 | `brand_test.go` | Unit | N/A (new) | ✅ Written (4 tests, `renderBrand` undefined) | ✅ Passed after E2 | ✅ 4 cases (content, length, hex, newline) | ➖ Clean as written |
+| E2 | `brand_test.go` | Unit | ✅ baseline green | ✅ RED from E1 | ✅ Passed | ✅ E1 covered 4 scenarios | ➖ None needed |
+| H1 | `removed_test.go` | Unit | N/A (new) | ✅ Written (8 tests, 6 failed before H2) | ✅ Passed after H2 | ✅ File-absence + symbol-absence + hex-absence | ➖ Clean as written |
+| H2 | `removed_test.go` | Unit | ✅ baseline green | ✅ RED from H1 | ✅ All 8 TestRemoved_ pass | ✅ Symbol-absence + hex-absence tests force real logic | ✅ Moved `Config`/`truncate`/`stackModel` cleanly |
+| H3 | `roadmap_status_test.go` | Unit | ✅ model_test.go was green | ✅ N/A (pure restructure) | ✅ Passed | ➖ Single responsibility | ➖ None needed |
+| H4 | — | — | N/A | N/A | N/A | N/A | N/A — `logo_test.go` deleted in E2 |
+| Q2 | — | — | N/A | N/A | N/A | N/A | N/A — no cube_test.go or splash_test.go existed |
+
+### Test Summary
+
+- **Total new tests written**: 12 (brand_test: 4, removed_test: 8)
+- **Total tests passing**: all (13 packages green)
+- **Layers used**: Unit (12)
+- **Approval tests** (refactoring): None — pure deletions, not behavior changes
+- **Pure functions created**: `renderBrand(palette) string`
+
+### Per-task notes
+
+| Task | Status | Files touched | Notes |
+|------|--------|---------------|-------|
+| E1 | ✅ done | `brand_test.go` (NEW) | 4 tests: content, length, no-forbidden-hex, single-line |
+| E2 | ✅ done | `brand.go` (NEW), `logo.go` (DELETED), `logo_test.go` (DELETED), `theme.go` (LogoGradient removed), `dashboard_screen.go` (renderLogo→renderBrand), `theme_test.go` (TestPalette_LogoGradientNotInitialised removed) | `renderBrand` lives in new `brand.go`. `dashboard_screen.go` was the only caller of `renderLogo` outside `logo.go` — updated to `renderBrand(p)`. |
+| H1 | ✅ done | `removed_test.go` (NEW) | 8 negative-assertion tests for Req 4–12 (cube, splash, themes, tabs_test, model triad file absence, theme symbols, model symbols, Rose-Pine-Moon hex) |
+| H2 | ✅ done | `model.go` (DELETED), `view.go` (DELETED), `update.go` (DELETED), `cube.go` (DELETED), `splash.go` (DELETED), `themes.go` (DELETED), `tabs_test.go` (DELETED), `model_test.go` (DELETED — H3), `resize_test.go` (DELETED), `teatest_smoke_test.go` (DELETED) | Also required: `config.go` (NEW — moved `Config` struct from model.go), `flat_model.go` (added `minWidth`/`minHeight` constants from view.go), `helpers.go` (added `truncate` from view.go), `screen_test.go` (added `stackModel` struct that was in model.go), `run.go` (removed `RunLegacy` which called deleted `New`). `commands.go` NOT simplified (splash/cube ticks were already only in the deleted files; cube ticks were in cube.go itself). |
+| H3 | ✅ done | `roadmap_status_test.go` (NEW), `model_test.go` (DELETED — entire file) | Kept: `TestRoadmap_HasAllExpectedMilestones`, `TestStatusGlyph_KnownStatuses`. Deleted: all legacy Model tests. Also deleted `resize_test.go` and `teatest_smoke_test.go` which were purely legacy Model tests (newTestModel/Model consumers). |
+| H4 | ✅ done (no-op) | — | `logo_test.go` was deleted in E2; `brand_test.go` covers the contract. |
+| Q2 | ✅ done (no-op) | — | `cube_test.go` and `splash_test.go` did not exist. |
+
+### Deviations from design
+
+| # | Deviation | Rationale |
+|---|-----------|-----------|
+| 1 | `resize_test.go` and `teatest_smoke_test.go` also deleted (not listed in commit 5 deletions) | Both files used `newTestModel(t)` and `Model` which are now gone. They were legacy Model tests with no surviving value. |
+| 2 | `config.go` created (new production file) | `Config` struct was in `model.go`; it is needed by `flat_model.go` and `run.go`. Moved to a dedicated `config.go`. |
+| 3 | `truncate` added to `helpers.go` | `truncate` (rune-based right-truncation) was in `view.go`. `items.go` and potentially other files use it. Moved to `helpers.go` alongside the other formatting helpers. |
+| 4 | `stackModel` moved to `screen_test.go` | Was in `model.go` as a production symbol but used only by `screen_test.go`. Now a test-internal type. |
+| 5 | `RunLegacy` removed from `run.go` | Called the now-deleted `New(st, cfg)` constructor. No external callers — safe to remove. |
+
+### Spec drift
+
+- `tui-removed Req 9` says `tabs_test.go` must not exist — SATISFIED (deleted).
+- `tui-removed Req 12` (`#C4A7E7` carry-over): H1's `TestRemoved_ForbiddenRosePineMoonHex` correctly excludes `#C4A7E7` from the forbidden list, matching the accepted deviation from batch 1. This drift should be documented in archive.
+
+## Next batch (commit 6)
+
+- Commit 6: implement G-group — Update ladder ordering, OriginatingTab handling, statusMessage with TTL. F-tests get their `t.Skip` removed and turn GREEN.
 
 ## Risks carried forward
 
 | Risk | Mitigation |
 |------|------------|
-| Removing `LogoGradient` in commit 5 will require simultaneously deleting `logo.go` | Already in the batch-2 plan; reviewed. |
-| `#C4A7E7` overlap may surface in `sdd-verify` against tui-removed Req 12 | Spec deviation documented above; verifier should treat as an accepted deviation. |
-| Legacy `legacyTabKey` rename ripples through any not-yet-discovered consumer | grep already covered all 5 source files; if more references appear they will surface at commit 5 deletion time. |
+| `#C4A7E7` overlap may surface in `sdd-verify` against tui-removed Req 12 | Spec deviation documented; verifier should treat as accepted deviation. |
+| `workstation_screen.go` is still present — it has its own in-file usage of `truncate` (now moved to helpers.go) | Checked: workstation_screen.go does NOT define its own truncate post-batch-1 extraction; it uses the one from helpers.go. |

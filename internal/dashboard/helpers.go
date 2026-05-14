@@ -52,6 +52,20 @@ func clampCursor(c, n int) int {
 	return c
 }
 
+// truncate truncates s to at most n runes, appending "…" when truncation
+// happens. Previously defined in view.go; moved here so it is available to
+// all screens after view.go is removed.
+func truncate(s string, n int) string {
+	r := []rune(s)
+	if len(r) <= n {
+		return s
+	}
+	if n <= 1 {
+		return "…"
+	}
+	return string(r[:n-1]) + "…"
+}
+
 // truncateLeft truncates s from the right so the visible width fits within
 // max, appending an ellipsis when truncation happens. min width clamped to 4.
 func truncateLeft(s string, max int) string {

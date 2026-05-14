@@ -8,15 +8,19 @@ import (
 	"github.com/AgusLoza2021/Thoughtline/internal/storage"
 )
 
+// minWidth and minHeight define the smallest terminal Thoughtline supports.
+// Below these dimensions the TUI shows a resize warning instead of content.
+const (
+	minWidth  = 80
+	minHeight = 24
+)
+
 // flatModel is the lightweight tea.Model that drives the new flat-screen TUI.
 // It owns only the screen stack, palette, terminal size, and a Quitting flag.
 // All real work (loading data, rendering, key handling) happens inside the
 // Screen at the top of the stack — flatModel just routes messages and
 // reacts to push/pop commands.
-//
-// The legacy Model (in model.go) is left untouched so its test suite stays
-// green; flatModel is the entry point used by Run() and is what the user
-// sees when they invoke `thoughtline ui`.
+
 // tabKey identifies one of the six top-level tabs in the new memory-workspace
 // TUI. The legacy multi-tab Model used a tabKey enum in tabs.go which is being
 // deleted in a later commit; this is the new identifier.
