@@ -917,7 +917,7 @@ Each task uses this block:
 
 ## Group N — Help tab + keybindings registry
 
-### N1 — Test: `Keybindings` slice structure exists and is non-empty
+### N1 [x] — Test: `Keybindings` slice structure exists and is non-empty
 - **Type**: test
 - **Effort**: S
 - **Depends on**: G6
@@ -929,7 +929,7 @@ Each task uses this block:
   - Contains groups: Navigation, Quick Actions, Memories tab, Detail view, Inbox (at minimum)
   - Every group has at least one binding
 
-### N2 — Code: implement `keybindings.go` with the full set
+### N2 [x] — Code: implement `keybindings.go` with the full set
 - **Type**: code
 - **Effort**: S
 - **Depends on**: N1
@@ -939,7 +939,7 @@ Each task uses this block:
 - **Acceptance criteria**:
   - Includes 1-6, tab/shift+tab, esc, q/ctrl+c (Navigation), s, /, m, i (Quick Actions), ↑↓/n/p/f/c/enter (Memories), ↑↓/C (Detail), A/E/R (Inbox)
 
-### N3 — Test: HelpScreen renders Keybindings + roadmap
+### N3 [x] — Test: HelpScreen renders Keybindings + roadmap
 - **Type**: test
 - **Effort**: S
 - **Depends on**: N2
@@ -950,7 +950,7 @@ Each task uses this block:
   - Verbatim scenario: Req 14 "Help shows keybindings" — content references digit-key tab switch, Quick Actions, `q`/`ctrl+c`
   - Verbatim scenario: Req 14 "Help renders roadmap from YAML" — at least one roadmap entry's title appears
 
-### N4 — Code: implement `HelpScreen`
+### N4 [x] — Code: implement `HelpScreen`
 - **Type**: code
 - **Effort**: M
 - **Depends on**: N3, B2, C2
@@ -961,7 +961,7 @@ Each task uses this block:
   - N3 tests turn GREEN
   - Two-column layout: keybindings left, roadmap right
 
-### N5 — Test: keybinding drift — every handler wired in `flatModel.Update` has an entry in `Keybindings`
+### N5 [x] — Test: keybinding drift — every handler wired in `flatModel.Update` has an entry in `Keybindings`
 - **Type**: test
 - **Effort**: M
 - **Depends on**: N2, G6, J9, K4, L7, L8
@@ -973,7 +973,7 @@ Each task uses this block:
   - Diff against `Keybindings` slice; assert no key is in source but missing from the slice
   - Allowed exceptions documented in test (e.g., per-Bubble component default keys like textinput cursor moves)
 
-### N6 — Code: ensure the drift test passes (may require refactoring to a registry pattern)
+### N6 [x] — Code: ensure the drift test passes (may require refactoring to a registry pattern)
 - **Type**: code
 - **Effort**: M
 - **Depends on**: N5

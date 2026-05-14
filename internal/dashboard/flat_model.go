@@ -121,7 +121,7 @@ func newFlatModel(st *storage.Storage, cfg Config) flatModel {
 	m.tabs[TabSearch] = newSearchScreen(st, cfg.Project)
 	m.tabs[TabInbox] = NewInboxScreen(st)
 	m.tabs[TabSessions] = NewSessionsScreen(st)
-	m.tabs[TabHelp] = &stubScreen{title: "Help tab — coming in commit 12"}
+	m.tabs[TabHelp] = NewHelpScreen()
 	return m
 }
 
