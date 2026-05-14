@@ -1,7 +1,7 @@
 # Tasks: tui-memory-workspace
 
 > Change: `tui-memory-workspace`
-> Status: ready
+> Status: Batch 4 complete (commits 7–10). Remaining: commits 11–15 (batch 5).
 > Strict TDD: enforced — every code task preceded by its test task in the same commit batch.
 > Test command: `go test ./...`
 > Total tasks: 96 across 19 groups, mapped to 15 commits.
@@ -77,7 +77,7 @@ Each task uses this block:
   - Existing `TestStats_MostRecentProjects` stays green; assert top-4 by `MAX(updated_at)` DESC
   - Used by Home header to display "current project"
 
-### A4 — Test: `storage.MarkRejected(ctx, id)` updates status from `pending` to `rejected`
+### A4 [x] — Test: `storage.MarkRejected(ctx, id)` updates status from `pending` to `rejected`
 - **Type**: test
 - **Effort**: S
 - **Depends on**: none
@@ -90,7 +90,7 @@ Each task uses this block:
   - Test asserts the row's `payload` column is byte-for-byte unchanged (audit fidelity, mirrors passive-capture Req 9)
   - Test asserts MarkRejected on an already-promoted row returns an error or no-op (locked behavior: returns error, like MarkPromoted does for already-promoted)
 
-### A5 — Code: implement `storage.MarkRejected`
+### A5 [x] — Code: implement `storage.MarkRejected`
 - **Type**: code
 - **Effort**: S
 - **Depends on**: A4
@@ -519,7 +519,7 @@ Each task uses this block:
 
 ## Group I — Home tab (HomeScreen)
 
-### I1 — Test: Home renders header, Quick Actions row, and three cards in populated state
+### I1 [x] — Test: Home renders header, Quick Actions row, and three cards in populated state
 - **Type**: test
 - **Effort**: M
 - **Depends on**: G6, A6
@@ -530,7 +530,7 @@ Each task uses this block:
   - Verbatim scenario: Req 2 "Populated Home render"
   - Seed `seedMemories(t, s, 5)`; render Home; assert View contains: brand text, tagline, project name, DB path styled muted, Quick Actions hint row, "Project Health" label, "Latest Memories" label, "Recent Activity" label
 
-### I2 — Test: Project Health card has 5 rows in fixed order
+### I2 [x] — Test: Project Health card has 5 rows in fixed order
 - **Type**: test
 - **Effort**: S
 - **Depends on**: I1
@@ -541,7 +541,7 @@ Each task uses this block:
   - Render order: `Memories:`, `Sessions:`, `Pending:`, `Disk free:`, `Storage:` — assert ordering by substring index in View output
   - Pending row uses Warning color when count > 0; Disk free uses Warning when <1GB, Error when <100MB
 
-### I3 — Test: Latest Memories card interactive cursor with j/k and no wrap
+### I3 [x] — Test: Latest Memories card interactive cursor with j/k and no wrap
 - **Type**: test
 - **Effort**: M
 - **Depends on**: I1
@@ -552,7 +552,7 @@ Each task uses this block:
   - Verbatim scenario: Req 3 "Cursor moves within card" — `j` twice, cursor moves down 2 rows
   - No-wrap at top (cursor stays at 0 on `k`) and bottom (stays at last row on `j`)
 
-### I4 — Test: enter on Latest Memories pushes Detail; esc restores cursor position
+### I4 [x] — Test: enter on Latest Memories pushes Detail; esc restores cursor position
 - **Type**: test
 - **Effort**: M
 - **Depends on**: I3
@@ -562,7 +562,7 @@ Each task uses this block:
 - **Acceptance criteria**:
   - Verbatim scenario: Req 3 "Enter opens detail and esc restores cursor" — cursor at row 2, press enter, assert DetailScreen on stack with row-2 memory; press esc, assert cursor still at row 2
 
-### I5 — Test: Recent Activity card renders mixed stream
+### I5 [x] — Test: Recent Activity card renders mixed stream
 - **Type**: test
 - **Effort**: S
 - **Depends on**: I1
@@ -572,7 +572,7 @@ Each task uses this block:
 - **Acceptance criteria**:
   - Seed memories, sessions, and pending; assert at least two distinct event-type labels appear (e.g., `saved` and `pending`)
 
-### I6 — Test: empty state renders 3 gamedev examples + tl save / tl_save instructions
+### I6 [x] — Test: empty state renders 3 gamedev examples + tl save / tl_save instructions
 - **Type**: test
 - **Effort**: S
 - **Depends on**: I1
@@ -584,7 +584,7 @@ Each task uses this block:
   - Verbatim scenario: Req 4 "Empty state save instructions rendered" — View contains `tl save` AND `tl_save`
   - Verbatim scenario: Req 2 "Empty Home render" — header + Quick Actions render but Latest Memories/Recent Activity cards do NOT
 
-### I7 — Test: `r` and `OnFocus` refresh Home stats
+### I7 [x] — Test: `r` and `OnFocus` refresh Home stats
 - **Type**: test
 - **Effort**: S
 - **Depends on**: I1
@@ -595,7 +595,7 @@ Each task uses this block:
   - Render Home, mutate DB (add a memory), press `r`, assert new total visible
   - Switch to another tab and back; assert `OnFocus` triggered the stats reload (memory count updated)
 
-### I8 — Code: implement `HomeScreen` (rewrite of `dashboard_screen.go`)
+### I8 [x] — Code: implement `HomeScreen` (rewrite of `dashboard_screen.go`)
 - **Type**: code
 - **Effort**: L
 - **Depends on**: I1, I2, I3, I4, I5, I6, I7, B2, B4, C2, E2, G6
@@ -612,7 +612,7 @@ Each task uses this block:
 
 ## Group J — Memories tab (MemoriesScreen)
 
-### J1 — Test: Memories tab shows count + rows with badge/topic_key/preview/scope/relative time
+### J1 [x] — Test: Memories tab shows count + rows with badge/topic_key/preview/scope/relative time
 - **Type**: test
 - **Effort**: M
 - **Depends on**: G6, A6
@@ -622,7 +622,7 @@ Each task uses this block:
 - **Acceptance criteria**:
   - Verbatim scenario: Req 5 "Memories tab shows count and rows" — seed 7 memories, View contains "7" and at least one row with all 5 fields
 
-### J2 — Test: default sort is `updated_at` DESC
+### J2 [x] — Test: default sort is `updated_at` DESC
 - **Type**: test
 - **Effort**: S
 - **Depends on**: J1
@@ -632,7 +632,7 @@ Each task uses this block:
 - **Acceptance criteria**:
   - Verbatim scenario: Req 5 "Default sort order is updated_at DESC"
 
-### J3 — Test: pagination 20/page with `n`/`p` keys and footer "Page X of Y · NNN total"
+### J3 [x] — Test: pagination 20/page with `n`/`p` keys and footer "Page X of Y · NNN total"
 - **Type**: test
 - **Effort**: M
 - **Depends on**: J1
@@ -643,7 +643,7 @@ Each task uses this block:
   - Seed 50; assert page 1 shows 20 rows and footer matches `Page 1 of 3 · 50 total`
   - `n` advances to page 2; `p` retreats to page 1; `n` at last page is no-op; `p` at page 1 is no-op
 
-### J4 — Test: inline filter bar with `f` cycling focus through 4 filter widgets
+### J4 [x] — Test: inline filter bar with `f` cycling focus through 4 filter widgets
 - **Type**: test
 - **Effort**: M
 - **Depends on**: J1
@@ -655,7 +655,7 @@ Each task uses this block:
   - `f` cycles focus: row → type → tag → scope → sort → row
   - `c` clears all filters back to default
 
-### J5 — Test: filter actually filters the list
+### J5 [x] — Test: filter actually filters the list
 - **Type**: test
 - **Effort**: S
 - **Depends on**: J4
@@ -665,7 +665,7 @@ Each task uses this block:
 - **Acceptance criteria**:
   - Seed 5 `decision` + 3 `bug`; apply `type = decision`; assert only 5 rows render
 
-### J6 — Test: keybindings j/k cursor (no wrap), enter pushes Detail, `/` jumps to Search
+### J6 [x] — Test: keybindings j/k cursor (no wrap), enter pushes Detail, `/` jumps to Search
 - **Type**: test
 - **Effort**: M
 - **Depends on**: J1
@@ -677,7 +677,7 @@ Each task uses this block:
   - Verbatim scenario: Req 7 "Slash jumps to Search"
   - Verbatim scenario: Req 7 "No wrap at bottom"
 
-### J7 — Test: filter persistence across tab switch
+### J7 [x] — Test: filter persistence across tab switch
 - **Type**: test
 - **Effort**: S
 - **Depends on**: J4
@@ -687,7 +687,7 @@ Each task uses this block:
 - **Acceptance criteria**:
   - Apply `type=decision`, switch to Help, switch back; filter still `type=decision`
 
-### J8 — Test: cursor preservation across detail push/pop
+### J8 [x] — Test: cursor preservation across detail push/pop
 - **Type**: test
 - **Effort**: S
 - **Depends on**: J1
@@ -697,7 +697,7 @@ Each task uses this block:
 - **Acceptance criteria**:
   - Move cursor to row 5, push Detail, press esc; cursor still on row 5
 
-### J9 — Code: implement `MemoriesScreen` (rename + rewrite of `recent_screen.go`)
+### J9 [x] — Code: implement `MemoriesScreen` (rename + rewrite of `recent_screen.go`)
 - **Type**: code
 - **Effort**: L
 - **Depends on**: J1-J8, A6, B2, C2, G6
@@ -714,7 +714,7 @@ Each task uses this block:
 
 ## Group K — Detail view + clipboard
 
-### K1 — Test: DetailScreen renders all 8 metadata fields and supports `[C]` copy
+### K1 [x] — Test: DetailScreen renders all 8 metadata fields and supports `[C]` copy
 - **Type**: test
 - **Effort**: M
 - **Depends on**: G6, A6
@@ -727,7 +727,7 @@ Each task uses this block:
   - Verbatim scenario: Req 19 "Successful copy on supported platform" — using shimmed clipboard, press `c`, assert clipboard cmd dispatched and success status text rendered
   - Verbatim scenario: Req 19 "Failure surfaces, does not crash" — shim returns error, press `c`, assert status text "Clipboard unavailable..." in yellow
 
-### K2 — Test: `[C]` clipboard backend invocation matrix (success and missing-backend per OS)
+### K2 [x] — Test: `[C]` clipboard backend invocation matrix (success and missing-backend per OS)
 - **Type**: test
 - **Effort**: M
 - **Depends on**: K1
@@ -741,7 +741,7 @@ Each task uses this block:
   - Linux: tries `wl-copy` first, falls back to `xclip -selection clipboard`
   - Missing-backend test: `execLookPath` shim returns ErrNotFound, assert `CopyToClipboard` returns the sentinel error and does not panic
 
-### K3 — Code: `clipboard.go` common interface + per-OS implementations
+### K3 [x] — Code: `clipboard.go` common interface + per-OS implementations
 - **Type**: code
 - **Effort**: M
 - **Depends on**: K2
@@ -753,7 +753,7 @@ Each task uses this block:
   - `func CopyToClipboard(s string) error` defined exactly as in Section 7
   - Each OS file declares the matching build tag
 
-### K4 — Code: modify `detail_screen.go` for new behavior
+### K4 [x] — Code: modify `detail_screen.go` for new behavior
 - **Type**: code
 - **Effort**: M
 - **Depends on**: K1, K3, B2, C2
@@ -767,7 +767,7 @@ Each task uses this block:
   - Adds `[C]` handler → `copyClipboardCmd(content)` → on `clipboardMsg` sets status line ("Copied to clipboard (N chars)" green OR "Clipboard unavailable: ..." yellow)
   - Footer renders `topic_key` and `sync_id` muted; clipboard status appears in DetailScreen footer (not global), per Section 2b(K)
 
-### K5 — Code: `copyClipboardCmd` in `commands.go`
+### K5 [x] — Code: `copyClipboardCmd` in `commands.go`
 - **Type**: code
 - **Effort**: S
 - **Depends on**: K3, K4
@@ -782,7 +782,7 @@ Each task uses this block:
 
 ## Group L — Inbox tab
 
-### L1 — Test: InboxScreen renders rows with `[A]`/`[E]`/`[R]` affordances
+### L1 [x] — Test: InboxScreen renders rows with `[A]`/`[E]`/`[R]` affordances
 - **Type**: test
 - **Effort**: M
 - **Depends on**: G6, A6, A5
@@ -793,7 +793,7 @@ Each task uses this block:
   - Verbatim scenario: Req 9 "Inbox renders pending rows with affordances" — seed 2 pending, assert 2 rows + `[A]` `[E]` `[R]` text affordances visible in footer/help line
   - Verbatim scenario: Req 9 "Inbox empty state" — zero pending, no crash, empty surface renders
 
-### L2 — Test: `[A]` accept calls `MarkPromoted` unchanged, row disappears, success status
+### L2 [x] — Test: `[A]` accept calls `MarkPromoted` unchanged, row disappears, success status
 - **Type**: test
 - **Effort**: M
 - **Depends on**: L1
@@ -805,7 +805,7 @@ Each task uses this block:
   - Verbatim scenario: Req 10 "Accept surfaces success status"
   - Verbatim scenario: passive-capture Req 9 "Passthrough accept preserves proposed values" — assert pending payload byte-for-byte unchanged after promote
 
-### L3 — Test: `[R]` reject calls `MarkRejected`, row disappears, no memory created, other rows untouched
+### L3 [x] — Test: `[R]` reject calls `MarkRejected`, row disappears, no memory created, other rows untouched
 - **Type**: test
 - **Effort**: M
 - **Depends on**: L1, A5
@@ -816,7 +816,7 @@ Each task uses this block:
   - Verbatim scenario: Req 12 "Reject removes row without promoting"
   - Verbatim scenario: Req 12 "Reject does not affect other rows"
 
-### L4 — Test: InboxEditScreen — 3 fields (type select / title textinput / content textarea)
+### L4 [x] — Test: InboxEditScreen — 3 fields (type select / title textinput / content textarea)
 - **Type**: test
 - **Effort**: M
 - **Depends on**: L1
@@ -828,7 +828,7 @@ Each task uses this block:
   - `tab` cycles focus through fields (0→1→2→0)
   - `InputFocused()` returns true at all times while edit screen is active
 
-### L5 — Test: edit submit (`ctrl+s`) promotes with new values, payload unchanged
+### L5 [x] — Test: edit submit (`ctrl+s`) promotes with new values, payload unchanged
 - **Type**: test
 - **Effort**: M
 - **Depends on**: L4
@@ -839,7 +839,7 @@ Each task uses this block:
   - Verbatim scenario: Req 11 "Edit submit promotes with new values"
   - Verbatim scenario: passive-capture Req 9 "Edited accept overrides type, title, and content" — assert payload byte-for-byte unchanged after promote with edits
 
-### L6 — Test: edit cancel (`esc`) leaves Inbox unchanged
+### L6 [x] — Test: edit cancel (`esc`) leaves Inbox unchanged
 - **Type**: test
 - **Effort**: S
 - **Depends on**: L4
@@ -849,7 +849,7 @@ Each task uses this block:
 - **Acceptance criteria**:
   - Verbatim scenario: Req 11 "Edit cancel leaves Inbox unchanged"
 
-### L7 — Code: implement `InboxScreen` (rewrite of `pending_screen.go`)
+### L7 [x] — Code: implement `InboxScreen` (rewrite of `pending_screen.go`)
 - **Type**: code
 - **Effort**: L
 - **Depends on**: L1, L2, L3, A5, G6
@@ -862,7 +862,7 @@ Each task uses this block:
   - `[E]` → pushes `InboxEditScreen` with the pending row
   - `[R]` → `MarkRejected(id)` via storage call; row disappears
 
-### L8 — Code: implement `InboxEditScreen`
+### L8 [x] — Code: implement `InboxEditScreen`
 - **Type**: code
 - **Effort**: L
 - **Depends on**: L4, L5, L6, L7
@@ -876,7 +876,7 @@ Each task uses this block:
   - `ctrl+s` triggers promoteCmd with edited values; on success pops back to Inbox with green status "Promoted: <title>"
   - `esc` pops without persisting
 
-### L9 — Code: `promoteCmd` in `commands.go`
+### L9 [x] — Code: `promoteCmd` in `commands.go`
 - **Type**: code
 - **Effort**: S
 - **Depends on**: L7, L8
@@ -891,7 +891,7 @@ Each task uses this block:
 
 ## Group M — Sessions tab
 
-### M1 — Test: Sessions renders from RecentSessions, read-only
+### M1 [x] — Test: Sessions renders from RecentSessions, read-only
 - **Type**: test
 - **Effort**: S
 - **Depends on**: G6, A6
@@ -902,7 +902,7 @@ Each task uses this block:
   - Verbatim scenario: Req 13 "Sessions render" — at least one row with identifying metadata
   - Verbatim scenario: Req 13 "Sessions tab is read-only" — pressing `d`, `e` etc. does not mutate any row
 
-### M2 — Code: implement `SessionsScreen`
+### M2 [x] — Code: implement `SessionsScreen`
 - **Type**: code
 - **Effort**: M
 - **Depends on**: M1, B2, C2
@@ -1329,7 +1329,7 @@ Notes on commit boundaries:
 
 Two real bugs surfaced when the user rebuilt the intermediate state of the dashboard and inspected the live UI. The bugs are now codified as Spec Req 24 (Project Health scoping) and Spec Req 25 (Memory Detail wrap+scroll). The following tasks land them inside the existing commit series — no new commits required.
 
-### I-bug-1 — Test: Project Health card counts match Top Projects scope
+### I-bug-1 [x] — Test: Project Health card counts match Top Projects scope
 - **Type**: test
 - **Effort**: S
 - **Depends on**: A1, A2, A3, A6
@@ -1343,7 +1343,7 @@ Two real bugs surfaced when the user rebuilt the intermediate state of the dashb
   - Top Projects rendered on the same frame contains at least 3 project bullet items
   - Verbatim spec scenario: "Stat card matches Top Projects when DB has 27 memories across 4 projects"
 
-### I-bug-2 — Code: HomeScreen uses unscoped stats for Project Health
+### I-bug-2 [x] — Code: HomeScreen uses unscoped stats for Project Health
 - **Type**: code
 - **Effort**: S
 - **Depends on**: I-bug-1
@@ -1356,7 +1356,7 @@ Two real bugs surfaced when the user rebuilt the intermediate state of the dashb
   - I-bug-1 test goes GREEN
   - Reconciliation note: this OVERRIDES the legacy `dashboard.Config.Project` default behavior. Document in commit message.
 
-### K-bug-1 — Test: Memory Detail wraps long lines and scrolls
+### K-bug-1 [x] — Test: Memory Detail wraps long lines and scrolls
 - **Type**: test
 - **Effort**: S
 - **Depends on**: C2 (helpers `wrap` extracted)
@@ -1370,7 +1370,7 @@ Two real bugs surfaced when the user rebuilt the intermediate state of the dashb
   - Test 4: short content (< viewport height) — assert footer shows `100%` or omits the scroll indicator
   - Verbatim spec scenarios: "Long line wraps at viewport width", "Long content scrolls vertically", "Short content does not show scroll indicator"
 
-### K-bug-2 — Code: DetailScreen wraps content + scroll indicator
+### K-bug-2 [x] — Code: DetailScreen wraps content + scroll indicator
 - **Type**: code
 - **Effort**: M
 - **Depends on**: K-bug-1, C2 (uses `wrap` helper)
