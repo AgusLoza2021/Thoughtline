@@ -151,6 +151,14 @@ func (s *Storage) SetClock(now func() time.Time) {
 	}
 }
 
+// Now returns the current time from the storage clock. The server layer uses
+// this to compute DedupeCheck windowStart so tests that inject a clock via
+// SetClock see consistent timestamps across both the seed insert and the
+// dedup query.
+func (s *Storage) Now() time.Time {
+	return s.now()
+}
+
 // nowMillis returns the storage clock truncated to millisecond precision.
 // Storage persists timestamps as unix epoch ms; truncating in-memory values
 // keeps Save's returned Memory bit-equal to what GetByID would return.
@@ -532,7 +540,7 @@ func (s *Storage) insertNew(ctx context.Context, brainID int64, m memory.Memory)
 }
 
 func (s *Storage) upsertByTopicKey(ctx context.Context, brainID int64, m memory.Memory) (memory.Memory, UpsertAction, error) {
-	hash := normalizedHash(m.Title, m.Content)
+	hash := NormalizedHash(m.Title, m.Content)
 
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {

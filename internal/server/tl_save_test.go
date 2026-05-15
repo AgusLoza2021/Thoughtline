@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 	"unicode/utf8"
 
 	"github.com/mark3labs/mcp-go/mcp"
@@ -451,4 +452,140 @@ func textContent(res *mcp.CallToolResult) string {
 		}
 	}
 	return strings.Join(parts, "")
+}
+
+// ---------------------------------------------------------------------------
+// A2 — Dedup window tests (REQ-CAPS-A2-001 through REQ-CAPS-A2-004)
+// ---------------------------------------------------------------------------
+
+// dedupeBaseArgs returns a validArgs with no TopicKey, suitable for dedup testing.
+func dedupeBaseArgs() saveArgs {
+	return saveArgs{
+		Title:   "Lock player loot UI to a 4x6 grid",
+		Content: "**What**: chose grid\n**Why**: cognitive load on mobile\n**Where**: ui/loot/grid.js\n",
+		Type:    string(memory.TypeGameDesignDecision),
+		Project: "enchanted-inn",
+	}
+}
+
+// TestDoSave_DedupeReturnsExistingEnvelope verifies the end-to-end integration:
+// a second non-topic-key save with identical title+content within the dedup
+// window returns a "deduped" response envelope and does NOT insert a new row.
+func TestDoSave_DedupeReturnsExistingEnvelope(t *testing.T) {
+	st := newTestStorage(t)
+	ctx := context.Background()
+	cfg := Config{}
+
+	baseTime := time.Date(2026, 1, 1, 12, 0, 0, 0, time.UTC)
+	st.SetClock(func() time.Time { return baseTime })
+
+	args := dedupeBaseArgs()
+
+	// First save succeeds normally.
+	res1, err := doSave(ctx, st, cfg, args)
+	if err != nil || res1.IsError {
+		t.Fatalf("first save: err=%v body=%s", err, textContent(res1))
+	}
+	body1 := textContent(res1)
+	if !strings.Contains(body1, "action=created") {
+		t.Fatalf("first save should be created, got:\n%s", body1)
+	}
+
+	// Resolve the brain to count rows later.
+	brainID, err := st.ResolveOrCreateBrainID(ctx, args.Project)
+	if err != nil {
+		t.Fatalf("resolve brain: %v", err)
+	}
+
+	// Advance time to 5 minutes later — still within the 15-minute window.
+	st.SetClock(func() time.Time { return baseTime.Add(5 * time.Minute) })
+
+	// Second save with identical args → should deduplicate.
+	res2, err := doSave(ctx, st, cfg, args)
+	if err != nil {
+		t.Fatalf("second save error: %v", err)
+	}
+	if res2.IsError {
+		t.Fatalf("expected success result, got error: %s", textContent(res2))
+	}
+	body2 := textContent(res2)
+
+	// Response must mention "deduped".
+	if !strings.Contains(body2, "deduped") {
+		t.Errorf("dedup response should contain 'deduped'; got:\n%s", body2)
+	}
+
+	// Extract the numeric ID from the first save's response so we can assert
+	// the dedup envelope references the same row (design contract D12).
+	var savedID int64
+	for _, line := range strings.Split(body1, "\n") {
+		line = strings.TrimSpace(line)
+		if strings.HasPrefix(line, "ID: ") {
+			if _, err := fmt.Sscanf(line, "ID: %d", &savedID); err == nil {
+				break
+			}
+		}
+	}
+	if savedID == 0 {
+		t.Fatalf("could not parse ID from first save result:\n%s", body1)
+	}
+	// Dedup envelope must embed the existing ID.
+	if !strings.Contains(body2, fmt.Sprintf("ID %d", savedID)) {
+		t.Errorf("dedup response should reference existing ID %d; got:\n%s", savedID, body2)
+	}
+	// Dedup envelope must include the age fragment.
+	if !strings.Contains(body2, "ago") {
+		t.Errorf("dedup response should contain 'ago'; got:\n%s", body2)
+	}
+	// Dedup envelope must include the no-insert affordance.
+	if !strings.Contains(body2, "No new row inserted") {
+		t.Errorf("dedup response should contain 'No new row inserted'; got:\n%s", body2)
+	}
+
+	// No new row should be inserted — Recent should still return exactly 1 row.
+	rows, err := st.Recent(ctx, brainID, 10)
+	if err != nil {
+		t.Fatalf("Recent: %v", err)
+	}
+	if len(rows) != 1 {
+		t.Errorf("expected 1 row after dedup (no new insert); got %d", len(rows))
+	}
+}
+
+// TestDoSave_TopicKeyedSave_BypassesDedupeCheck verifies that a topic-keyed save
+// with args identical to an existing non-topic-keyed memory does NOT trigger
+// the dedup path — it should go through upsertByTopicKey normally.
+func TestDoSave_TopicKeyedSave_BypassesDedupeCheck(t *testing.T) {
+	st := newTestStorage(t)
+	ctx := context.Background()
+	cfg := Config{}
+
+	baseTime := time.Date(2026, 1, 1, 12, 0, 0, 0, time.UTC)
+	st.SetClock(func() time.Time { return baseTime })
+
+	// Save a non-topic-keyed row first.
+	plain := dedupeBaseArgs()
+	res1, err := doSave(ctx, st, cfg, plain)
+	if err != nil || res1.IsError {
+		t.Fatalf("plain save: err=%v body=%s", err, textContent(res1))
+	}
+
+	// Now save the SAME content with a topic_key — should bypass dedup,
+	// create a new row via upsertByTopicKey.
+	keyed := dedupeBaseArgs()
+	keyed.TopicKey = "design/inventory/grid-layout"
+
+	res2, err := doSave(ctx, st, cfg, keyed)
+	if err != nil || res2.IsError {
+		t.Fatalf("keyed save: err=%v body=%s", err, textContent(res2))
+	}
+	body2 := textContent(res2)
+
+	// Must NOT be a dedup response — should be a normal created action.
+	if strings.Contains(body2, "deduped") {
+		t.Errorf("topic-keyed save must not trigger dedup; got:\n%s", body2)
+	}
+	if !strings.Contains(body2, "action=created") {
+		t.Errorf("topic-keyed save should be action=created; got:\n%s", body2)
+	}
 }

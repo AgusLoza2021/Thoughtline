@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 	"strings"
+	"time"
 	"unicode/utf8"
 
 	"github.com/mark3labs/mcp-go/mcp"
@@ -164,6 +165,28 @@ func doSave(ctx context.Context, s *storage.Storage, cfg Config, args saveArgs) 
 		return mcp.NewToolResultError(fmt.Sprintf("resolve brain: %v", err)), nil
 	}
 
+	// A2 — dedup window check. Only applies to non-topic-keyed saves. Runs
+	// after Validate (so the hash is computed on already-truncated content)
+	// and after ResolveOrCreateBrainID (so brainID is known).
+	//
+	// Dedupe check is a plain SELECT followed by Save (not transactional). This is
+	// safe because the MCP transport is stdio with a single client — messages are
+	// serialized on the handler goroutine, so no TOCTOU race can occur between
+	// DedupeCheck and Save. If the transport ever changes to HTTP or multi-client,
+	// this must be reworked into a transactional SaveOrDedupe (design contract D11).
+	if args.TopicKey == "" {
+		hash := storage.NormalizedHash(m.Title, m.Content)
+		now := s.Now()
+		windowStart := now.Add(-storage.DedupeWindow)
+		found, existingID, existingCreatedAt, dedupErr := s.DedupeCheck(ctx, brainID, hash, windowStart)
+		if dedupErr != nil {
+			return mcp.NewToolResultError(fmt.Sprintf("dedupe check: %v", dedupErr)), nil
+		}
+		if found {
+			return mcp.NewToolResultText(renderDedupedEnvelope(existingID, existingCreatedAt, now)), nil
+		}
+	}
+
 	saved, action, err := s.Save(ctx, brainID, m)
 	if err != nil {
 		// Cross-table errors (unknown session, project mismatch) come from
@@ -203,6 +226,25 @@ func formatSaveResult(m memory.Memory, action storage.UpsertAction) string {
 		b.WriteString("Note: identical content — no changes applied.\n")
 	}
 	return strings.TrimRight(b.String(), "\n")
+}
+
+// renderDedupedEnvelope builds the tool-result text returned when doSave
+// detects an identical observation already saved within the dedup window.
+// The response is a normal success (not an error) — deduplication is a
+// transparent no-op. The existing ID is surfaced so the agent can use
+// tl_get_observation or tl_related for follow-up without a round-trip.
+func renderDedupedEnvelope(existingID int64, existingCreatedAt, now time.Time) string {
+	age := now.Sub(existingCreatedAt)
+	var ageFmt string
+	if age < time.Minute {
+		ageFmt = "<1m"
+	} else {
+		ageFmt = fmt.Sprintf("%dm", int(age.Minutes()))
+	}
+	return fmt.Sprintf(
+		"deduped: identical observation already saved %s ago (ID %d). No new row inserted.",
+		ageFmt, existingID,
+	)
 }
 
 // formatValidationError converts a domain validation error into a message

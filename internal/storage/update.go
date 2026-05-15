@@ -84,7 +84,7 @@ func (s *Storage) UpdateByID(ctx context.Context, brainID int64, id int64, patch
 	}
 
 	now := s.nowMillis()
-	hash := normalizedHash(next.Title, next.Content)
+	hash := NormalizedHash(next.Title, next.Content)
 	tagsJSON, err := encodeTags(next.Tags)
 	if err != nil {
 		return memory.Memory{}, err
