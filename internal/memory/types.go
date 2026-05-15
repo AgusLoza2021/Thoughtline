@@ -129,4 +129,12 @@ const (
 	MaxContentBytes = 64 * 1024
 	MaxTopicKeyLen  = 128
 	MaxTagLen       = 40
+
+	// MaxObservationChars is the maximum number of Unicode code points (runes)
+	// allowed in an observation's Content field. Content exceeding this limit
+	// is truncated by the server layer (pre-validate) and a fixed marker is
+	// appended so stored content is always exactly MaxObservationChars runes.
+	// Rune-counted, NOT byte-counted. See also memory.MaxContentBytes for the
+	// absolute byte ceiling enforced by Validate.
+	MaxObservationChars = 50000
 )

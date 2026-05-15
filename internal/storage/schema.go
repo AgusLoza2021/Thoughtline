@@ -198,8 +198,16 @@ CREATE TABLE IF NOT EXISTS pending_events_v5 (
 );
 `
 
+// schemaV6IndexSQL creates the covering partial index used by DedupeCheck to
+// locate duplicate non-deleted, non-topic-keyed memories efficiently.
+// The index includes created_at so the dedup query's ORDER BY and window
+// filter are resolved without a separate sort or table scan.
+// CREATE INDEX IF NOT EXISTS makes the statement idempotent on re-open.
+const schemaV6IndexSQL = `CREATE INDEX IF NOT EXISTS idx_memories_hash ON memories(brain_id, normalized_hash, created_at) WHERE deleted_at IS NULL`
+
 // currentSchemaVersion is bumped whenever schemaSQL changes in a way that
 // requires a migration. v1: M1 baseline. v2: M4 sessions table + memories.session_id.
 // v3: passive-capture pending_events table. v4: brains, global_config, memory_links.
 // v5: pending_events CHECK constraint adds 'rejected' status.
-const currentSchemaVersion = 5
+// v6: idx_memories_hash partial covering index for DedupeCheck.
+const currentSchemaVersion = 6

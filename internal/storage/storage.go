@@ -214,6 +214,16 @@ func (s *Storage) migrate(ctx context.Context) error {
 		}
 	}
 
+	// v6 step: add idx_memories_hash partial covering index for DedupeCheck.
+	var v6Applied int
+	_ = s.db.QueryRowContext(ctx,
+		`SELECT COUNT(*) FROM schema_version WHERE version = 6`).Scan(&v6Applied)
+	if v6Applied == 0 {
+		if err := s.migrateV6(ctx); err != nil {
+			return fmt.Errorf("migrate v6: %w", err)
+		}
+	}
+
 	// Record / refresh the current schema version. INSERT OR IGNORE keeps the
 	// first applied_at intact per row, leaving an audit trail per version.
 	_, err = s.db.ExecContext(ctx,
@@ -278,6 +288,31 @@ func (s *Storage) migrateV5(ctx context.Context) error {
 		`INSERT OR IGNORE INTO schema_version(version, applied_at) VALUES (5, ?)`,
 		time.Now().UnixMilli()); err != nil {
 		return fmt.Errorf("v5 record version: %w", err)
+	}
+
+	return tx.Commit()
+}
+
+// migrateV6 creates idx_memories_hash — a partial covering index on
+// (brain_id, normalized_hash, created_at) WHERE deleted_at IS NULL — used
+// by DedupeCheck to locate duplicate observations without a full table scan.
+// CREATE INDEX IF NOT EXISTS makes the index DDL idempotent; the
+// schema_version INSERT OR IGNORE guard prevents double-application.
+func (s *Storage) migrateV6(ctx context.Context) error {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	if _, err := tx.ExecContext(ctx, schemaV6IndexSQL); err != nil {
+		return fmt.Errorf("v6 index: %w", err)
+	}
+
+	if _, err := tx.ExecContext(ctx,
+		`INSERT OR IGNORE INTO schema_version(version, applied_at) VALUES (6, ?)`,
+		time.Now().UnixMilli()); err != nil {
+		return fmt.Errorf("v6 record version: %w", err)
 	}
 
 	return tx.Commit()
@@ -456,7 +491,7 @@ func (s *Storage) insertNew(ctx context.Context, brainID int64, m memory.Memory)
 		return memory.Memory{}, err
 	}
 
-	hash := normalizedHash(m.Title, m.Content)
+	hash := NormalizedHash(m.Title, m.Content)
 	tagsJSON, err := encodeTags(m.Tags)
 	if err != nil {
 		return memory.Memory{}, err
@@ -746,10 +781,15 @@ func newSyncID() (string, error) {
 	return id.String(), nil
 }
 
-// normalizedHash returns a sha256 fingerprint of (title, content) suitable
-// for noop detection on upsert. Whitespace at the very edges of each field
-// is trimmed; everything else (case, internal whitespace) is significant.
-func normalizedHash(title, content string) string {
+// NormalizedHash returns a SHA-256 fingerprint of (title, content) suitable
+// for deduplication and noop detection on upsert. Whitespace at the very
+// edges of each field is trimmed; everything else (case, internal whitespace)
+// is significant.
+//
+// Recipe (INTERNAL — callers MUST NOT depend on the exact algorithm; it may
+// change between binary versions): SHA-256(trimSpace(title) + NUL +
+// trimSpace(content)), hex-encoded.
+func NormalizedHash(title, content string) string {
 	h := sha256.New()
 	h.Write([]byte(strings.TrimSpace(title)))
 	h.Write([]byte{0})

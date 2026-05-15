@@ -4,7 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
@@ -128,6 +130,19 @@ func doSave(ctx context.Context, s *storage.Storage, cfg Config, args saveArgs) 
 		project = cfg.DefaultProject
 	}
 
+	// A1 — rune-counted truncation. Runs before Validate so the byte ceiling
+	// in memory.Validate sees already-truncated content. Silent at the protocol
+	// layer; a structured log line is emitted for observability.
+	if utf8.RuneCountInString(args.Content) > memory.MaxObservationChars {
+		fromRunes := utf8.RuneCountInString(args.Content)
+		args.Content = truncateRunesWithMarker(args.Content, memory.MaxObservationChars, observationTruncationMarker)
+		slog.Info("observation truncated",
+			"from_runes", fromRunes,
+			"to_runes", memory.MaxObservationChars,
+			"session_id", args.SessionID,
+		)
+	}
+
 	m := memory.Memory{
 		Project:   project,
 		Scope:     memory.Scope(scope),
@@ -221,6 +236,40 @@ func formatValidationError(err error) string {
 	default:
 		return fmt.Sprintf("validation failed: %v", err)
 	}
+}
+
+// observationTruncationMarker is appended to content that exceeds
+// memory.MaxObservationChars. The leading double-newline guarantees a
+// markdown paragraph break. The brand prefix prevents collision with
+// user-authored text. The rune count of this constant is subtracted from the
+// cap to determine how many body runes are kept.
+const observationTruncationMarker = "\n\n…[truncated by Thoughtline at 50000 chars]"
+
+// truncateRunesWithMarker returns s unchanged when its rune count is at or
+// below max. When over-cap it slices s at the rune boundary that leaves room
+// for marker within max runes, appends marker, and returns the result. The
+// returned string is always at most max runes long.
+//
+// Callers are expected to pass memory.MaxObservationChars as max and
+// observationTruncationMarker as marker.
+func truncateRunesWithMarker(s string, max int, marker string) string {
+	if utf8.RuneCountInString(s) <= max {
+		return s
+	}
+	markerRunes := utf8.RuneCountInString(marker)
+	keep := max - markerRunes
+	// Walk the string using range — each iteration yields the byte offset of
+	// the current rune. We stop at the byte index where runeCount == keep.
+	cutByte := len(s) // fallback: keep all bytes (only reached if keep >= total runes)
+	runeCount := 0
+	for i := range s {
+		if runeCount == keep {
+			cutByte = i
+			break
+		}
+		runeCount++
+	}
+	return s[:cutByte] + marker
 }
 
 func asString(a map[string]any, k string) string {
