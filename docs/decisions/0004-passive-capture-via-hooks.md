@@ -2,6 +2,7 @@
 
 **Status**: Accepted
 **Date**: 2026-05-07
+**Amended**: 2026-09-24 — the licence claim in Context is wrong; see the amendment at the end of this record.
 
 ---
 
@@ -82,3 +83,27 @@ never surfaced by `tl_search`.
 - LLM compression of pending events (will be its own ADR when needed).
 - Config-file activation (env-var only in v1; future: `os.UserConfigDir()/thoughtline/config.toml`).
 - Encryption-at-rest (same scope as the existing `memories` table).
+
+## Amendment (2026-09-24) — the AGPL claim in Context was false
+
+The Context above justifies this design partly as avoiding claude-mem's **"AGPL license"**,
+and counts it among the trade-offs to reject. **That claim is wrong, and it was never true.**
+
+Verified against the repository on 2026-09-24: claude-mem's first `LICENSE` (v3.3.8,
+2025-09-06) was a custom licence — permissive for the binaries, **MIT for `/hooks`**, with
+no-reverse-engineering and no-modification terms scoped to the binaries — and its current
+`LICENSE` is the **Apache License 2.0**. Neither contains the word AGPL.
+
+The decision itself is unaffected, and this is worth being precise about: the licence was
+never the load-bearing part of it. The constraints that actually drove the design — opt-in
+only, model curates rather than pipeline, no Node.js runtime dependency — all stand on their
+own, and the last two are the real reasons to prefer this shape.
+
+What the false premise *did* produce was a defensive apparatus: `scripts/check-no-claude-mem.{sh,ps1}`,
+two CI steps, a CONTRIBUTING section, and a mandatory PR affirmation. All of it was removed on
+2026-09-24, along with this record's implication that it was ever necessary. See
+[`../COMPARISON.md`](../COMPARISON.md) for the verification.
+
+**Recorded here rather than quietly fixed**: the licence was asserted in an Accepted ADR, in
+CI, and in a contributor policy, and re-read in none of them. A licence claim has to be read
+from the licence, not remembered.

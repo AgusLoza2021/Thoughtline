@@ -48,22 +48,25 @@ docs(adr): record decision to defer embeddings to M5
 chore(ci): bump golangci-lint to v1.65
 ```
 
-## License hygiene (AGPL firewall)
+## Attribution and copied code
 
-Thoughtline is MIT-licensed. `claude-mem` (by thedotmack) is AGPL-3.0. **Do not copy
-any source code, prompt text, or schema definitions from claude-mem into this repository.**
+Thoughtline is MIT-licensed. Take attribution seriously: if you bring code into this
+repository from somewhere else, name the project, its licence, and what you took.
 
-Specifically, never introduce these strings:
-- `buildObservationPrompt` / `buildSummaryPrompt`
-- `<observed_from_primary_session>`
-- `SSEBroadcaster`
-- `viewer-bundle.js`
-- `"mem-search"` (their MCP server name)
+The passive-capture design was informed by
+[`claude-mem`](https://github.com/thedotmack/claude-mem) (by thedotmack) — the hook list
+and the queue-then-promote shape. No code, prompt text or schema definitions were copied;
+what was borrowed is the architectural idea.
 
-The CI `check-no-claude-mem.sh` / `.ps1` step will block PRs that introduce these strings.
-Every PR that touches `internal/pending/`, `cmd/thoughtline/hook.go`, or
-`cmd/thoughtline/worker.go` must include a one-line affirmation in the PR description:
-*"No AGPL source, prompt, or schema text was copied from claude-mem."*
+**This section used to be an "AGPL firewall."** It declared claude-mem to be AGPL-3.0,
+listed five forbidden strings, required every PR touching `internal/pending/`,
+`cmd/thoughtline/hook.go` or `cmd/thoughtline/worker.go` to carry a one-line affirmation,
+and a CI guard enforced all of it. **The licence claim was false** — claude-mem has never
+been AGPL, and its current licence is Apache-2.0. The guard and the affirmation were
+removed rather than reworded, because the false premise was their only reason to exist.
+See [`docs/COMPARISON.md`](docs/COMPARISON.md) for the full record, and
+[`docs/decisions/0004-passive-capture-via-hooks.md`](docs/decisions/0004-passive-capture-via-hooks.md)
+for the amendment to the decision that cited it.
 
 ## Code of conduct
 

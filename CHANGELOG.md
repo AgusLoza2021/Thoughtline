@@ -6,6 +6,16 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+### Removed — the AGPL firewall (2026-09-24)
+
+- `scripts/check-no-claude-mem.{sh,ps1}` and their two CI steps are gone, along with the
+  CONTRIBUTING section and the mandatory PR affirmation they backed.
+- **Why**: the apparatus existed to protect against claude-mem's AGPL-3.0 licence, which
+  does not exist. That project's first licence was a custom permissive one with MIT terms
+  for `/hooks`, and it is Apache-2.0 today. Neither has ever mentioned the AGPL.
+- The `0.1.0` entry below is left exactly as written — it describes a guard that did exist
+  on that date. This entry records the guard's removal.
+
 ### Changed — the project is repositioned (2026-09-24)
 
 Thoughtline is no longer a memory server. It is now the **gamedev memory vocabulary** for [Engram](https://github.com/Gentleman-Programming/engram): the types, the tags, and the engine-specific guidance for adopting them.
