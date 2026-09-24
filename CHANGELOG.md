@@ -6,6 +6,16 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+### Changed — the project is repositioned (2026-09-24)
+
+Thoughtline is no longer a memory server. It is now the **gamedev memory vocabulary** for [Engram](https://github.com/Gentleman-Programming/engram): the types, the tags, and the engine-specific guidance for adopting them.
+
+The v0.1.0 Go MCP server — twelve `tl_*` tools, the SQLite schema, the Bubbletea dashboard and the `cmd/migrate` migrator — is **retired and unmaintained**. Nothing has been deleted: the code and its documentation remain in the repository, with the original README preserved verbatim in an appendix.
+
+**Why.** Every differentiator this project claimed turned out to be either absorbed upstream or never an engine feature at all. Engram now ships the architectural pieces Thoughtline built (a TUI, an HTTP API, sessions), and it stores an observation's `type` as a **free-form string** — so this taxonomy runs on Engram unmodified, with no code to maintain. Competing on the engine meant one developer racing a team that ships continuously. Owning the vocabulary competes with nobody.
+
+**Impact.** Your data is unaffected — and do **not** migrate memories *into* the retired server; keep them in Engram. The in-flight `storage-caps` and TUI work below is parked, and `main` is not a supported upgrade path.
+
 ### Removed (BREAKING) — TUI flags (`tui-memory-workspace`)
 - `--theme {brand|zbrush|mono}` CLI flag — single semantic palette replaces the multi-theme system
 - `--no-splash` CLI flag — splash screen removed

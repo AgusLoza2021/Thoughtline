@@ -2,12 +2,10 @@
 
 # Thoughtline
 
-**Persistent, project-aware memory for AI coding assistants — built for game-development workflows.**
+**A memory vocabulary for game developers — the gamedev types and tags that [Engram](https://github.com/Gentleman-Programming/engram) doesn't ship.**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Go Version](https://img.shields.io/badge/Go-1.25%2B-00ADD8?logo=go)](go.mod)
-[![Status](https://img.shields.io/badge/status-M5%20done-brightgreen)](docs/PROGRESS.md)
-[![MCP](https://img.shields.io/badge/MCP-stdio-7C3AED)](#install-planned)
+[![Runs on Engram](https://img.shields.io/badge/runs%20on-Engram-7C3AED)](https://github.com/Gentleman-Programming/engram)
 
 *Save your project's lore. Recall it from any session. Forever.*
 
@@ -15,11 +13,13 @@
 
 ---
 
-## What is this?
+## What this is now
 
-**Memory for your AI coding assistant. Local. Forever.**
+**A vocabulary, not a memory server.**
 
-Your AI forgets everything between sessions. Thoughtline is a single SQLite file on your machine that the AI writes to while you work and reads from when you come back. No cloud, no account, no subscription.
+Generic memory tools speak the language of backend engineers: `bugfix`, `decision`, `architecture`, `pattern`. Useful — but nowhere near the texture of building games. This repository is the missing opinion: the memory **types** and **tags** shaped for how a game studio actually works, plus the engine-specific guidance to start using them in five minutes.
+
+It runs on [**Engram**](https://github.com/Gentleman-Programming/engram), the local-first memory server for AI coding assistants. **You install Engram; you use this vocabulary.** No fork, no plugin, nothing to build.
 
 ### What it actually saves you
 
@@ -36,7 +36,90 @@ Memories are typed (`scene-pattern`, `asset-reference`, `perf-gotcha`, `pipeline
 **Any engine** — Unity, Unreal, Godot, PlayCanvas, Bevy, your own.
 **Any AI tool that speaks MCP** — Claude Code, Cursor, Zed, Rider, Visual Studio, JetBrains.
 
-> 📸 _Screenshots of the dashboard go here. Until then: `thoughtline ui` and see for yourself — a six-tab memory workspace (Home, Memories, Search, Inbox, Sessions, Help) with global quick actions, an Inbox you can accept/edit/reject from, and a read-only Detail view with [C] copy-to-clipboard. Golden snapshots of every tab live under `internal/dashboard/testdata/*.golden` for layout reference._
+---
+
+## Why a vocabulary has to be an opinion
+
+This is the part worth understanding before adopting anything, because it explains why the rest of this repository is documents instead of code.
+
+Engram stores an observation's `type` as a **free-form string**. It accepts `perf-gotcha` exactly as happily as `bugfix` — verified end to end: save with a type of `perf-gotcha`, read it back, and it returns byte-for-byte unchanged. That is a deliberate and correct choice for a general-purpose tool.
+
+But a field that accepts anything gives you no *shared* language — and a memory you cannot search by category is a memory you will not find again. Left to its own devices, every session invents its own words and the store slowly fills with mush.
+
+So the division of labour is:
+
+| Layer | Who owns it |
+| --- | --- |
+| Storage, FTS5 search, MCP tools, sessions, TUI | **Engram** |
+| The words you store — types, tags, and what each one is *for* | **this repository** |
+
+**Engram gives you the storage. This repository gives you the words.** That is the entire point, and it is why nothing here needs to be a fork.
+
+---
+
+## The taxonomy
+
+Eleven types, each with a reason to exist. The full specification — including the tag vocabulary (`engine:`, `platform:`, `pipeline:`) and worked examples per engine — lives in [`docs/design/tag-conventions.md`](docs/design/tag-conventions.md) and [`docs/design/memory-domain.md`](docs/design/memory-domain.md).
+
+| Type                   | What it captures                                                         |
+| ---------------------- | ------------------------------------------------------------------------ |
+| `game-design-decision` | Design choices and the reasoning behind them                             |
+| `scene-pattern`        | Recurring entity hierarchies / component setups in your engine of choice |
+| `asset-reference`      | Path, version, import settings, and origin of a model/texture/sound      |
+| `perf-gotcha`          | Performance traps you only learn by hitting them (drawcalls, GC, batching) |
+| `pipeline-step`        | A reproducible step in your asset/build pipeline (Blender → engine, etc.) |
+| `script-pattern`       | An engine-script idiom worth remembering                                 |
+| `bugfix`               | Bug + root cause + fix, with engine/platform tags                        |
+| `convention`           | Naming, structure, project-wide rules                                    |
+| `preference`           | Per-developer ergonomics (scope = personal)                              |
+| `decision`             | Technical or architectural decisions with rationale (project-scoped)     |
+| `architecture`         | System-level structural knowledge: packages, boundaries, contracts       |
+
+Each memory carries the same envelope: `topic_key`, `scope`, `project`, `created_at`, `revision_count`, free-form content.
+
+---
+
+## How to adopt it in five minutes
+
+1. **Install Engram.** Prefer the latest stable release from [Engram's releases](https://github.com/Gentleman-Programming/engram/releases). Homebrew works too — `brew install gentleman-programming/tap/engram` — though the tap lags the release line. Windows, Linux and source builds: [Engram's installation guide](https://github.com/Gentleman-Programming/engram/blob/main/docs/INSTALLATION.md).
+2. **Wire it into your editor.** Engram documents its own MCP setup for Claude Code, Cursor, Zed, Copilot, Windsurf and others. For Claude Code specifically: `claude plugin marketplace add Gentleman-Programming/engram && claude plugin install engram`.
+3. **Teach your agent the words.** This is the step that makes the vocabulary real. Because Engram accepts any type string, the model will fall back to its own defaults unless you tell it otherwise — so put the type list into whatever your editor calls project instructions (`AGENTS.md`, `CLAUDE.md`, a rules file, or a skill). Point it at the table above and it will type memories correctly from the first session.
+4. **Read the tag conventions** for the longer form: [`docs/design/tag-conventions.md`](docs/design/tag-conventions.md).
+
+---
+
+## How this relates to Engram
+
+Engram is the engine, and it is excellent: **6,800+ stars, 30 releases, shipping continuously**, with SQLite + FTS5, an MCP server, an HTTP API, a CLI and its own TUI. It is the general-purpose tool, and its vocabulary is deliberately unspecified.
+
+Thoughtline is **the opinionated layer on top**: the vocabulary, and the engine-specific guidance that goes with it. One repository provides the machinery; this one provides the language for a particular kind of work.
+
+They are complements, not competitors. If you are not building games, use Engram on its own — you will be well served.
+
+---
+
+## What happened to the MCP server
+
+Thoughtline v0.1.0 shipped its own Go MCP server: twelve `tl_*` tools, a SQLite schema, a Bubbletea dashboard and a migrator. **That server is retired.** The reasons are worth recording plainly:
+
+- Engram now ships the same architectural pieces — TUI, HTTP API, sessions, richer tooling — while being maintained continuously by a team. A parallel implementation by one person cannot stay level with that, and pretending otherwise burns effort for nothing.
+- Every differentiator this project claimed turned out to be either **absorbed upstream** or, like the taxonomy, **not a property of the engine at all**.
+
+Retiring it loses nothing that mattered. The design reasoning, the ADRs, the research and the taxonomy are what carried judgement; the engine was the part that got commoditized. The original documentation is preserved verbatim in the appendix below so the record stays complete.
+
+> **Do not migrate memories into the retired server.** The migrator (`cmd/migrate`) and the server are unmaintained, and `main` stops mid-feature in the `storage-caps` work. Keep your data in Engram.
+
+### Attribution
+
+This project is heavily inspired by Engram (https://github.com/Gentleman-Programming/engram) by Alan Buscaglia, also released under the MIT License. Architectural patterns, tool naming conventions, and storage layout decisions are deliberately kept close to Engram's to ease cross-pollination of improvements.
+
+This paragraph lives here rather than in [LICENSE](LICENSE) on purpose: GitHub's licence detector matches the licence text itself, and extra prose appended after it drops the match — the repository would report **no licence** while the README claimed MIT. Keeping the licence file canonical is what makes the MIT claim visible to tooling. Attribution belongs in the README, and this is the README.
+
+---
+
+# Appendix — the v0.1.0 MCP server (retired)
+
+Everything below documents the retired server as it stood at v0.1.0, kept for the record. Parts of it are superseded by the sections above. In particular, the comparison table's claim that gamedev types exist "at the schema level" is misleading: Engram stores any type string, which is exactly why this vocabulary is worth having.
 
 ---
 
@@ -126,12 +209,6 @@ See [plugin/claude-code/README.md](plugin/claude-code/README.md) for the full pl
 Thoughtline is an **MCP (Model Context Protocol) server** that gives AI assistants like Claude Code, Cursor, or Zed a long-term memory shaped for how a **game studio actually works**: design decisions, asset references, performance gotchas, scene patterns, pipeline steps. It runs **locally, per developer**, in a single Go binary backed by a SQLite database you own.
 
 Thoughtline stands on the shoulders of [**Engram**](https://github.com/Gentleman-Programming/engram) by Alan Buscaglia — we deliberately reuse Engram's MCP shape, storage layout, and the clever bits like **FTS5 full-text search** and **`topic_key` upserts**. What we add is a **gamedev-first memory taxonomy** and a vocabulary tuned for engines like PlayCanvas, Unity, Unreal, and Godot.
-
-### Attribution
-
-This project is heavily inspired by Engram (https://github.com/Gentleman-Programming/engram) by Alan Buscaglia, also released under the MIT License. Architectural patterns, tool naming conventions, and storage layout decisions are deliberately kept close to Engram's to ease cross-pollination of improvements.
-
-This paragraph lives here rather than in [LICENSE](LICENSE) on purpose: GitHub's licence detector matches the licence text itself, and extra prose appended after it drops the match — the repository would report **no licence** while the README claimed MIT. Keeping the licence file canonical is what makes the MIT claim visible to tooling. Attribution belongs in the README, and this is the README.
 
 > Curious how Thoughtline lines up against Engram and [claude-mem](https://github.com/thedotmack/claude-mem)? See **[docs/COMPARISON.md](docs/COMPARISON.md)** for an honest side-by-side.
 
@@ -232,31 +309,6 @@ The full taxonomy lives in [`docs/design/memory-domain.md`](docs/design/memory-d
 | `architecture`         | System-level structural knowledge: packages, boundaries, contracts       |
 
 Each memory carries the same envelope: `topic_key`, `scope`, `project`, `created_at`, `revision_count`, free-form content.
-
----
-
-## Migrating from Engram
-
-If you're already using [Engram](https://github.com/Gentleman-Programming/engram) and want to move your memories to Thoughtline, `cmd/migrate` is your tool.
-
-**Prerequisite — back up first:**
-```powershell
-Compress-Archive -Path "$env:USERPROFILE\.engram\*" -DestinationPath "$env:USERPROFILE\.engram-backup-$(Get-Date -Format 'yyyy-MM-dd').zip" -Force
-```
-
-**Three commands:**
-```bash
-# 1. Build the migrator
-go build -o migrate.exe ./cmd/migrate/cmd
-
-# 2. Dry run — verify counts without writing
-./migrate.exe --dry-run --verbose
-
-# 3. Production run
-./migrate.exe
-```
-
-See [`cmd/migrate/README.md`](cmd/migrate/README.md) for the full guide: type mapping table, error handling, idempotency guarantee, and log file location.
 
 ---
 
