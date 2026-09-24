@@ -19,8 +19,3 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
-
-This project is heavily inspired by Engram (https://github.com/Gentleman-Programming/engram)
-by Alan Buscaglia, also released under the MIT License. Architectural patterns,
-tool naming conventions, and storage layout decisions are deliberately kept close
-to Engram's to ease cross-pollination of improvements.

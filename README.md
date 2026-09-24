@@ -127,6 +127,12 @@ Thoughtline is an **MCP (Model Context Protocol) server** that gives AI assistan
 
 Thoughtline stands on the shoulders of [**Engram**](https://github.com/Gentleman-Programming/engram) by Alan Buscaglia — we deliberately reuse Engram's MCP shape, storage layout, and the clever bits like **FTS5 full-text search** and **`topic_key` upserts**. What we add is a **gamedev-first memory taxonomy** and a vocabulary tuned for engines like PlayCanvas, Unity, Unreal, and Godot.
 
+### Attribution
+
+This project is heavily inspired by Engram (https://github.com/Gentleman-Programming/engram) by Alan Buscaglia, also released under the MIT License. Architectural patterns, tool naming conventions, and storage layout decisions are deliberately kept close to Engram's to ease cross-pollination of improvements.
+
+This paragraph lives here rather than in [LICENSE](LICENSE) on purpose: GitHub's licence detector matches the licence text itself, and extra prose appended after it drops the match — the repository would report **no licence** while the README claimed MIT. Keeping the licence file canonical is what makes the MIT claim visible to tooling. Attribution belongs in the README, and this is the README.
+
 > Curious how Thoughtline lines up against Engram and [claude-mem](https://github.com/thedotmack/claude-mem)? See **[docs/COMPARISON.md](docs/COMPARISON.md)** for an honest side-by-side.
 
 > **Status: M5 done + passive capture.** Twelve tools live: `tl_save`, `tl_search`, `tl_get_observation`, `tl_context`, `tl_update`, `tl_delete`, `tl_session_start`, `tl_session_summary`, `tl_stats`, plus `tl_pending_list`, `tl_pending_get`, `tl_promote` for opt-in passive capture of Claude Code hook events. See [docs/integrations/claude-code-passive-capture.md](docs/integrations/claude-code-passive-capture.md) for the setup guide. M6 (semantic embeddings) remains deferred per [ADR 0002](docs/decisions/0002-search-strategy-fts5-first.md). See [`docs/PROGRESS.md`](docs/PROGRESS.md).
@@ -432,7 +438,7 @@ thoughtline/
 ├── examples/                # MCP client config examples
 ├── .github/workflows/       # CI: build + vet on every push
 ├── go.mod
-├── LICENSE                  # MIT, with attribution to Engram
+├── LICENSE                  # MIT (canonical — attribution is credited in the README)
 ├── CHANGELOG.md
 ├── CONTRIBUTING.md
 └── README.md                # you are here

@@ -167,7 +167,9 @@ Items the maintainer must do before / right after pushing the repo to GitHub. Or
 
 ### Before going public
 
-- [ ] **Verify Engram attribution**. The LICENSE and README both credit Engram and link to it. Don't strip these — it's the right thing to do and keeps the door open for cross-pollination.
+- [x] ~~**Verify Engram attribution**. The LICENSE and README both credit Engram and link to it. Don't strip these — it's the right thing to do and keeps the door open for cross-pollination.~~ **Resolved 2026-09-24.** The attribution paragraph now lives in the README under [**Attribution**](../README.md#attribution), and `LICENSE` is the canonical MIT text with nothing appended.
+  - **Why the move mattered**: GitHub's licence detector matches the licence text itself. Prose appended *after* the final line of the MIT text drops the match ratio, so the repository reported **no licence at all** while the README claimed MIT — a silent, visible-to-everyone defect. The licence *grant* was never in question; only its detection was. Attribution belongs in a README, and the licence file belongs canonical.
+  - **Verify after any future edit**: `gh api repos/AgusLoza2021/Thoughtline --jq .license.spdx_id` must print `MIT`. Note that `gh repo view --json licenseInfo` returns `null` even for repos that detect correctly — always check the raw API.
 - [ ] **Replace the relative `_engram-research/` paths** in `docs/research/*.md` with permalinks to specific Engram commits on GitHub (e.g. `https://github.com/Gentleman-Programming/engram/blob/<sha>/internal/store/store.go#L789`). Right now they point at the local clone — fine for you, broken for anyone else.
 - [ ] **Add a SECURITY.md** if accepting issues from the public (one paragraph: how to report security issues, expected response time).
 - [ ] **Optional but nice**: GitHub issue templates (`bug.yml`, `feature.yml`) under `.github/ISSUE_TEMPLATE/`.
