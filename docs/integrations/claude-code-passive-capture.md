@@ -1,12 +1,29 @@
 # Claude Code — Passive Capture Integration
 
 <!-- retired-v0.1.0 -->
-> **Retired — this page documents the v0.1.0 MCP server.** That server is
-> unmaintained, so the install and wiring steps below are not a supported path.
-> For what this project is now — a gamedev memory vocabulary that runs on
+> **Retired — the v0.1.0 MCP server this page was written for is unmaintained.**
+> Its opt-in steps and hook wiring are kept at the bottom as a record of how the
+> project worked, not as a path to follow. For what this project is now — a gamedev
+> memory vocabulary that runs on
 > [Engram](https://github.com/Gentleman-Programming/engram) — read the
 > [README](../../README.md), the [memory domain](../design/memory-domain.md) and the
 > [tag conventions](../design/tag-conventions.md).
+
+## What survives from this page
+
+The feature described below — a queue of raw hook events that you review and promote into typed memories — was implemented by the retired server, and its `tl_pending_*` / `tl_promote` tools went with it. The *idea* did not go anywhere, and Engram ships it: passive capture is one of Engram's tools. Wire it to Claude Code's hooks following Engram's own documentation; none of this repository is needed for that, and there is no env var or hook file here to copy.
+
+What this page still has to offer is the part that is not engine-specific — and it is the part worth reading before you turn capture on.
+
+> **The privacy trade-off does not depend on who wrote the server.** Passive capture stores raw hook payloads: `UserPromptSubmit` (your prompts, verbatim), `PreToolUse` and `PostToolUse` (tool inputs and outputs, which may include file contents, secrets, or paths you would rather not keep). Whichever server you run, that is a copy of your raw session sitting next to your curated memories. The old default was OFF for this reason. Keep it that way until you have decided where that data lands and who can read it.
+
+The two-stage shape is the other thing worth keeping, because it is the reason this design works at all: **capture raw, then promote deliberately.** A git hook cannot tell a durable decision from a passing remark, so it should not try. It records, untyped and unjudged, into a queue. The judgement — which of the eleven `type` values, which `topic_key`, whether the body is worth re-reading in six months — happens later, when someone actually looks at the queue. If you wire passive capture, keep that split. A server that auto-promotes everything into typed memories on the way in will fill your memory with noise you then have to search through.
+
+---
+
+> **Legacy — the v0.1.0 setup.** Everything below documents `thoughtline`, the
+> retired server, and its `tl_*` tools. It is a record of how the project worked,
+> not instructions to follow.
 
 Thoughtline can passively capture raw Claude Code hook events into a local queue
 (`pending_events`). You review the queue with `tl_pending_list` and promote
