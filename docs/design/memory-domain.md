@@ -1,54 +1,70 @@
-# Memory domain — taxonomy, fields, conventions
+# Memory domain — the vocabulary
 
-This is the canonical vocabulary of Thoughtline. It defines what a "memory" is, what types it can take, and how each type is shaped. The content here directly governs the validators in `internal/memory` and the schema in `internal/storage`.
+This is the canonical vocabulary of Thoughtline: what a "memory" is, which types it can take, and how each type is shaped.
+
+Since 2026-09-24 this vocabulary runs on [Engram](https://github.com/Gentleman-Programming/engram) — the storage engine is no longer part of this repository. That changes one thing above all: the **enforcement model**. No code can reject a malformed memory for you any more. The catalogue below is enforced by *instructing your agent*, which makes the encoding rules and the per-type sections the entire mechanism rather than documentation of a validator.
 
 If you are adding a new type, follow [Adding a new memory type](#adding-a-new-memory-type) at the bottom.
 
 ---
 
-## The shared envelope
+## The envelope
 
-Every memory — regardless of type — carries the same envelope.
+Every memory — regardless of type — carries the same envelope. On Engram you set six of these fields and Engram owns the rest.
 
-| Field            | Type     | Required | Notes                                                                       |
-| ---------------- | -------- | -------- | --------------------------------------------------------------------------- |
-| `id`             | int      | (auto)   | Local autoincrement primary key                                              |
-| `sync_id`        | string   | (auto)   | UUIDv7. Stable across upserts. The "real" identifier                         |
-| `project`        | string   | yes      | Identifier of the active project. Defaults to working dir basename          |
-| `scope`          | enum     | yes      | `project` (default) or `personal`                                            |
-| `type`           | enum     | yes      | One of the values listed below                                              |
-| `topic_key`      | string   | no       | Stable key for evolving topics. Same project + same key → upsert            |
-| `title`          | string   | yes      | Short, searchable. Imperative form preferred                                |
-| `content`        | string   | yes      | Markdown body. No hard cap; oversize content rejected with a clear error    |
-| `tags`           | []string | no       | Free-form tags (engine name, platform, etc.)                                |
-| `revision_count` | int      | (auto)   | Bumped on every upsert; `0` for first save                                  |
-| `created_at`     | int (ms) | (auto)   | First time this topic appeared                                              |
-| `updated_at`     | int (ms) | (auto)   | Last time this topic was upserted                                           |
-| `deleted_at`     | int (ms) | (auto)   | Soft delete                                                                  |
+**You set these:**
+
+| Field       | Required | Notes                                                                                        |
+| ----------- | -------- | -------------------------------------------------------------------------------------------- |
+| `title`     | yes      | Short, searchable. Imperative form preferred. ≤ 200 chars                                     |
+| `content`   | yes      | Markdown body — this is where the per-type sections below live                                |
+| `type`      | yes      | One of the catalogue values below. Engram accepts **any** string, so the discipline is yours |
+| `topic_key` | no       | Stable key for evolving topics — see below                                                    |
+| `scope`     | no       | `project` (default) or `personal`; Engram also offers `global`                                 |
+| `project`   | no       | Defaults to Engram's resolved project (explicit → `ENGRAM_PROJECT` → cwd)                      |
+
+**Engram owns these — never write them by hand:** `id`, `sync_id`, `revision_count`, `created_at`, `updated_at`, `last_seen_at`, `duplicate_count`, `session_id`. They are what makes provenance and upserts work.
+
+### Where tags go
+
+The retired engine gave every memory a `tags` array. **Engram has no tags field** — `mem_save` accepts `title`, `content`, `type`, `scope`, `topic_key`, `project` and `session_id`, and nothing else. So the tagging convention splits in two:
+
+1. **Engine, platform and pipeline tags belong in the `topic_key`.** The key patterns in the catalogue below already carry them: `perf/android/static-batching` states the platform, `scene/playcanvas/interactive-prop` states the engine. This is *better* than a tag — the key is a first-class field you can upsert against and address by name.
+2. **Every other tag goes on a `**Tags**:` line as the first line of `content`**, following the namespaces in [`tag-conventions.md`](tag-conventions.md) (asset category, phase, tooling, performance buckets, ...).
+
+Rule 2 is viable because Engram's full-text search indexes the body, so a tag that exists only inside `content` stays findable. Verified against Engram 2.x on 2026-09-24 with a body-only probe token: saved inside the body, found by search, never present in the title.
+
+What you give up is tag **filtering** — Engram cannot filter by tag, only search for it. What you keep is a namespaced, greppable vocabulary in every memory. If Engram ever grows a tags field, only rule 2 changes.
+
+---
 
 ### About `topic_key`
 
-This is the cleverest concept Thoughtline borrows from Engram. A `topic_key` is a stable, readable string that names *what this memory is about* — like a slug for a wiki article.
+A `topic_key` is a stable, readable string naming *what this memory is about* — a slug for a wiki article. It is Engram's own concept, and this vocabulary is built on it.
 
-When a user (via the AI) calls `tl_save` with a `topic_key`, Thoughtline:
+Pass a `topic_key` to `mem_save` and Engram upserts on `(project, topic_key)`:
 
-1. Looks up `(project, topic_key)`.
-2. If a row exists, **upserts**: same `sync_id`, same `created_at`, but new `content`/`updated_at`/`revision_count + 1`.
-3. If no row exists, **inserts**: new `sync_id`, fresh `created_at`, `revision_count = 0`.
+1. **First write — inserts.** New `id`, new `sync_id`, `created_at` stamped, `revision_count` 1.
+2. **Every later write with the same key — updates in place.** *Same* `id` and *same* `sync_id`, `created_at` preserved, `updated_at` bumped, `revision_count` + 1.
 
-This means the same evolving topic accumulates revisions instead of duplicates. Recommended `topic_key` shape: `category/subject` or `category/subcategory/subject`. Examples:
+Verified end to end against Engram 2.x on 2026-09-24: two saves sharing a key returned the same `id`, kept `created_at` from the first, and reported `revision_count` 2.
+
+> **Gotcha — the upsert replaces, it does not merge.** The later write's `title` and `content` overwrite the earlier ones and the previous text is gone. A keyed memory is a *topic*, not a log: write what is currently true, not a changelog. If you want history, leave `topic_key` unset, or keep the history inside `content`.
+
+Recommended `topic_key` shape: `category/subject` or `category/subcategory/subject`. Examples:
 
 - `architecture/inn-entity-hierarchy`
 - `pipeline/blender-to-pc/lantern-import`
 - `perf/android/chair-batching`
 - `convention/script-naming`
 
-The same convention is what makes [the topic-key shortcut in search](../decisions/0002-search-strategy-fts5-first.md) work: queries containing `/` are matched against `topic_key` first.
+The retired engine added a search shortcut that matched queries containing `/` against `topic_key` first — see [ADR 0002](../decisions/0002-search-strategy-fts5-first.md). On Engram there is no such shortcut: you search the key as ordinary text, which is exactly what the examples above are shaped to survive.
 
 ### About `scope`
 
 - `project` (default) — bound to a single project. Most memories live here.
 - `personal` — cross-project, per-developer. Use sparingly, for ergonomics ("I prefer 4-space indents in shaders") that travel with the dev, not the project.
+- `global` — Engram's own third value. Reach for it deliberately; a memory that belongs to every project is usually a symptom of a memory that belongs to none.
 
 ---
 
@@ -182,47 +198,38 @@ High-level structural decisions about the system — packages, boundaries, data 
 
 ---
 
-## Validation rules
+## How the vocabulary is enforced
 
-Enforced by `internal/memory`:
+There is no validator any more. Engram accepts any `type` string — a deliberate design choice on its part, and precisely the reason this vocabulary earns its place. **Nothing stops your agent from inventing `perf_bugfix_thing` except being told not to.**
 
-1. `type` must be one of the 11 catalogue values above. Unknown types are rejected.
-2. `scope` must be `project` or `personal`. `preference` requires `personal`; everything else — including the new `decision` and `architecture` types — requires `project`.
-3. `title` is non-empty and ≤ 200 chars.
-4. `content` is non-empty. There is no hard upper bound, but `internal/storage` returns a clear error (not silent truncation) if `len(content) > MaxContentBytes` (default 64 KiB, configurable).
-5. `topic_key`, when present, matches `^[a-z0-9][a-z0-9/_-]{1,128}$`. No spaces, no uppercase, no leading slash.
-6. `project` is non-empty. Whitespace trimmed.
-7. `tags`, when present, each match `^[a-z0-9][a-z0-9:_-]{0,40}$`. Lowercase only. Convention: `key:value` for engine/platform tags (`engine:playcanvas`, `platform:android`).
+So these rules are a contract with your agent, not a gate. Step 3 of the adoption path in the [README](../../README.md) is what makes them real: put the catalogue where your agent reads its instructions.
+
+| Rule | What you lose if the agent drifts |
+| ---- | --------------------------------- |
+| `type` is one of the 11 catalogue values; a new type needs an issue first | Free-form types accumulate until `type` is noise — the exact failure this vocabulary exists to prevent |
+| `scope` is `project` or `personal`; `preference` **must** be `personal`, everything else `project` | Memories leak across projects, or hide from the project that needs them |
+| `title` is non-empty and ≤ 200 chars, short and searchable | Titles stop working as an index and search results read as a wall of sentences |
+| `content` is non-empty and self-contained | A memory the next session cannot act on is worse than no memory — it looks like knowledge |
+| `topic_key`, when present, matches `^[a-z0-9][a-z0-9/_-]{1,128}$` — lowercase, no spaces, no leading slash | Nothing breaks loudly; the key simply stops being greppable and consistent |
+| Tags on the `**Tags**:` line match `^[a-z0-9][a-z0-9:_-]{0,40}$`, lowercase, `key:value` for namespaced tags | Tags misspell themselves into invisibility |
+| Keep `content` well under 64 KiB | The retired engine rejected oversize content with a clear error; Engram does not, so this is a writing guideline now. Check Engram for its own limits |
 
 ---
 
 ## Adding a new memory type
 
 1. Open an issue describing the use case and at least three real examples.
-2. Discuss in the issue whether an existing type covers it (most often, yes).
-3. If a new type is justified, write a section in this file matching the pattern above (purpose, required content sections, topic-key pattern, example).
-4. Add the type constant to `internal/memory`.
-5. Add a validation test.
-6. Mention the new type in the README's preview table.
-7. Bump CHANGELOG.
+2. Discuss in the issue whether an existing type already covers it. Most often it does — the catalogue is deliberately small.
+3. If a new type is justified, add a section to this file following the pattern above: purpose, required content sections, topic-key pattern, a concrete example.
+4. Add it to the table in the [README](../../README.md). That table is the copy your agent is told to read, so it **is** the definition, not a summary of one.
+5. Bump the CHANGELOG.
 
-New types are minor additions (additive), not breaking changes. No ADR required unless the new type needs new schema columns.
-
-### Back-populating existing data from another tool
-
-If you are adding a type to mirror one from a legacy tool (e.g. `decision` and `architecture` were added to mirror Engram's types), use `cmd/migrate` as the canonical example:
-
-- Implement a standalone Go binary in `cmd/<migration-name>/` that reads the source DB read-only and writes through `storage.Save()` so FTS5 triggers, hashes, and validation all fire correctly.
-- Never write raw SQL into the destination — always go through the domain layer.
-- Preserve provenance via tags (`origin-type:<source-type>`) for types that are coerced rather than mapped 1:1.
-- The migrator must be **idempotent**: re-running it skips rows whose `sync_id` already exists in the destination.
-
-See `cmd/migrate/` and `docs/integrations/` for the full reference implementation.
+New types are additive and never breaking, because Engram stores the type string verbatim. Adding one is a documented convention rather than a schema migration — which is the whole advantage of no longer owning the engine.
 
 ---
 
 ## What we deliberately leave out
 
-- **Free-form `type`**. Locking the catalogue down is a feature. It keeps recall predictable and prevents the AI from inventing a new type on every save.
+- **Free-form `type` — as an engine feature.** Engram allows it, which is right for a general-purpose tool. This vocabulary closes the catalogue by convention instead, so the words stay shared.
 - **Hierarchical types**. No subtypes. If you feel the pull toward `bugfix.android.batching`, use `tags` instead.
 - **Per-type custom JSON schemas**. The shared envelope plus tags + markdown content is enough for v1. If a type really needs structured data, that becomes its own ADR.

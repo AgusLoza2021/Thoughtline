@@ -1,8 +1,19 @@
 # Tag conventions
 
-Tags are free-form, but consistency is what makes search across hundreds of memories actually work. This is the canonical lowercase `key:value` vocabulary Thoughtline recommends. Use it as-is, extend where your project demands it.
+Tags are free-form, but consistency is what makes search across hundreds of memories actually work. This is the canonical lowercase `key:value` vocabulary for the gamedev memories in this repository. Use it as-is, and extend it where your project demands it.
 
 Tags are **lowercased** and use `key:value` form (or a single token when there's no ambiguity). Multiple values per memory are fine and encouraged: a single texture import gotcha can carry `engine:unity`, `platform:android`, `asset:texture`, `pipeline:fbx-to-unity`.
+
+## Where tags actually live on Engram
+
+Engram has **no tags field** — `mem_save` accepts `title`, `content`, `type`, `scope`, `topic_key`, `project` and `session_id`. So a tag has exactly two places to go:
+
+1. **Inside the `topic_key`**, when the type's key pattern has a slot for it. `perf/android/static-batching` already carries `platform:android`; `scene/playcanvas/interactive-prop` already carries `engine:playcanvas`. The key patterns are listed per type in [`memory-domain.md`](memory-domain.md).
+2. **On a `**Tags**:` line as the first line of `content`** — comma-separated, drawn from the namespaces below.
+
+Write the `**Tags**:` line **always**, even when the `topic_key` already implies one of its tags. It costs a line, it survives a key that later drifts, and for some namespaces it is the only home there is: `phase:`, `tool:`, `perf:`, `asset:`, and the engine tag on types whose key pattern has no engine slot, like `decision/<area>/<choice>` and `convention/<area>`.
+
+Those tags stay searchable because Engram's full-text search indexes the body — verified against Engram 2.x on 2026-09-24 with a body-only probe token. What you cannot do is *filter* by tag, since Engram has no tag filter. Treat the `Tags` line as an aid to recall, not as a database index.
 
 ## Engine
 
@@ -102,24 +113,48 @@ Use these when the memory is a `perf-gotcha` — they keep the search results sh
 
 ## Examples
 
+These are real `mem_save` payloads, abbreviated with `...` where the per-type required sections go. Note where each tag ends up: platform and engine ride inside the `topic_key` when there is a slot for them, and the `**Tags**:` line carries the rest.
+
 ```jsonc
-// Texture import gotcha on Android
-{ "tags": ["engine:unity", "platform:android", "asset:texture", "pipeline:fbx", "perf:memory"] }
+// Texture import gotcha (Android) — platform is inherent in the key,
+// but the remaining namespaces have nowhere else to live
+{
+  "type": "perf-gotcha",
+  "topic_key": "perf/android/texture-import",
+  "title": "Cap texture max size at 1024 on Android",
+  "content": "**Tags**: engine:unity, asset:texture, pipeline:fbx, perf:memory\n\n**Symptom**: ...\n**Root cause**: ...\n**Fix**: ..."
+}
 
-// Blueprint vs C++ decision in UE5
-{ "tags": ["engine:unreal", "phase:vertical-slice", "tool:visual-studio"] }
+// Blueprint vs C++ decision (UE5) — `decision/<area>/<choice>` has no engine
+// slot, so the Tags line is the only place that fact lives at all
+{
+  "type": "decision",
+  "topic_key": "decision/gameplay/blueprint-vs-cpp",
+  "title": "Gameplay in C++, content wiring in Blueprints",
+  "content": "**Tags**: engine:unreal, phase:vertical-slice, tool:visual-studio\n\n**What**: ...\n**Why**: ..."
+}
 
-// Godot scene-pattern for inventory UI
-{ "tags": ["engine:godot", "asset:ui", "asset:prefab"] }
+// Godot inventory UI scene pattern — engine slot present, tags still repeated
+{
+  "type": "scene-pattern",
+  "topic_key": "scene/godot/inventory-ui",
+  "title": "Inventory UI: Control node over a pooled list",
+  "content": "**Tags**: engine:godot, asset:ui, asset:prefab\n\n**Pattern**: ..."
+}
 
-// Steam Deck perf budget
-{ "tags": ["platform:linux", "platform:steam", "perf:gpu", "perf:loadtime"] }
+// Steam Deck perf budget — no engine tag, because none of them is the subject
+{
+  "type": "perf-gotcha",
+  "topic_key": "perf/linux/steam-deck-budget",
+  "title": "Steam Deck: hold 33 ms at 800p in the cellar room",
+  "content": "**Tags**: platform:linux, platform:steam, perf:gpu, perf:loadtime\n\n**Symptom**: ...\n**Fix**: ..."
+}
 ```
 
 ## Adding new tags
 
 If you're reaching for a tag that isn't here:
 
-1. **Check first** — `tl_search` for the concept; you may be inventing a synonym.
+1. **Check first** — `mem_search` for the concept; you may be inventing a synonym.
 2. **Stay lowercase + colon-separated** — `engine:unity` not `Engine_Unity`.
 3. **Add it to this doc** in a PR — that's how the canonical list grows.
