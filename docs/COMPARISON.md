@@ -1,5 +1,13 @@
 # Thoughtline vs Engram vs claude-mem
 
+<!-- retired-v0.1.0 -->
+> **Retired — this page documents the v0.1.0 MCP server.** That server is
+> unmaintained, so the install and wiring steps below are not a supported path.
+> For what this project is now — a gamedev memory vocabulary that runs on
+> [Engram](https://github.com/Gentleman-Programming/engram) — read the
+> [README](../README.md), the [memory domain](design/memory-domain.md) and the
+> [tag conventions](design/tag-conventions.md).
+
 Three projects, one job: **give your AI coding assistant a long-term memory that survives across sessions**. This page exists so you can pick the right tool the first time, and so we can be honest about what Thoughtline is and isn't.
 
 ---

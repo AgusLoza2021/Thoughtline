@@ -1,5 +1,13 @@
 # Installation
 
+<!-- retired-v0.1.0 -->
+> **Retired — this page documents the v0.1.0 MCP server.** That server is
+> unmaintained, so the install and wiring steps below are not a supported path.
+> For what this project is now — a gamedev memory vocabulary that runs on
+> [Engram](https://github.com/Gentleman-Programming/engram) — read the
+> [README](../README.md), the [memory domain](design/memory-domain.md) and the
+> [tag conventions](design/tag-conventions.md).
+
 Thoughtline ships as a single Go binary (`thoughtline` / `thoughtline.exe`) backed by a single SQLite file. **No Node, no Python, no Docker**. Pick your platform below.
 
 > Looking for a feature comparison vs [Engram](https://github.com/Gentleman-Programming/engram) and [claude-mem](https://github.com/thedotmack/claude-mem)? See [COMPARISON.md](COMPARISON.md).

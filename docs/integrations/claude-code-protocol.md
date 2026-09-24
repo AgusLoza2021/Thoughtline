@@ -1,3 +1,11 @@
+<!-- retired-v0.1.0 -->
+> **Retired — this page documents the v0.1.0 MCP server.** That server is
+> unmaintained, so the install and wiring steps below are not a supported path.
+> For what this project is now — a gamedev memory vocabulary that runs on
+> [Engram](https://github.com/Gentleman-Programming/engram) — read the
+> [README](../../README.md), the [memory domain](../design/memory-domain.md) and the
+> [tag conventions](../design/tag-conventions.md).
+
 MC# Thoughtline Persistent Memory — Protocol
 
 This document is the canonical Thoughtline memory protocol block for AI assistants (Claude Code and compatible clients). It defines **when** to save, **when** to search, **how** to use each tool, and **what** the session close protocol looks like.

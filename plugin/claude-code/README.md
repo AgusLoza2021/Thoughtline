@@ -1,5 +1,13 @@
 # Thoughtline — Claude Code plugin
 
+<!-- retired-v0.1.0 -->
+> **Retired — this page documents the v0.1.0 MCP server.** That server is
+> unmaintained, so the install and wiring steps below are not a supported path.
+> For what this project is now — a gamedev memory vocabulary that runs on
+> [Engram](https://github.com/Gentleman-Programming/engram) — read the
+> [README](../../README.md), the [memory domain](../../docs/design/memory-domain.md) and the
+> [tag conventions](../../docs/design/tag-conventions.md).
+
 Persistent, project-aware memory for [Claude Code](https://claude.com/claude-code). Survives across sessions and compactions. Local-first — no cloud, no telemetry, your `thoughtline.db` lives in your user cache directory.
 
 This plugin wires Claude Code into the [Thoughtline MCP server](https://github.com/AgusLoza2021/Thoughtline):

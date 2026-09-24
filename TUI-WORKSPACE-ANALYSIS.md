@@ -1,5 +1,13 @@
 # tui-memory-workspace — Feature Analysis
 
+<!-- retired-v0.1.0 -->
+> **Retired — this page documents the v0.1.0 MCP server.** That server is
+> unmaintained, so the install and wiring steps below are not a supported path.
+> For what this project is now — a gamedev memory vocabulary that runs on
+> [Engram](https://github.com/Gentleman-Programming/engram) — read the
+> [README](README.md), the [memory domain](docs/design/memory-domain.md) and the
+> [tag conventions](docs/design/tag-conventions.md).
+
 > Generated: 2026-05-14 · **Updated: 2026-05-14 (final closure)**
 > Status: ✅ **IMPLEMENTATION COMPLETE — 5 of 5 batches landed · 99/99 tasks · 16 commits since session start**
 > Branch: `main`, 25 commits ahead of `origin/main`
@@ -180,7 +188,7 @@ Removed `t.Skip` gates from F1-F8 and implemented G1-G6: the 7-step Update ladde
 | pc-9 | Inbox pre-promotion edit | ❌ commit 10 | ❌ commit 10 |
 | rm-1..12 | Legacy absence (file/symbol) | ✅ removed_test.go | ✅ batch 2 deletions |
 
-**Final live coverage**: 38 of 38 requirements have GREEN tests in place (100%). All requirement scenarios from spec/spec-delta/tui-removed are exercised by at least one test in the dashboard package. Full mapping in [`openspec/changes/tui-memory-workspace/verify-coverage.md`](openspec/changes/tui-memory-workspace/verify-coverage.md).
+**Final live coverage**: 38 of 38 requirements have GREEN tests in place (100%). All requirement scenarios from spec/spec-delta/tui-removed are exercised by at least one test in the dashboard package. Full mapping in [`openspec/changes/tui-memory-workspace/verify-coverage.md`](openspec/changes/archive/tui-memory-workspace/verify-coverage.md).
 
 ---
 

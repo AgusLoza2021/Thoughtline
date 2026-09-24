@@ -1,5 +1,13 @@
 # Agent setup
 
+<!-- retired-v0.1.0 -->
+> **Retired — this page documents the v0.1.0 MCP server.** That server is
+> unmaintained, so the install and wiring steps below are not a supported path.
+> For what this project is now — a gamedev memory vocabulary that runs on
+> [Engram](https://github.com/Gentleman-Programming/engram) — read the
+> [README](../README.md), the [memory domain](design/memory-domain.md) and the
+> [tag conventions](design/tag-conventions.md).
+
 Thoughtline speaks the **Model Context Protocol** over stdio, so anything that's an MCP client can use it. This page is the index of per-tool setup guides — one click and you have the right config block for your IDE.
 
 > Already installed `thoughtline`? Skip to your editor below. If not, see [INSTALLATION.md](INSTALLATION.md) first.

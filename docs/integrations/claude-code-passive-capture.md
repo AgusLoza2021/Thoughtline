@@ -1,5 +1,13 @@
 # Claude Code — Passive Capture Integration
 
+<!-- retired-v0.1.0 -->
+> **Retired — this page documents the v0.1.0 MCP server.** That server is
+> unmaintained, so the install and wiring steps below are not a supported path.
+> For what this project is now — a gamedev memory vocabulary that runs on
+> [Engram](https://github.com/Gentleman-Programming/engram) — read the
+> [README](../../README.md), the [memory domain](../design/memory-domain.md) and the
+> [tag conventions](../design/tag-conventions.md).
+
 Thoughtline can passively capture raw Claude Code hook events into a local queue
 (`pending_events`). You review the queue with `tl_pending_list` and promote
 selected events into typed memories with `tl_promote`. **Default: OFF.**
@@ -12,7 +20,7 @@ which may include file contents, secrets, or sensitive paths) — **unencrypted 
 the same SQLite file as your memories**.
 
 Only enable this if you understand the privacy implications and control access
-to your local machine. See [design §11](../../openspec/changes/passive-capture-hooks/design.md)
+to your local machine. See [design §11](../../openspec/changes/archive/passive-capture-hooks/design.md)
 for the full privacy posture and planned future mitigations.
 
 ## Opt in
