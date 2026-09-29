@@ -4,16 +4,22 @@ Tags are free-form, but consistency is what makes search across hundreds of memo
 
 Tags are **lowercased** and use `key:value` form (or a single token when there's no ambiguity). Multiple values per memory are fine and encouraged: a single texture import gotcha can carry `engine:unity`, `platform:android`, `asset:texture`, `pipeline:fbx-to-unity`.
 
-## Where tags actually live on Engram
+## Where tags actually live
 
-Engram has **no tags field** — `mem_save` accepts `title`, `content`, `type`, `scope`, `topic_key`, `project` and `session_id`. So a tag has exactly two places to go:
+The envelope has a `tags` field, and `tl_search` filters on it, so a tag you expect to query by belongs there:
 
-1. **Inside the `topic_key`**, when the type's key pattern has a slot for it. `perf/android/static-batching` already carries `platform:android`; `scene/playcanvas/interactive-prop` already carries `engine:playcanvas`. The key patterns are listed per type in [`memory-domain.md`](memory-domain.md).
-2. **On a `**Tags**:` line as the first line of `content`** — comma-separated, drawn from the namespaces below.
+```
+tl_save(type="bugfix", tags=["engine:unity", "pipeline:fbx", "phase:greybox"])
+```
 
-Write the `**Tags**:` line **always**, even when the `topic_key` already implies one of its tags. It costs a line, it survives a key that later drifts, and for some namespaces it is the only home there is: `phase:`, `tool:`, `perf:`, `asset:`, and the engine tag on types whose key pattern has no engine slot, like `decision/<area>/<choice>` and `convention/<area>`.
+The field takes a list of strings, and each one has to match `^[a-z0-9][a-z0-9:_-]{0,40}$` — lowercase letters and digits, plus `:` and `-`, starting with a letter or a digit, at most 41 characters. An uppercase or spaced tag is rejected rather than normalised for you, and the error names the rule.
 
-Those tags stay searchable because Engram's full-text search indexes the body — verified against Engram 2.x on 2026-09-24 with a body-only probe token. What you cannot do is *filter* by tag, since Engram has no tag filter. Treat the `Tags` line as an aid to recall, not as a database index.
+Two other places a tag can live:
+
+1. **Inside the `topic_key`**, when the type's key pattern has a slot for it. `perf/android/static-batching` already carries `platform:android`; `scene/playcanvas/interactive-prop` already carries `engine:playcanvas`. The key patterns are listed per type in [`memory-domain.md`](memory-domain.md). This is identity rather than metadata: the key is what an upsert matches on, so a platform or an engine the pattern has a slot for belongs in the key.
+2. **On a `**Tags**:` first line inside `content`** — comma-separated, drawn from the namespaces below. It still works, and it is still what a human reading raw markdown sees. Full-text search indexes the body, so those tags stay *findable*. They cannot be filtered, and an edit that rewrites the body can lose them without warning.
+
+> **Use the field.** A tag that only exists on the first line is invisible to `tl_search(tags=[...])`, which is the query you will want next month.
 
 ## Engine
 
@@ -113,41 +119,46 @@ Use these when the memory is a `perf-gotcha` — they keep the search results sh
 
 ## Examples
 
-These are real `mem_save` payloads, abbreviated with `...` where the per-type required sections go. Note where each tag ends up: platform and engine ride inside the `topic_key` when there is a slot for them, and the `**Tags**:` line carries the rest.
+These are real `tl_save` payloads, abbreviated with `...` where the per-type required sections go. Note where each tag ends up: platform and engine ride inside the `topic_key` when there is a slot for them, and the `tags` field carries the rest.
 
 ```jsonc
-// Texture import gotcha (Android) — platform is inherent in the key,
-// but the remaining namespaces have nowhere else to live
+// Texture import gotcha (Android) — the platform is inherent in the key,
+// and the remaining namespaces travel in the field
 {
   "type": "perf-gotcha",
   "topic_key": "perf/android/texture-import",
+  "tags": ["engine:unity", "asset:texture", "pipeline:fbx", "perf:memory"],
   "title": "Cap texture max size at 1024 on Android",
-  "content": "**Tags**: engine:unity, asset:texture, pipeline:fbx, perf:memory\n\n**Symptom**: ...\n**Root cause**: ...\n**Fix**: ..."
+  "content": "**Symptom**: ...\n**Root cause**: ...\n**Fix**: ..."
 }
 
 // Blueprint vs C++ decision (UE5) — `decision/<area>/<choice>` has no engine
-// slot, so the Tags line is the only place that fact lives at all
+// slot, so the engine tag has to travel in the field
 {
   "type": "decision",
   "topic_key": "decision/gameplay/blueprint-vs-cpp",
+  "tags": ["engine:unreal", "phase:vertical-slice", "tool:visual-studio"],
   "title": "Gameplay in C++, content wiring in Blueprints",
-  "content": "**Tags**: engine:unreal, phase:vertical-slice, tool:visual-studio\n\n**What**: ...\n**Why**: ..."
+  "content": "**What**: ...\n**Why**: ..."
 }
 
-// Godot inventory UI scene pattern — engine slot present, tags still repeated
+// Godot inventory UI scene pattern — the engine slot is present, and the tag
+// is carried anyway, because a key is easier to change than it is to re-find
 {
   "type": "scene-pattern",
   "topic_key": "scene/godot/inventory-ui",
+  "tags": ["engine:godot", "asset:ui", "asset:prefab"],
   "title": "Inventory UI: Control node over a pooled list",
-  "content": "**Tags**: engine:godot, asset:ui, asset:prefab\n\n**Pattern**: ..."
+  "content": "**Pattern**: ..."
 }
 
-// Steam Deck perf budget — no engine tag, because none of them is the subject
+// Steam Deck perf budget — no engine tag, because no engine is the subject
 {
   "type": "perf-gotcha",
   "topic_key": "perf/linux/steam-deck-budget",
+  "tags": ["platform:linux", "platform:steam", "perf:gpu", "perf:loadtime"],
   "title": "Steam Deck: hold 33 ms at 800p in the cellar room",
-  "content": "**Tags**: platform:linux, platform:steam, perf:gpu, perf:loadtime\n\n**Symptom**: ...\n**Fix**: ..."
+  "content": "**Symptom**: ...\n**Fix**: ..."
 }
 ```
 
@@ -155,6 +166,6 @@ These are real `mem_save` payloads, abbreviated with `...` where the per-type re
 
 If you're reaching for a tag that isn't here:
 
-1. **Check first** — `mem_search` for the concept; you may be inventing a synonym.
+1. **Check first** — `tl_search` for the concept; you may be inventing a synonym.
 2. **Stay lowercase + colon-separated** — `engine:unity` not `Engine_Unity`.
 3. **Add it to this doc** in a PR — that's how the canonical list grows.
