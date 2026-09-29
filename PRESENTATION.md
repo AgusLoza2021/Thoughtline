@@ -75,9 +75,9 @@ Works with **any engine** and **any MCP-capable IDE**.
 
 ## 🛠️ Las herramientas / The tools
 
-12 herramientas MCP que la IA usa sola — vos no tenés que pensar en ellas:
+Las herramientas MCP que la IA usa sola — vos no tenés que pensar en ellas:
 
-12 MCP tools the AI uses on its own — you don't have to think about them:
+The MCP tools the AI uses on its own — you don't have to think about them:
 
 | Tool                 | Qué hace / What it does                                    |
 |----------------------|------------------------------------------------------------|

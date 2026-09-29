@@ -1,30 +1,5 @@
 # Thoughtline — Claude Code plugin
 
-The plugin as described below is retired. The files that made it installable —
-the manifest (`.claude-plugin/plugin.json`), the marketplace listing
-(`.claude-plugin/marketplace.json`) and the MCP registration (`.mcp.json`) —
-are present again, so installing this directory does register an MCP server
-named `tl`. What it registers is `thoughtline serve`, a retired and
-unmaintained binary, so installing this gets you the archive rather than a
-supported integration. The rest of the directory (hooks, skill, commands,
-agents, examples) is kept below as a record of how the plugin worked.
-
-Three things in here are still executable rather than descriptive, and all were left
-alone deliberately. `hooks/hooks.json` registers the retired binary's hook events,
-and `cmd/thoughtline/protocol.go` in the repository root is what emits the v0.1.0
-protocol markdown. The manifest a plugin needs in order to install is present again, so
-it is a live registration: deleting it would make the plugin uninstallable again; and
-the emitted protocol *is* the record of what v0.1.0
-injected into a session — retargeting that output would edit the archive into
-disagreeing with itself. The repository's own workflow asserts it: `plugin.yml` runs
-`thoughtline protocol --event session-start` and greps the result for `ACTIVE PROTOCOL`
-and `tl_session_summary` on every change under `plugin/**`, so rewriting that text would
-break the contract check that guards the archive.
-The files around them that are read as instructions (skill,
-commands, agent, examples) carry the retirement banner instead.
-
----
-
 Persistent, project-aware memory for [Claude Code](https://claude.com/claude-code). Survives across sessions and compactions. Local-first — no cloud, no telemetry, your `thoughtline.db` lives in your user cache directory.
 
 This plugin wires Claude Code into the [Thoughtline MCP server](https://github.com/AgusLoza2021/Thoughtline):

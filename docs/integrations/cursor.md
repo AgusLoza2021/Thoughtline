@@ -1,33 +1,34 @@
 # Cursor
 
-## Using this vocabulary with Cursor today
+## Using Thoughtline with Cursor today
 
-The server this page used to teach is retired. The server you want now is [Engram](https://github.com/Gentleman-Programming/engram) — install it and point Cursor at it by following Engram's own instructions. What survives from this repository is the layer *above* the server: which `type` to save under, where tags belong, and what a body worth re-reading looks like. That layer was never engine-bound, and it lives in the [memory domain](../design/memory-domain.md) and the [tag conventions](../design/tag-conventions.md).
+Install Thoughtline, then point Cursor at it. What this page teaches is the layer that outlives any engine: which `type` to save under, where tags belong, and what a body worth re-reading looks like. It lives in the [memory domain](../design/memory-domain.md) and the [tag conventions](../design/tag-conventions.md).
 
-The other thing that outlived the server is the observation the old step 3 made: **Cursor does not auto-load skill files.** Its agent has to be told when to save and in what shape — that was true of Thoughtline and it is still true of Engram. Paste this into `.cursorrules`, or into your global rules:
+The observation the old step 3 made still holds: **Cursor does not auto-load skill files.** Its agent has to be told when to save and in what shape — true of Thoughtline. Paste this into `.cursorrules`, or into your global rules:
 
 ```markdown
 ## Persistent memory — the words
 
-You have Engram's memory tools available.
+You have Thoughtline's memory tools available (`tl_*`).
 
 Set `type` from this vocabulary: `decision`, `convention`, `bugfix`,
 `perf-gotcha`, `pipeline-step`, `script-pattern`, `scene-pattern`,
 `asset-reference`, `game-design-decision`, `architecture`, or `preference`.
-Always pass it - Engram does not validate the field, its default is `manual`,
-and a memory typed `manual` is not in this vocabulary.
+Always pass it - Thoughtline validates the field, and a save whose type is
+not in this vocabulary is rejected rather than filed under a default.
 
 `preference` uses `scope: "personal"`; everything else uses `scope: "project"`
-(the default). Engram also accepts `global`; this vocabulary does not use it.
+(the default). Thoughtline accepts those two and no others.
 
 The first line of `content` is a `**Tags**:` line, comma-separated, in
 `key:value` form:
 
 **Tags**: engine:unity, platform:android, pipeline:fbx
 
-Engram has no tags field, so that line is where tags live - and its full-text
-search indexes the body, so the line stays findable. You cannot filter by tag;
-it is an aid to recall, not an index.
+`tl_save` also takes a `tags` array; this vocabulary keeps its tags on that
+first line so a memory stays self-describing when it is copied, quoted or
+moved between stores. Thoughtline's full-text search indexes the body, so the
+line stays findable either way.
 
 `topic_key` is `category/subject`, lowercase and slash-separated, e.g.
 `convention/unity/folder-layout`. Re-saving the same key REPLACES the title and

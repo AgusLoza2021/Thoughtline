@@ -4,7 +4,7 @@
 
 How Thoughtline is put together. This is the holistic tour. For individual decisions, see [`decisions/`](decisions/) (ADRs). For install steps, [INSTALLATION.md](INSTALLATION.md). For positioning, [COMPARISON.md](COMPARISON.md).
 
-> **Status: M5.** Nine MCP tools, single-developer scope, no cloud, no HTTP API. The schema is forward-compatible with embeddings (M6, deferred) — see [ADR 0002](decisions/0002-search-strategy-fts5-first.md).
+> **Status: the server is live.** A `tl_*` MCP surface over SQLite with FTS5 search; single-developer scope, no cloud, no HTTP API. The schema is forward-compatible with embeddings (M6, deferred) — see [ADR 0002](decisions/0002-search-strategy-fts5-first.md).
 
 ---
 
