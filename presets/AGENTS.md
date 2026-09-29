@@ -93,4 +93,4 @@ These are not style preferences. Each one costs you something concrete when it d
 
 - The full type catalogue, with required sections and worked examples: [`docs/design/memory-domain.md`](../docs/design/memory-domain.md)
 - The tag namespaces: [`docs/design/tag-conventions.md`](../docs/design/tag-conventions.md)
-- Why this repository owns the vocabulary and not the tool mechanics: [ADR 0007](../docs/decisions/0007-vocabulary-not-mechanics.md)
+- Why the server is the product and the vocabulary is its gate: [ADR 0008](../docs/decisions/0008-the-engine-is-the-product.md)
