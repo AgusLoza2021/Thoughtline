@@ -1,10 +1,11 @@
 # Flow: `mem_search` — End-to-End Trace
 
-> The "intelligence" of Engram lives here. Citations are `file:line` relative to `C:\Users\Agustin Lozano\Desktop\_engram-research\engram`.
+> The "intelligence" of Engram lives here. Citations are `file:line` in Engram at commit `3687c2f82ded4735beab80d915cb8136a54cef63` (2026-04-28), the snapshot this trace was written against, linked as GitHub permalinks pinned to that commit. On Engram's current `main` the line numbers may have drifted. One section below is now the
+> opposite of true: see the drift note at the end of this page.
 
 ## 1. Tool registration
 
-`mem_search` is registered at [internal/mcp/mcp.go:240-269](../../../_engram-research/engram/internal/mcp/mcp.go#L240):
+`mem_search` is registered at [internal/mcp/mcp.go:240-269](https://github.com/Gentleman-Programming/engram/blob/3687c2f82ded4735beab80d915cb8136a54cef63/internal/mcp/mcp.go#L240):
 
 ```go
 // ─── mem_search (profile: agent, core — always in context) ─────────
@@ -28,13 +29,13 @@ if shouldRegister("mem_search", allowlist) {
 }
 ```
 
-Registration is reached the same way as `mem_save`: `cmdMCP` ([main.go:765](../../../_engram-research/engram/cmd/engram/main.go#L765)) → `mcp.NewServerWithConfig` ([mcp.go:214](../../../_engram-research/engram/internal/mcp/mcp.go#L214)) → `registerTools` ([mcp.go:239](../../../_engram-research/engram/internal/mcp/mcp.go#L239)).
+Registration is reached the same way as `mem_save`: `cmdMCP` ([main.go:765](https://github.com/Gentleman-Programming/engram/blob/3687c2f82ded4735beab80d915cb8136a54cef63/cmd/engram/main.go#L765)) → `mcp.NewServerWithConfig` ([mcp.go:214](https://github.com/Gentleman-Programming/engram/blob/3687c2f82ded4735beab80d915cb8136a54cef63/internal/mcp/mcp.go#L214)) → `registerTools` ([mcp.go:239](https://github.com/Gentleman-Programming/engram/blob/3687c2f82ded4735beab80d915cb8136a54cef63/internal/mcp/mcp.go#L239)).
 
 The tool is marked **read-only + idempotent** via the `WithReadOnlyHintAnnotation` / `WithIdempotentHintAnnotation` annotations, so MCP clients can cache safely.
 
 ## 2. Handler signature and accepted parameters
 
-`func handleSearch(s *store.Store, cfg MCPConfig, activity *SessionActivity) server.ToolHandlerFunc` ([mcp.go:776](../../../_engram-research/engram/internal/mcp/mcp.go#L776)).
+`func handleSearch(s *store.Store, cfg MCPConfig, activity *SessionActivity) server.ToolHandlerFunc` ([mcp.go:776](https://github.com/Gentleman-Programming/engram/blob/3687c2f82ded4735beab80d915cb8136a54cef63/internal/mcp/mcp.go#L776)).
 
 Inputs read from `req.GetArguments()`:
 
@@ -47,20 +48,20 @@ Inputs read from `req.GetArguments()`:
 | `limit` | number | no | 10, hard-capped at `MaxSearchResults` (default 20) | |
 
 Resolution flow:
-1. `resolveReadProject(s, projectOverride)` ([mcp.go:785](../../../_engram-research/engram/internal/mcp/mcp.go#L785) → [mcp.go:1659](../../../_engram-research/engram/internal/mcp/mcp.go#L1659)) validates the override against the store, OR auto-detects from cwd. Unknown override returns an `unknown_project` MCP envelope ([mcp.go:789](../../../_engram-research/engram/internal/mcp/mcp.go#L789)) with a list of available project names.
-2. Project is normalized via `store.NormalizeProject` ([mcp.go:797](../../../_engram-research/engram/internal/mcp/mcp.go#L797)).
-3. Activity is recorded for nudge hints: `activity.RecordToolCall(sessionID)` ([mcp.go:801](../../../_engram-research/engram/internal/mcp/mcp.go#L801)).
-4. The handler delegates to `s.Search(query, store.SearchOptions{...})` ([mcp.go:803-808](../../../_engram-research/engram/internal/mcp/mcp.go#L803)).
+1. `resolveReadProject(s, projectOverride)` ([mcp.go:785](https://github.com/Gentleman-Programming/engram/blob/3687c2f82ded4735beab80d915cb8136a54cef63/internal/mcp/mcp.go#L785) → [mcp.go:1659](https://github.com/Gentleman-Programming/engram/blob/3687c2f82ded4735beab80d915cb8136a54cef63/internal/mcp/mcp.go#L1659)) validates the override against the store, OR auto-detects from cwd. Unknown override returns an `unknown_project` MCP envelope ([mcp.go:789](https://github.com/Gentleman-Programming/engram/blob/3687c2f82ded4735beab80d915cb8136a54cef63/internal/mcp/mcp.go#L789)) with a list of available project names.
+2. Project is normalized via `store.NormalizeProject` ([mcp.go:797](https://github.com/Gentleman-Programming/engram/blob/3687c2f82ded4735beab80d915cb8136a54cef63/internal/mcp/mcp.go#L797)).
+3. Activity is recorded for nudge hints: `activity.RecordToolCall(sessionID)` ([mcp.go:801](https://github.com/Gentleman-Programming/engram/blob/3687c2f82ded4735beab80d915cb8136a54cef63/internal/mcp/mcp.go#L801)).
+4. The handler delegates to `s.Search(query, store.SearchOptions{...})` ([mcp.go:803-808](https://github.com/Gentleman-Programming/engram/blob/3687c2f82ded4735beab80d915cb8136a54cef63/internal/mcp/mcp.go#L803)).
 
 ## 3. Search strategy — pure FTS5/BM25 with a topic-key shortcut
 
-Implementation: `func (s *Store) Search(query string, opts SearchOptions)` at [internal/store/store.go:2571-2693](../../../_engram-research/engram/internal/store/store.go#L2571).
+Implementation: `func (s *Store) Search(query string, opts SearchOptions)` at [internal/store/store.go:2571-2693](https://github.com/Gentleman-Programming/engram/blob/3687c2f82ded4735beab80d915cb8136a54cef63/internal/store/store.go#L2571).
 
 There is **no semantic / embedding search**. There is **no LIKE fallback**. The two paths are:
 
 ### 3a — Topic-key direct lookup (only if query contains `/`)
 
-If the raw query string contains a `/` ([store.go:2584](../../../_engram-research/engram/internal/store/store.go#L2584)) it is treated as a literal `topic_key` lookup first:
+If the raw query string contains a `/` ([store.go:2584](https://github.com/Gentleman-Programming/engram/blob/3687c2f82ded4735beab80d915cb8136a54cef63/internal/store/store.go#L2584)) it is treated as a literal `topic_key` lookup first:
 
 ```sql
 SELECT id, ifnull(sync_id, '') AS sync_id, session_id, type, title, content, tool_name,
@@ -76,13 +77,13 @@ ORDER BY updated_at DESC
 LIMIT ?
 ```
 
-Hits get a synthetic rank of `-1000` ([store.go:2621](../../../_engram-research/engram/internal/store/store.go#L2621)) so they sort first when merged with FTS hits.
+Hits get a synthetic rank of `-1000` ([store.go:2621](https://github.com/Gentleman-Programming/engram/blob/3687c2f82ded4735beab80d915cb8136a54cef63/internal/store/store.go#L2621)) so they sort first when merged with FTS hits.
 
 This is a small but smart UX trick: agents that already know a topic key get O(1) retrieval without paying FTS5 cost.
 
 ### 3b — FTS5 / BM25 path (always runs)
 
-The query is sanitized by `sanitizeFTS` ([store.go:5553-5561](../../../_engram-research/engram/internal/store/store.go#L5553)):
+The query is sanitized by `sanitizeFTS` ([store.go:5553-5561](https://github.com/Gentleman-Programming/engram/blob/3687c2f82ded4735beab80d915cb8136a54cef63/internal/store/store.go#L5553)):
 
 ```go
 func sanitizeFTS(query string) string {
@@ -97,7 +98,7 @@ func sanitizeFTS(query string) string {
 
 So `fix auth bug` becomes `"fix" "auth" "bug"`. This protects FTS5 from query operator characters in user input (FTS5 treats `:` `*` `^` etc. as operators; literal-quoted phrases are matched verbatim). It also means **no implicit OR/NEAR/AND combinators are usable** — the user cannot write FTS5 syntax. There is no MATCH-rewrite for stemming or fuzzy matching.
 
-The actual search SQL ([store.go:2630-2656](../../../_engram-research/engram/internal/store/store.go#L2630)):
+The actual search SQL ([store.go:2630-2656](https://github.com/Gentleman-Programming/engram/blob/3687c2f82ded4735beab80d915cb8136a54cef63/internal/store/store.go#L2630)):
 
 ```sql
 SELECT o.id, ifnull(o.sync_id, '') AS sync_id, o.session_id, o.type, o.title, o.content,
@@ -116,17 +117,17 @@ ORDER BY fts.rank
 LIMIT ?
 ```
 
-`fts.rank` is SQLite FTS5's built-in **BM25** score (negative; values closer to 0 = better match — that's why it sorts ascending). The `observations_fts` virtual table is declared at [store.go:633-642](../../../_engram-research/engram/internal/store/store.go#L633) with columns `(title, content, tool_name, type, project, topic_key)` — meaning the search corpus is title + content + tool_name + type + project + topic_key, weighted equally by BM25.
+`fts.rank` is SQLite FTS5's built-in **BM25** score (negative; values closer to 0 = better match — that's why it sorts ascending). The `observations_fts` virtual table is declared at [store.go:633-642](https://github.com/Gentleman-Programming/engram/blob/3687c2f82ded4735beab80d915cb8136a54cef63/internal/store/store.go#L633) with columns `(title, content, tool_name, type, project, topic_key)` — meaning the search corpus is title + content + tool_name + type + project + topic_key, weighted equally by BM25.
 
-The FTS table is kept in sync by triggers `obs_fts_insert`, `obs_fts_delete`, `obs_fts_update` ([store.go:914-929](../../../_engram-research/engram/internal/store/store.go#L914)).
+The FTS table is kept in sync by triggers `obs_fts_insert`, `obs_fts_delete`, `obs_fts_update` ([store.go:914-929](https://github.com/Gentleman-Programming/engram/blob/3687c2f82ded4735beab80d915cb8136a54cef63/internal/store/store.go#L914)).
 
 ### 3c — Result merge
 
-Topic-key direct hits go first; FTS5 hits follow, deduped by `id` against the direct hits ([store.go:2664-2684](../../../_engram-research/engram/internal/store/store.go#L2664)). Total truncated to `limit` ([store.go:2689](../../../_engram-research/engram/internal/store/store.go#L2689)).
+Topic-key direct hits go first; FTS5 hits follow, deduped by `id` against the direct hits ([store.go:2664-2684](https://github.com/Gentleman-Programming/engram/blob/3687c2f82ded4735beab80d915cb8136a54cef63/internal/store/store.go#L2664)). Total truncated to `limit` ([store.go:2689](https://github.com/Gentleman-Programming/engram/blob/3687c2f82ded4735beab80d915cb8136a54cef63/internal/store/store.go#L2689)).
 
 ## 4. Embeddings — not generated, not queried
 
-Confirmed: `embedding`, `embedding_model`, `embedding_created_at` exist as **reserved BLOB/TEXT columns** ([store.go:789-791](../../../_engram-research/engram/internal/store/store.go#L789)) and nothing else. No vector-similarity SQL, no embedding library import, no model field populated. A grep for `embedding|vector|cosine` across `internal/` returns only the schema reservation, an unrelated setup file, and a conflict-loop test. The search path is 100% FTS5/BM25 today.
+Confirmed: `embedding`, `embedding_model`, `embedding_created_at` exist as **reserved BLOB/TEXT columns** ([store.go:789-791](https://github.com/Gentleman-Programming/engram/blob/3687c2f82ded4735beab80d915cb8136a54cef63/internal/store/store.go#L789)) and nothing else. No vector-similarity SQL, no embedding library import, no model field populated. A grep for `embedding|vector|cosine` across `internal/` returns only the schema reservation, an unrelated setup file, and a conflict-loop test. The search path is 100% FTS5/BM25 today.
 
 ## 5. Ranking and scoring
 
@@ -139,15 +140,15 @@ Ordering is **purely BM25** as computed by SQLite FTS5 (`ORDER BY fts.rank`). Th
 - **No popularity/`duplicate_count` boost** even though the field exists.
 - **One synthetic rank**: topic-key direct hits get `-1000` to float to the top.
 
-The `MCPConfig.BM25Floor` knob ([mcp.go:35-44](../../../_engram-research/engram/internal/mcp/mcp.go#L35)) used in `FindCandidates` ([relations.go:156](../../../_engram-research/engram/internal/store/relations.go#L156)) is **NOT** applied in `Store.Search` — only conflict-candidate detection thresholds on it. Plain `mem_search` returns whatever BM25 says.
+The `MCPConfig.BM25Floor` knob ([mcp.go:35-44](https://github.com/Gentleman-Programming/engram/blob/3687c2f82ded4735beab80d915cb8136a54cef63/internal/mcp/mcp.go#L35)) used in `FindCandidates` ([relations.go:156](https://github.com/Gentleman-Programming/engram/blob/3687c2f82ded4735beab80d915cb8136a54cef63/internal/store/relations.go#L156)) is **NOT** applied in `Store.Search` — only conflict-candidate detection thresholds on it. Plain `mem_search` returns whatever BM25 says.
 
-Annotations in the formatted response ([mcp.go:851-869](../../../_engram-research/engram/internal/mcp/mcp.go#L851)) decorate each result with `supersedes`, `superseded_by`, and `conflict: contested by` lines using a batch-loaded relation map ([mcp.go:826-829](../../../_engram-research/engram/internal/mcp/mcp.go#L826)) — but this is decoration, not scoring.
+Annotations in the formatted response ([mcp.go:851-869](https://github.com/Gentleman-Programming/engram/blob/3687c2f82ded4735beab80d915cb8136a54cef63/internal/mcp/mcp.go#L851)) decorate each result with `supersedes`, `superseded_by`, and `conflict: contested by` lines using a batch-loaded relation map ([mcp.go:826-829](https://github.com/Gentleman-Programming/engram/blob/3687c2f82ded4735beab80d915cb8136a54cef63/internal/mcp/mcp.go#L826)) — but this is decoration, not scoring.
 
 ## 6. Pagination, truncation, and the `mem_get_observation` companion
 
-There is **no real pagination** — no offset, cursor, or `from_id` parameter. The handler just clamps `limit` to `min(limit, MaxSearchResults)` (default cap 20 in `Store.Search` at [store.go:2579-2581](../../../_engram-research/engram/internal/store/store.go#L2579)).
+There is **no real pagination** — no offset, cursor, or `from_id` parameter. The handler just clamps `limit` to `min(limit, MaxSearchResults)` (default cap 20 in `Store.Search` at [store.go:2579-2581](https://github.com/Gentleman-Programming/engram/blob/3687c2f82ded4735beab80d915cb8136a54cef63/internal/store/store.go#L2579)).
 
-Each result's `content` is truncated to **300 chars** with the suffix ` [preview]` ([mcp.go:841-844](../../../_engram-research/engram/internal/mcp/mcp.go#L841)). When any result was truncated, the response footer instructs the agent to call `mem_get_observation`:
+Each result's `content` is truncated to **300 chars** with the suffix ` [preview]` ([mcp.go:841-844](https://github.com/Gentleman-Programming/engram/blob/3687c2f82ded4735beab80d915cb8136a54cef63/internal/mcp/mcp.go#L841)). When any result was truncated, the response footer instructs the agent to call `mem_get_observation`:
 
 ```
 ---
@@ -155,7 +156,7 @@ Results above are previews (300 chars). To read the full content of a specific m
 call mem_get_observation(id: <ID>).
 ```
 
-`handleGetObservation` ([mcp.go:1321-1368](../../../_engram-research/engram/internal/mcp/mcp.go#L1321)) is a trivial `SELECT … FROM observations WHERE id = ? AND deleted_at IS NULL` ([store.go:2316](../../../_engram-research/engram/internal/store/store.go#L2316)). It returns the **untruncated** `content` plus metadata (project, scope, topic, tool, duplicate_count, revision_count, created_at). It does **not** filter by project — any agent can fetch any observation by ID.
+`handleGetObservation` ([mcp.go:1321-1368](https://github.com/Gentleman-Programming/engram/blob/3687c2f82ded4735beab80d915cb8136a54cef63/internal/mcp/mcp.go#L1321)) is a trivial `SELECT … FROM observations WHERE id = ? AND deleted_at IS NULL` ([store.go:2316](https://github.com/Gentleman-Programming/engram/blob/3687c2f82ded4735beab80d915cb8136a54cef63/internal/store/store.go#L2316)). It returns the **untruncated** `content` plus metadata (project, scope, topic, tool, duplicate_count, revision_count, created_at). It does **not** filter by project — any agent can fetch any observation by ID.
 
 This is the "progressive disclosure" pattern: search returns shallow previews, and the agent calls `mem_get_observation` to drill in. It keeps tool-call payloads small.
 
@@ -218,8 +219,60 @@ These are the architectural choices this flow forces. Each one shapes the data m
 | D13 | **Should the response be plaintext (Engram), structured JSON, or both?** | Return both — `mcp.NewToolResultText` for the human-readable summary AND a structured JSON `_meta.results` array for tools that want to parse without regex. |
 | D14 | **Soft-delete semantics in search** | Mirror Engram: `deleted_at IS NULL` filter. Hard delete only when explicitly requested. |
 | D15 | **Conflict / supersedes annotations on results** | Defer (separate from search). Ship plain results in v1; add the relations decoration when we ship `tl_judge`. |
-| D16 | **Concurrency / connection pool** | Single-writer SQLite via `db.SetMaxOpenConns(1)` + WAL is Engram's choice ([store.go:528](../../../_engram-research/engram/internal/store/store.go#L528)). Reuse. |
+| D16 | **Concurrency / connection pool** | Single-writer SQLite via `db.SetMaxOpenConns(1)` + WAL is Engram's choice ([store.go:528](https://github.com/Gentleman-Programming/engram/blob/3687c2f82ded4735beab80d915cb8136a54cef63/internal/store/store.go#L528)). Reuse. |
 | D17 | **Max query length / abuse protection** | Add an explicit `MaxQueryLength` (e.g. 512 chars) and reject longer queries. Engram has none. |
 | D18 | **Should results include the project name unconditionally, or only on cross-project search?** | Include unconditionally — disambiguates personal vs project scope at a glance. |
 | D19 | **Telemetry on search** | Log query, hit-count, top rank locally (debug-only). Do NOT phone home. |
 | D20 | **Result limit cap** | Mirror Engram's hard cap (20). Anything more bloats agent context. |
+
+## What changed since this snapshot — search is no longer pure BM25
+
+Re-verified on 2026-09-28 against Engram at
+[`3ba7df62`](https://github.com/Gentleman-Programming/engram/tree/3ba7df6235f5a58ca0898dc312421881c1fb0acf).
+Everything above reads `3687c2f8` correctly, and one section of it is now the opposite of
+true: §5, "Ranking and scoring".
+
+At the snapshot ranking was plain `ORDER BY fts.rank`. Engram's `main` ranks with an
+explicit weighted expression, declared at `internal/store/store.go:368-375` and built at
+`:4966`:
+
+```go
+bm25(observations_fts, 5.0, 1.0, 0.0, 0.0, 0.0, 3.0)
+```
+
+The column weights are now deliberate. **Title 5.0, content 1.0, topic_key 3.0**, and
+`tool_name`, `type` and `project` are weighted **0.0** — they no longer contribute to the
+score at all. That raw score is then multiplied by a composite boost:
+
+| Boost | Weight | Shape |
+| --- | --- | --- |
+| Pinned | `0.10` | flat, applied when the row is pinned |
+| Recency | `0.06` | half-score at 30 days, then saturating |
+| Stability | `0.04` | from `revision_count + duplicate_count`, diminishing at scale 4.0 |
+
+So of the five "there is no boost" lines in §5, two are now false, one changed its reason,
+and two stand:
+
+- **No recency boost** — false; there is one.
+- **No popularity/`duplicate_count` boost** — false; it is folded into stability.
+- **No type-weighted boost** — still no boost, but for a sharper reason: `type` is weighted
+  `0.0` inside the BM25 expression, so it is excluded from the ranked corpus rather than
+  merely unboosted. The §3b sentence describing the corpus as "title + content + tool_name
+  + type + project + topic_key, weighted equally by BM25" is no longer accurate in either
+  direction.
+- **No scope boost** — stands.
+- **No length penalty beyond what BM25 does** — stands.
+
+The "one synthetic rank" claim also stands: topic-key direct hits still get `-1000`.
+
+Two structural changes landed as well. The preview path became first-class —
+`buildSearchPreviewFTSQuery` and `SearchPreviewsContext` select `substr(o.content, 1, 300)`
+with an explicit `truncated` flag, where the snapshot built previews in the handler. And
+`handleSearch` and `resolveReadProject` no longer exist under those names; the handler layer
+was reorganized around them. `sanitizeFTS` (and with it §3b's sanitization claim) survives
+unchanged.
+
+**What this changes for us**: D1 ("start FTS5-only, mirror Engram") and D8 ("pure BM25 in
+v1") were written against a project that ordered by `fts.rank` and nothing else. Engram has
+since decided that was not enough, and now boosts. That is evidence in favour of boosts
+being a real lever rather than a v2 nicety — and it is a decision this project has not made.

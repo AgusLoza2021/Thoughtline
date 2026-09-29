@@ -2,11 +2,18 @@
 
 <!-- retired-v0.1.0 -->
 > **Retired — this page documents the v0.1.0 MCP server.** That server is
-> unmaintained, so the install and wiring steps below are not a supported path.
+> unmaintained, so the build status log below is kept as a record of what was
+> finished before it was retired.
 > For what this project is now — a gamedev memory vocabulary that runs on
 > [Engram](https://github.com/Gentleman-Programming/engram) — read the
 > [README](../README.md), the [memory domain](design/memory-domain.md) and the
 > [tag conventions](design/tag-conventions.md).
+
+---
+
+> **Legacy — the v0.1.0 server.** Everything below documents `thoughtline`, the
+> retired server, and its `tl_*` tools. It is a record of how the project worked,
+> not instructions to follow.
 
 Single source of truth for "what's done, what's next, what's blocking publishing." Updated at the end of every working session.
 
@@ -71,7 +78,6 @@ Single source of truth for "what's done, what's next, what's blocking publishing
 - **No soft-deleted recovery view**: `DeletedMemories` count is shown but there's no UI to restore. Recovery is admin work via SQLite directly (or `UPDATE memories SET deleted_at = NULL WHERE id = ?`).
 - **No tag breakdown panel**: tags by frequency would be a nice future addition. Trivial to add to `Stats` if requested.
 - **No live polling**: TUI loads stats once on Init and only re-polls on `r`. A live ticker (every N seconds) is easy to add but adds load on the SQLite file for an unclear win.
-- **No pre-publish TODO closed**: `_engram-research/` paths in research docs still need permalink replacement before going public.
 
 ---
 
@@ -178,7 +184,9 @@ Items the maintainer must do before / right after pushing the repo to GitHub. Or
 - [x] ~~**Verify Engram attribution**. The LICENSE and README both credit Engram and link to it. Don't strip these — it's the right thing to do and keeps the door open for cross-pollination.~~ **Resolved 2026-09-24.** The attribution paragraph now lives in the README under [**Attribution**](../README.md#attribution), and `LICENSE` is the canonical MIT text with nothing appended.
   - **Why the move mattered**: GitHub's licence detector matches the licence text itself. Prose appended *after* the final line of the MIT text drops the match ratio, so the repository reported **no licence at all** while the README claimed MIT — a silent, visible-to-everyone defect. The licence *grant* was never in question; only its detection was. Attribution belongs in a README, and the licence file belongs canonical.
   - **Verify after any future edit**: `gh api repos/AgusLoza2021/Thoughtline --jq .license.spdx_id` must print `MIT`. Note that `gh repo view --json licenseInfo` returns `null` even for repos that detect correctly — always check the raw API.
-- [ ] **Replace the relative `_engram-research/` paths** in `docs/research/*.md` with permalinks to specific Engram commits on GitHub (e.g. `https://github.com/Gentleman-Programming/engram/blob/<sha>/internal/store/store.go#L789`). Right now they point at the local clone — fine for you, broken for anyone else.
+- [x] ~~**Replace the relative `_engram-research/` paths** in `docs/research/*.md` with permalinks to specific Engram commits on GitHub (e.g. `https://github.com/Gentleman-Programming/engram/blob/<sha>/internal/store/store.go#L789`). Right now they point at the local clone — fine for you, broken for anyone else.~~ **Resolved 2026-09-24.** All **105** citations across the three documents are now permalinks pinned to Engram commit `3687c2f82ded4735beab80d915cb8136a54cef63` (2026-04-28), the snapshot those documents were written against. Verified: zero broken relative links and zero `_engram-research` references remain under `docs/research/`.
+  - **Why a pinned commit and not `main`**: these documents describe one frozen snapshot of a repository that ships continuously. A `main` link would silently point at different code within days and the cited line numbers would drift away from what the text claims. Pinning the commit keeps every citation faithful, and a reader who wants current code can navigate from the permalink.
+  - **Same defect left untouched on purpose**: `docs/decisions/0002-search-strategy-fts5-first.md` cites three `_engram-research/engram/internal/store/store.go` line numbers, and one of them is wrong — it calls `:1832` the FTS5 virtual table, but that table is at `store.go:633` and line 1832 is `return nil, err`. ADRs are historical decision records, so rewriting them is a separate decision.
 - [ ] **Add a SECURITY.md** if accepting issues from the public (one paragraph: how to report security issues, expected response time).
 - [ ] **Optional but nice**: GitHub issue templates (`bug.yml`, `feature.yml`) under `.github/ISSUE_TEMPLATE/`.
 - [ ] **Optional**: a `CODE_OF_CONDUCT.md`. We've leaned on a one-liner in CONTRIBUTING for now; bring in a full document if the project grows.

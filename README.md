@@ -83,7 +83,7 @@ Each memory carries the same envelope: `topic_key`, `scope`, `project`, `created
 
 1. **Install Engram.** Prefer the latest stable release from [Engram's releases](https://github.com/Gentleman-Programming/engram/releases). Homebrew works too — `brew install gentleman-programming/tap/engram` — though the tap lags the release line. Windows, Linux and source builds: [Engram's installation guide](https://github.com/Gentleman-Programming/engram/blob/main/docs/INSTALLATION.md).
 2. **Wire it into your editor.** Engram documents its own MCP setup for Claude Code, Cursor, Zed, Copilot, Windsurf and others. For Claude Code specifically: `claude plugin marketplace add Gentleman-Programming/engram && claude plugin install engram`.
-3. **Teach your agent the words.** This is the step that makes the vocabulary real. Because Engram accepts any type string, the model will fall back to its own defaults unless you tell it otherwise — so put the type list into whatever your editor calls project instructions (`AGENTS.md`, `CLAUDE.md`, a rules file, or a skill). Point it at the table above and it will type memories correctly from the first session.
+3. **Teach your agent the words.** This is the step that makes the vocabulary real — and the one most people skip. Because Engram accepts any type string and ships no validator, the model will fall back to its own defaults unless you tell it otherwise. Copy [`presets/AGENTS.md`](presets/AGENTS.md) into your project — as `AGENTS.md`, or pasted into `CLAUDE.md`, a rules file or a skill — and your agent will type memories correctly from the first session. There is nothing to install; **the file is the artefact.**
 4. **Read the tag conventions** for the longer form: [`docs/design/tag-conventions.md`](docs/design/tag-conventions.md).
 
 ---
@@ -100,7 +100,7 @@ They are complements, not competitors. If you are not building games, use Engram
 
 ## What happened to the MCP server
 
-Thoughtline v0.1.0 shipped its own Go MCP server: twelve `tl_*` tools, a SQLite schema, a Bubbletea dashboard and a migrator. **That server is retired.** The reasons are worth recording plainly:
+Thoughtline v0.1.0 shipped its own Go MCP server: fifteen `tl_*` tools, a SQLite schema, a Bubbletea dashboard and a migrator. **That server is retired.** The reasons are worth recording plainly:
 
 - Engram now ships the same architectural pieces — TUI, HTTP API, sessions, richer tooling — while being maintained continuously by a team. A parallel implementation by one person cannot stay level with that, and pretending otherwise burns effort for nothing.
 - Every differentiator this project claimed turned out to be either **absorbed upstream** or, like the taxonomy, **not a property of the engine at all**.
@@ -108,6 +108,12 @@ Thoughtline v0.1.0 shipped its own Go MCP server: twelve `tl_*` tools, a SQLite 
 Retiring it loses nothing that mattered. The design reasoning, the ADRs, the research and the taxonomy are what carried judgement; the engine was the part that got commoditized. The original documentation is preserved verbatim in the appendix below so the record stays complete.
 
 > **Do not migrate memories into the retired server.** The migrator (`cmd/migrate`) and the server are unmaintained, and `main` stops mid-feature in the `storage-caps` work. Keep your data in Engram.
+
+### Where the decisions live
+
+The engine is gone, so the boundary it leaves behind has to be written down somewhere: what this repository still owns, and what it deliberately stops owning. That one is [ADR 0007 — this repository owns the vocabulary, not the tool mechanics](docs/decisions/0007-vocabulary-not-mechanics.md), and it is the reason the pages that teach memory here describe behaviour instead of restating Engram's tools.
+
+The rest of the corpus — the v0.1.0 engine records and the search, storage and capture decisions that outlived it — is in [`docs/decisions/`](docs/decisions/).
 
 ### Attribution
 

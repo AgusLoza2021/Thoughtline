@@ -1,8 +1,16 @@
 # Memory Type Taxonomy Specification
 
+<!-- retired-v0.1.0 -->
 > Change: `adopt-thoughtline-replace-engram`
 > Status: proposed
 > Operation: ADDED (first formal spec for the type taxonomy domain)
+>
+> **Half current, half retired.** The type vocabulary below is the product: those 11 values are
+> what this repository still owns, and they run on Engram today with none of our code behind
+> them. The engine-level requirements are not current — `Type.Valid()` and `AllTypes()` are Go
+> code on the retired v0.1.0 MCP server — so read the value table as the vocabulary and the
+> `MUST` statements about Go types as a record of how it used to be enforced. For what this
+> project is now, read the [README](../../../README.md).
 
 ## Capability Summary
 

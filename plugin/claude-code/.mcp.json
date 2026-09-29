@@ -1,8 +1,0 @@
-{
-  "mcpServers": {
-    "tl": {
-      "command": "thoughtline",
-      "args": ["serve"]
-    }
-  }
-}

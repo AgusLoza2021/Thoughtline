@@ -8,6 +8,12 @@
 > [README](../README.md), the [memory domain](design/memory-domain.md) and the
 > [tag conventions](design/tag-conventions.md).
 
+---
+
+> **Legacy — the v0.1.0 setup.** Everything below documents `thoughtline`, the
+> retired server, and its `tl_*` tools. It is a record of how the project worked,
+> not instructions to follow.
+
 Thoughtline ships as a single Go binary (`thoughtline` / `thoughtline.exe`) backed by a single SQLite file. **No Node, no Python, no Docker**. Pick your platform below.
 
 > Looking for a feature comparison vs [Engram](https://github.com/Gentleman-Programming/engram) and [claude-mem](https://github.com/thedotmack/claude-mem)? See [COMPARISON.md](COMPARISON.md).

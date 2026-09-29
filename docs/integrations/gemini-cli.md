@@ -1,12 +1,76 @@
 # Gemini CLI
 
 <!-- retired-v0.1.0 -->
-> **Retired — this page documents the v0.1.0 MCP server.** That server is
-> unmaintained, so the install and wiring steps below are not a supported path.
-> For what this project is now — a gamedev memory vocabulary that runs on
+> **Retired — the v0.1.0 MCP server this page was written for is unmaintained.**
+> Its install and wiring steps are kept at the bottom as a record of how the project
+> worked, not as a path to follow. For what this project is now — a gamedev memory
+> vocabulary that runs on
 > [Engram](https://github.com/Gentleman-Programming/engram) — read the
 > [README](../../README.md), the [memory domain](../design/memory-domain.md) and the
 > [tag conventions](../design/tag-conventions.md).
+
+## Using this vocabulary with Gemini CLI today
+
+The server this page used to teach is retired. The server you want now is [Engram](https://github.com/Gentleman-Programming/engram) — install it and register it in `~/.gemini/settings.json` by following Engram's own instructions. What survives from this repository is the layer *above* the server: which `type` to save under, where tags belong, and what a body worth re-reading looks like. That layer was never engine-bound, and it lives in the [memory domain](../design/memory-domain.md) and the [tag conventions](../design/tag-conventions.md).
+
+The other thing that outlived the server is the observation the old step 3 made: **Gemini CLI only learns rules from `GEMINI.md`** (project root and `~/.gemini/`); it does not auto-load skill files. Its agent has to be told when to save and in what shape — true of Thoughtline, still true of Engram.
+
+Useful while you are there: Gemini CLI's `includeTools` / `excludeTools` keys let you allowlist specific tools. For a read-only Gemini session, name Engram's read side — `["mem_search", "mem_get_observation", "mem_context", "mem_stats"]` — and leave the writers out.
+
+### Rules to drop into `GEMINI.md`
+
+```markdown
+## Persistent memory — the words
+
+You have Engram's memory tools available.
+
+Set `type` from this vocabulary: `decision`, `convention`, `bugfix`,
+`perf-gotcha`, `pipeline-step`, `script-pattern`, `scene-pattern`,
+`asset-reference`, `game-design-decision`, `architecture`, or `preference`.
+Always pass it - Engram does not validate the field, its default is `manual`,
+and a memory typed `manual` is not in this vocabulary.
+
+`preference` uses `scope: "personal"`; everything else uses `scope: "project"`
+(the default). Engram also accepts `global`; this vocabulary does not use it.
+
+The first line of `content` is a `**Tags**:` line, comma-separated, in
+`key:value` form:
+
+**Tags**: engine:unity, platform:android, pipeline:fbx
+
+Engram has no tags field, so that line is where tags live - and its full-text
+search indexes the body, so the line stays findable. You cannot filter by tag;
+it is an aid to recall, not an index.
+
+`topic_key` is `category/subject`, lowercase and slash-separated, e.g.
+`convention/unity/folder-layout`. Re-saving the same key REPLACES the title and
+content rather than appending, so reuse a key only for a topic that evolves.
+```
+
+The behaviour block that goes with it — when to save, how to search, how to
+correct a memory rather than save it twice — is kept in one place, at
+[`docs/AGENT-SETUP.md`](../AGENT-SETUP.md) in the Thoughtline repository. It is
+not repeated here: a copy of that block in seven files went stale in all seven
+at once.
+
+### A complete save, to see the shape
+
+```jsonc
+{
+  "type": "bugfix",
+  "topic_key": "bug/unity/editor-import-hang",
+  "title": "Unity hangs on import after a Blender re-export",
+  "content": "**Tags**: engine:unity, pipeline:blender-to-unity, tool:gemini-cli\n\n**What**: Cleared Library/ArtifactDB after the .blend re-export. **Why**: Unity reused a stale artifact and the importer deadlocked on the same GUID. **Learned**: a re-export that keeps asset names but changes mesh topology is the trigger; a full reimport is cheaper than debugging it."
+}
+```
+
+Tag Gemini-driven saves with `tool:gemini-cli` on that `**Tags**:` line, so they are recognisable later.
+
+---
+
+> **Legacy — the v0.1.0 setup.** Everything below documents `thoughtline`, the
+> retired server, and its `tl_*` tools. It is a record of how the project worked,
+> not instructions to follow.
 
 The [Google Gemini CLI](https://github.com/google-gemini/gemini-cli) supports MCP via its `settings.json`. Wire Thoughtline as an stdio MCP server.
 
@@ -71,33 +135,3 @@ Example with everything:
   }
 }
 ```
-
-## 3. Tell Gemini when to use the tools
-
-Gemini CLI reads agent rules from `GEMINI.md` (project root) and `~/.gemini/GEMINI.md` (user-level). Drop the protocol there:
-
-```markdown
-## Thoughtline persistent memory
-
-You have access to thoughtline memory tools (namespace `tl`).
-
-Save proactively after: decisions, conventions, bug fixes, non-obvious feature work, gotchas, user preferences. Use this content shape:
-
-**What** / **Why** / **Where** / **Learned**
-
-Use `topic_key` of the form `category/subject` (lowercase, slash-separated). Re-saves on the same key upsert.
-
-Search proactively when the user references prior work: `tl_search` first, then `tl_get_observation` for full content.
-
-Close working blocks with `tl_session_summary` containing Goal / Discoveries / Accomplished / Next Steps / Relevant Files.
-```
-
-## Tagging tip for Gemini users
-
-Use `tool:gemini-cli` on save and pass `agent_label: "gemini-cli"` to `tl_session_start`:
-
-```jsonc
-{ "agent_label": "gemini-cli", "tags": ["tool:gemini-cli"] }
-```
-
-See [`design/tag-conventions.md`](../design/tag-conventions.md) for the canonical vocabulary.

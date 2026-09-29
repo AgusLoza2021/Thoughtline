@@ -64,7 +64,7 @@ The retired engine added a search shortcut that matched queries containing `/` a
 
 - `project` (default) — bound to a single project. Most memories live here.
 - `personal` — cross-project, per-developer. Use sparingly, for ergonomics ("I prefer 4-space indents in shaders") that travel with the dev, not the project.
-- `global` — Engram's own third value. Reach for it deliberately; a memory that belongs to every project is usually a symptom of a memory that belongs to none.
+- `global` — Engram accepts it; this catalogue does not use it. The rule in [How the vocabulary is enforced](#how-the-vocabulary-is-enforced) is `project` or `personal`, because a memory that belongs to every project is usually a symptom of one that belongs to none.
 
 ---
 
@@ -202,7 +202,7 @@ High-level structural decisions about the system — packages, boundaries, data 
 
 There is no validator any more. Engram accepts any `type` string — a deliberate design choice on its part, and precisely the reason this vocabulary earns its place. **Nothing stops your agent from inventing `perf_bugfix_thing` except being told not to.**
 
-So these rules are a contract with your agent, not a gate. Step 3 of the adoption path in the [README](../../README.md) is what makes them real: put the catalogue where your agent reads its instructions.
+So these rules are a contract with your agent, not a gate. What makes them real is [`presets/AGENTS.md`](../../presets/AGENTS.md) — a file you copy into your project so that this catalogue sits where your agent reads its instructions. Step 3 of the adoption path in the [README](../../README.md) is that copy step.
 
 | Rule | What you lose if the agent drifts |
 | ---- | --------------------------------- |
@@ -213,6 +213,31 @@ So these rules are a contract with your agent, not a gate. Step 3 of the adoptio
 | `topic_key`, when present, matches `^[a-z0-9][a-z0-9/_-]{1,128}$` — lowercase, no spaces, no leading slash | Nothing breaks loudly; the key simply stops being greppable and consistent |
 | Tags on the `**Tags**:` line match `^[a-z0-9][a-z0-9:_-]{0,40}$`, lowercase, `key:value` for namespaced tags | Tags misspell themselves into invisibility |
 | Keep `content` well under 64 KiB | The retired engine rejected oversize content with a clear error; Engram does not, so this is a writing guideline now. Check Engram for its own limits |
+
+---
+
+## What your choice of `type` costs
+
+`type` is not only a label. Engram keys one piece of lifecycle behaviour on the exact string, and
+this catalogue is not shaped to match it.
+
+Every observation can carry a `review_after` timestamp. Once that passes, the observation reports
+`state: "needs_review"` in search results and turns up under `mem_review` with `action: "list"`.
+**That horizon exists for exactly three type strings** — `decision` (six months), `policy`
+(twelve) and `preference` (three) — and Engram's own comment above the map states the rest:
+*"Types absent from this map get `review_after` = NULL (Phase 1 behavior)."*
+
+So **nine of this catalogue's eleven types never surface as stale and never appear in
+`mem_review`**: everything except `decision` and `preference`. (`policy` is one of the three keys,
+and this catalogue does not use it — a quiet reminder that the map was not written for us.)
+
+This does not make the catalogue wrong. It means the review tools are not the whole of memory
+hygiene here: for the other nine types, deciding that a memory has aged out is your judgement,
+usually expressed as a `mem_update` or a `mem_delete`. Engram's review machinery is real, and it
+covers two of our eleven types.
+
+See [ADR 0007](../decisions/0007-vocabulary-not-mechanics.md) for why this vocabulary is
+deliberately not reshaped to fit that map, and what is being asked upstream instead.
 
 ---
 
