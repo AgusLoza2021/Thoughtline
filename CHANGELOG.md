@@ -12,6 +12,15 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 > decisions that ended the project. Every parked entry says so in its own heading. Nothing
 > here is a promise, and no date below is a release date.
 
+### Restored — the Claude Code plugin is installable again (2026-09-29)
+
+The files named in the removal entry below — `.claude-plugin/plugin.json`,
+`.claude-plugin/marketplace.json` and `.mcp.json` — are back byte-identical to their
+pre-`cd93aa1` content. The plugin therefore installs again and re-registers the `tl` MCP
+server as `thoughtline serve`; that server stays retired and unmaintained, so installing
+it yields the archive rather than a supported integration. `.github/workflows/release.yml`
+stays deleted, so no further release can be cut.
+
 ### Fixed — two CI flakes that were test defects, not engine defects (2026-09-29)
 
 Two tests in `internal/events` were intermittently red on CI, and both were measuring the
@@ -131,6 +140,9 @@ repeated there.
   is still present, so their reach is unchanged: what changed is publication, not reach.
 - `ci.yml` and `plugin.yml` also stay — a build check and a protocol-contract check, not
   distribution. They keep the archived code compiling and its contract tested.
+- **Reverted on 2026-09-29**: the plugin's manifest, marketplace listing and MCP
+  registration are back, restored by the `Restored` entry above; the rest of this entry
+  stands — the release workflow stays gone and the `SECURITY.md` rewrite stays.
 
 ### Docs — the retired server is marked consistently (2026-09-28)
 

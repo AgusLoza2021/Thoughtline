@@ -3,9 +3,11 @@
 ## Project status
 
 **Thoughtline is retired.** The v0.1.0 MCP server this repository was built around is no longer
-maintained, and this repository no longer publishes binaries, release archives or an installable
-Claude Code plugin. What remains here is a record of that server plus a gamedev memory vocabulary
-that runs on [Engram](https://github.com/Gentleman-Programming/engram).
+maintained, and this repository publishes no binaries or release archives; the Claude Code plugin
+under `plugin/claude-code/` is installable again because its manifests are back in the repository,
+but what it registers is a retired binary, so installing it is a way to read the archive rather
+than a supported way to run a memory server. What remains here is a record of that server plus a
+gamedev memory vocabulary that runs on [Engram](https://github.com/Gentleman-Programming/engram).
 
 **No version receives security fixes.** That is the honest version of what used to be written
 here as a support policy: there is no maintained branch, no latest-minor release line, no LTS,
