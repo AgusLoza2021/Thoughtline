@@ -5,7 +5,8 @@
 - **Supersedes**: —
 - **Related**: [ADR 0001](0001-architecture-baseline.md)
 - **Amended**: 2026-09-28 — the sources cited below were machine-local and one of them
-  pointed at the wrong line; see the amendment at the end of this record.
+  pointed at the wrong line. Every corrected claim in the amendment is scoped to the revision
+  it names; see the amendment at the end of this record.
 
 ## Context
 
@@ -135,10 +136,14 @@ than they were:
 - **`embedding_created_at` was written `INTEGER`.** Engram defines it `TEXT`. The claim the
   decision actually rests on — that the columns are reserved and never written — holds and
   is unaffected; the SQL type was remembered rather than read.
-- **There is no `bm25()` call to cite.** FTS5 ranks with its own BM25-derived `rank`, and
-  Engram orders by it (`ORDER BY fts.rank` at `:2655`, with `fts.rank` selected at `:2633`).
-  The original phrasing — search is "100% FTS5 + BM25" — describes the engine correctly and
-  is left standing; what the References line implied, a call site, does not exist.
+- **At `3687c2f8` there is no `bm25()` call to cite.** FTS5 ranks with its own BM25-derived
+  `rank`, and Engram orders by it (`ORDER BY fts.rank` at `:2655`, with `fts.rank` selected at
+  `:2633`). The original phrasing — search is "100% FTS5 + BM25" — describes the engine
+  correctly and is left standing; what the References line implied, a call site, does not
+  exist at this revision. It does now: Engram's `main` ranks with an explicit weighted
+  `bm25(observations_fts, …)` composed with pinned, recency and stability boosts. That is why
+  this bullet is scoped to the pinned revision instead of stated flatly — see the drift note
+  in [`../research/flow-mem-search.md`](../research/flow-mem-search.md).
 
 ### The milestone this record names no longer exists
 
