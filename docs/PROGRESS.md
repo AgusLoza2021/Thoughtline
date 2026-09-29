@@ -1,19 +1,6 @@
 # Progress
 
-<!-- retired-v0.1.0 -->
-> **Retired — this page documents the v0.1.0 MCP server.** That server is
-> unmaintained, so the build status log below is kept as a record of what was
-> finished before it was retired.
-> For what this project is now — a gamedev memory vocabulary that runs on
-> [Engram](https://github.com/Gentleman-Programming/engram) — read the
-> [README](../README.md), the [memory domain](design/memory-domain.md) and the
-> [tag conventions](design/tag-conventions.md).
-
 ---
-
-> **Legacy — the v0.1.0 server.** Everything below documents `thoughtline`, the
-> retired server, and its `tl_*` tools. It is a record of how the project worked,
-> not instructions to follow.
 
 Single source of truth for "what's done, what's next, what's blocking publishing." Updated at the end of every working session.
 

@@ -1,12 +1,5 @@
 # Thoughtline Persistent Memory — Protocol
 
-<!-- retired-v0.1.0 -->
-> **Updated for Engram.** This page was written for the v0.1.0 MCP server. The
-> protocol below is live — what changed is the tool names (`tl_*` back then,
-> `mem_*` now), where tags go, and a few claims we can no longer make now that the
-> engine is not ours. The exact list is at the bottom, under
-> [What changed from the v0.1.0 version](#what-changed-from-the-v010-version).
->
 > For the vocabulary the protocol refers to, see the
 > [memory domain](../design/memory-domain.md) and the
 > [tag conventions](../design/tag-conventions.md). For the server itself, see
