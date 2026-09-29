@@ -79,16 +79,39 @@ the `topic_key` shape appear in eight places. Those are ours, they change on our
 and a reader pasting a block into an editor needs them present. What was removed is the
 duplication of things we do not control.
 
-**Known limitation, left open.** `decayReviewAfterMonths` (`internal/store/store.go:380-384`)
-assigns a review horizon to exactly three `type` strings — `decision` (six months), `policy`
-(twelve) and `preference` (three) — and the comment above the map states the consequence
-itself: *"Types absent from this map get `review_after` = NULL (Phase 1 behavior)."* Nine of
-this vocabulary's eleven types therefore have no review horizon and never appear in `mem_review`.
-The options are (a) ask upstream to extend that map, (b) make the canonical `type` one of
-Engram's values and move gamedev specificity into `topic_key` and tags, or (c) accept the gap
-and lean on `mem_doctor`. This record does not choose: (b) is the only option fully under this
-project's control, but it spends the vocabulary's specificity, which is the differentiator —
-so it is the owner's call, not this record's.
+**Decided: the vocabulary stays, and the request goes upstream.** `decayReviewAfterMonths`
+(`internal/store/store.go:380-384`) assigns a review horizon to exactly three `type` strings —
+`decision` (six months), `policy` (twelve) and `preference` (three) — and the comment above the
+map states the consequence itself: *"Types absent from this map get `review_after` = NULL
+(Phase 1 behavior)."* Nine of this vocabulary's eleven types therefore have no review horizon
+and never appear in `mem_review`.
+
+Three options were weighed. **(b) — make the canonical `type` one of Engram's values and move
+gamedev specificity into `topic_key` and tags — is rejected:** it is the only option this
+project can act on alone, and it spends the differentiator. Three consecutive revisions of this
+repository have been about the type list being the product; re-cutting it to fit a provisional
+mechanism in someone else's engine is backwards. **(c) — accept the gap and lean on
+`mem_doctor` — is rejected on the facts:** `mem_doctor` runs ten checks
+(`internal/diagnostic/checks.go`), and none of them reads `review_after`; it cannot see a stale
+memory at all. What remains is **(a): keep
+the vocabulary and ask upstream to extend the map — or better, to make the decay policy
+configurable**, since a per-type horizon is a statement about *our* types and belongs with the
+vocabulary rather than the engine.
+
+The cost of waiting is bounded, and that was verified rather than assumed. Nothing breaks and no
+capability is lost — and even where the horizon does exist it is Phase-1 coarse: it is written
+once on insert (`internal/store/store.go:3608`, which notes it "runs only for NEW inserts (not
+topic_key revisions or deduplication)"), no tool can set it (`UpdateObservation`,
+`internal/store/store.go:4302`, accepts title, content, find/replace, type, scope and
+`topic_key`), and the only other writer is `markReviewed`. So an actively-maintained `decision`
+memory still ages into `needs_review` while a stale `perf-gotcha` never does. The signal is
+coarse in both directions, which is a further reason not to redesign this vocabulary around it.
+
+In the meantime the review tools are not the whole of memory hygiene. `mem_search`'s rendered
+result line carries each memory's created date (`internal/mcp/mcp.go:1312`), so for the nine
+types the engine does not cover, age is read from the result and judged by the agent. Revisit
+this decision when Engram extends the map or makes it configurable; the change here would then
+be one commit.
 
 **Scope.** Every capability named here is local to one machine. No networked or multi-user
 behaviour is documented by this decision, and none is implied by it.

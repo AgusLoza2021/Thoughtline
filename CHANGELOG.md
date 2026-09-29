@@ -36,13 +36,16 @@ repeated there.
   `mem_delete`, `mem_pin`/`mem_unpin`, `mem_review`, `mem_doctor`, conflict resolution through
   `mem_judge`/`mem_compare`, passive capture via a `## Key Learnings:` section, and
   `capture_prompt: false` for automated saves.
-- **Recorded limitation, not fixed here**: `decayReviewAfterMonths`
+- **Decided, and it does not change the vocabulary**: `decayReviewAfterMonths`
   (`internal/store/store.go:380`) assigns a review horizon to exactly `decision`, `policy` and
   `preference`. Nine of this vocabulary's eleven types therefore have no review horizon and
-  never appear in `mem_review`. The documentation says so; it does not change the vocabulary.
+  never appear in `mem_review`. The fix is not to reshape the type list to fit someone else's
+  provisional map — the request goes upstream, to extend that map or make the decay policy
+  configurable.
 - [ADR 0007 — this repository owns the vocabulary, not the tool mechanics](docs/decisions/0007-vocabulary-not-mechanics.md)
   writes the ownership boundary down, pins the Engram revision its claims were read from, and
-  states the three ways out of the review-horizon gap without choosing one.
+  records that decision with its verified costs: option (b) spends the differentiator, option
+  (c) rests on `mem_doctor`, whose ten checks cannot see a stale memory at all.
 - **Scope**: local memory only. Nothing networked or multi-user is documented, and every
   capability named here is local to one machine.
 - **Why**: the vocabulary is the product; the mechanics belong to Engram. A page that prints no

@@ -236,8 +236,8 @@ hygiene here: for the other nine types, deciding that a memory has aged out is y
 usually expressed as a `mem_update` or a `mem_delete`. Engram's review machinery is real, and it
 covers two of our eleven types.
 
-See [ADR 0007](../decisions/0007-vocabulary-not-mechanics.md) for the three ways out of that gap,
-none of which has been taken.
+See [ADR 0007](../decisions/0007-vocabulary-not-mechanics.md) for why this vocabulary is
+deliberately not reshaped to fit that map, and what is being asked upstream instead.
 
 ---
 
