@@ -158,14 +158,16 @@ Bubbletea TUI. Standard model/update/view split (`model.go`, `update.go`, `view.
 
 ---
 
-## The MCP surface (9 tools)
+## The MCP surface (15 tools)
 
 All registered in `internal/server/server.go`. The text in each `register*` function is the description **the model reads** when deciding whether to call. Treat it as production prose.
 
 | Tool | What it does |
 |---|---|
-| `tl_save` | Persist a memory. Proactive — the agent calls this after decisions, gotchas, fixes, conventions. Supports `topic_key` upsert. |
-| `tl_search` | FTS5 BM25 over title+content with optional filters (`type`, `scope`, `project`, `topic_key` GLOB). Topic keys with `/` shortcut to O(1) GLOB lookup. Returns 300-char previews. |
+| Tool | What it does |
+|---|---|
+| `tl_save` | Persist a memory. Proactive — the agent calls this after decisions, gotchas, fixes, conventions. Supports `topic_key` upsert, and `tags` is a real field. |
+| `tl_search` | FTS5 BM25 over title+content with optional filters (`type`, `scope`, `project`, `topic_key` GLOB, `tags`) and an optional `recent_first` sort. A query containing `/` is matched against `topic_key` before FTS runs — as typed, then with an implicit trailing wildcard, so `design/auth` reaches `design/auth/jwt`. Returns 300-char previews. |
 | `tl_get_observation` | Fetch a single memory by id with full content + metadata. Use after `tl_search` when the snippet is truncated. |
 | `tl_context` | Most-recently-updated memories for the active project. Use at session start or post-compaction. |
 | `tl_update` | Patch a live memory: `title`, `content`, `tags` are mutable; `type`, `topic_key`, `project`, `scope` are not (delete + save to "move"). |
@@ -173,6 +175,12 @@ All registered in `internal/server/server.go`. The text in each `register*` func
 | `tl_session_start` | Open a session, return UUIDv7. Subsequent `tl_save` calls can pass `session_id` to attach. |
 | `tl_session_summary` | Close a session with a final digest. Mandatory before signing off. One-shot — sessions can only close once. |
 | `tl_stats` | Database snapshot: counts by type / project / scope, session counts, recent activity. Default scope is the active project; pass `project='*'` for everything. |
+| `tl_judge` | Format a comparison between a stored memory and one the agent is about to write. Read-only: it writes nothing and detects nothing — the caller supplies the relation. |
+| `tl_link` | Record a typed edge between two memories (`supersedes`, `contradicts`, `refines`, `depends_on`, `references`, `related`, `derived_from`). The only thing that survives a contradiction, because nothing detects one. |
+| `tl_related` | Read every edge on a memory, with the memory at the other end. How a superseded memory leads to its replacement. |
+| `tl_pending_list` | List hook events captured by the Claude Code plugin and not yet filed. Read-only on the wire. |
+| `tl_pending_get` | One captured event with its full raw payload. |
+| `tl_promote` | File captured events as memories under the fields the caller supplies. Per-event transactions, so a partial batch leaves the rest pending. The only tool that answers with JSON. |
 
 ---
 
