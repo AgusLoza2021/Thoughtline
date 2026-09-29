@@ -252,9 +252,17 @@ func renderDedupedEnvelope(existingID int64, existingCreatedAt, now time.Time) s
 func formatValidationError(err error) string {
 	switch {
 	case errors.Is(err, memory.ErrInvalidType):
-		return "invalid 'type' — must be one of: game-design-decision, scene-pattern, asset-reference, perf-gotcha, pipeline-step, script-pattern, bugfix, convention, preference"
+		// Built from the domain layer, never typed out here: the hand-written
+		// copy this replaces had already gone stale twice, and told the caller
+		// that `decision` and `architecture` were invalid after the migration
+		// that added them.
+		names := make([]string, 0, len(memory.AllTypes()))
+		for _, t := range memory.AllTypes() {
+			names = append(names, string(t))
+		}
+		return "invalid 'type' — must be one of: " + strings.Join(names, ", ")
 	case errors.Is(err, memory.ErrInvalidScope):
-		return "invalid 'scope' — must be 'project' or 'personal'"
+		return "invalid 'scope' — must be 'project' or 'personal'. The published catalogue also documents a 'global' scope, which this server does not accept."
 	case errors.Is(err, memory.ErrPreferenceMustBePersonal):
 		return "type 'preference' requires scope='personal'"
 	case errors.Is(err, memory.ErrNonPreferenceMustBeProject):
@@ -270,7 +278,7 @@ func formatValidationError(err error) string {
 	case errors.Is(err, memory.ErrContentTooLong):
 		return fmt.Sprintf("'content' too long (limit %d bytes). Split into smaller observations.", memory.MaxContentBytes)
 	case errors.Is(err, memory.ErrInvalidTopicKey):
-		return "'topic_key' format invalid. Use lowercase letters/digits/'/'/'_'/'-', start with a letter or digit, max 129 chars."
+		return "'topic_key' format invalid. Use lowercase letters/digits/'/'/'_'/'-'/'.', start with a letter or digit, max 129 chars."
 	case errors.Is(err, memory.ErrInvalidTag):
 		return "one of the 'tags' is invalid. Lowercase only, optional ':' for key:value, max 41 chars."
 	case errors.Is(err, memory.ErrInvalidSessionID):
