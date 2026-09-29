@@ -124,12 +124,25 @@ func TestBus_SlowSubscriberDrop(t *testing.T) {
 		}
 	}()
 
+	// Publish, yielding periodically so the fast consumer is scheduled while the
+	// loop runs. Without the yield this test measures the runner's scheduler
+	// rather than the bus: on a loaded runner the drain goroutine is starved for
+	// the whole loop, the buffer fills, and events are dropped as if nobody were
+	// draining. Eight events per yield against 64 slots leaves the buffer room.
 	for i := 0; i < publishCount; i++ {
 		smallBus.Publish(events.MemoryCreated{Brain: brainA, MemoryID: int64(i), At: time.Now()})
+		if i%8 == 0 {
+			runtime.Gosched()
+		}
 	}
 
-	// Give the fast consumer goroutine a moment to drain remaining buffered events.
-	time.Sleep(50 * time.Millisecond)
+	// Wait for the tail with a deadline rather than a fixed sleep. The same
+	// starvation that motivated the yield above made "50ms is enough" untrue on
+	// the same runners, and two lost events were reported as a bus defect.
+	deadline := time.Now().Add(5 * time.Second)
+	for received.Load() < publishCount && time.Now().Before(deadline) {
+		time.Sleep(time.Millisecond)
+	}
 
 	// Cancel both subs so the drain goroutine sees channel close.
 	cancelFast()
