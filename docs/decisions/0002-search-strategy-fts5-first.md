@@ -4,6 +4,8 @@
 - **Date**: 2026-04-28
 - **Supersedes**: —
 - **Related**: [ADR 0001](0001-architecture-baseline.md)
+- **Amended**: 2026-09-28 — the sources cited below were machine-local and one of them
+  pointed at the wrong line; see the amendment at the end of this record.
 
 ## Context
 
@@ -103,3 +105,53 @@ Existing rows remain untouched. A background `tl_reindex` tool can backfill embe
 - BM25 ranking call: `_engram-research/engram/internal/store/store.go:2630`
 - Topic-key shortcut: `_engram-research/engram/internal/store/store.go:2584`
 - SQLite FTS5 docs: <https://www.sqlite.org/fts5.html>
+
+## Amendment (2026-09-28) — the citations were machine-local, and two claims were wrong
+
+The References section above cites Engram at
+`_engram-research/engram/internal/store/store.go`. That path existed only on the authoring
+machine. It resolves for nobody reading this repository, so none of the claims it supported
+could be checked from here — including by the people the record was written for. Re-verified
+on 2026-09-28 against Engram at commit
+[`3687c2f8`](https://github.com/Gentleman-Programming/engram/tree/3687c2f82ded4735beab80d915cb8136a54cef63),
+file `internal/store/store.go`
+(<https://github.com/Gentleman-Programming/engram/blob/3687c2f82ded4735beab80d915cb8136a54cef63/internal/store/store.go>):
+
+| Cited as | At `3687c2f8` | What is there |
+| --- | --- | --- |
+| `:789-791`, reserved embedding columns | `:789-791` | `embedding` BLOB, `embedding_model` TEXT, `embedding_created_at` TEXT |
+| `:1832`, "FTS5 virtual table" | **`:633`** | `:1832` is `return nil, err`; the table is declared at `:633` |
+| `:2630-2656`, BM25 ranking | `:2630-2656` | the search SQL, from its `sqlQ` assignment to `ORDER BY fts.rank LIMIT ?` |
+| `:2584-2625`, topic-key shortcut | `:2584-2625` | opens with `if strings.Contains(query, "/") {` |
+
+Two of the four were wrong, and both were wrong in the direction of sounding more settled
+than they were:
+
+- **`:1832` was called "the FTS5 virtual table."** It is an error return branch. The table
+  this record means is declared at `:633` — `CREATE VIRTUAL TABLE IF NOT EXISTS
+  observations_fts USING fts5(` — and re-created twice more as the schema moved (`:1656`,
+  `:5288`). A citation to any one of them is a citation to a moment in that file, which is
+  why the commit is now pinned.
+- **`embedding_created_at` was written `INTEGER`.** Engram defines it `TEXT`. The claim the
+  decision actually rests on — that the columns are reserved and never written — holds and
+  is unaffected; the SQL type was remembered rather than read.
+- **There is no `bm25()` call to cite.** FTS5 ranks with its own BM25-derived `rank`, and
+  Engram orders by it (`ORDER BY fts.rank` at `:2655`, with `fts.rank` selected at `:2633`).
+  The original phrasing — search is "100% FTS5 + BM25" — describes the engine correctly and
+  is left standing; what the References line implied, a call site, does not exist.
+
+### The milestone this record names no longer exists
+
+The title and the Decision both place embeddings **in M5**. They arrive in **M6**. M5 was
+reassigned to the Dashboard release and Smarts/embeddings moved behind it — a renumbering
+recorded in [`../PROGRESS.md`](../PROGRESS.md) under "Roadmap renumbered", and already
+reflected in [`../ARCHITECTURE.md`](../ARCHITECTURE.md), whose status line and roadmap table
+both say M6. Read M5 as M6 throughout this record; the decision is otherwise unaffected.
+
+**Recorded here rather than quietly fixed**: the decision stands. FTS5-first with embeddings
+deferred is still the choice, and the reasoning that produced it — Engram had run in
+production for months without embeddings — is still the reason. What failed was the reading:
+four citations copied out of a working directory, one of them pointing at the wrong line, one
+SQL type recalled instead of read, and a milestone number that was renumbered in a progress
+log this record was never updated from. An Accepted ADR that cites source has to cite it at a
+revision a reader can open, or the citation is decoration.
