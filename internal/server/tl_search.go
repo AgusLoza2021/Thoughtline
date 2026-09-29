@@ -40,7 +40,7 @@ func registerTLSearch(srv *server.MCPServer, s *storage.Storage, cfg Config) {
 				mcp.Description("Keyword query. Each whitespace-delimited token is matched as a literal phrase (implicit AND). Queries containing '/' are first matched against topic_key as a GLOB pattern; if any rows match, FTS does not run."),
 			),
 			mcp.WithString("type",
-				mcp.Description("Optional filter — one of: game-design-decision, scene-pattern, asset-reference, perf-gotcha, pipeline-step, script-pattern, bugfix, convention, preference."),
+				mcp.Description("Optional filter — one of: " + typeNames + "."),
 			),
 			mcp.WithString("scope",
 				mcp.Description("Optional filter — 'project' or 'personal'."),

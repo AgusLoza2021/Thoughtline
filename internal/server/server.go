@@ -6,10 +6,28 @@
 package server
 
 import (
+	"strings"
+
 	"github.com/mark3labs/mcp-go/server"
 
+	"github.com/AgusLoza2021/Thoughtline/internal/memory"
 	"github.com/AgusLoza2021/Thoughtline/internal/storage"
 )
+
+// typeNames is the catalogue, read from the domain layer at boot: a
+// comma-separated list of every type the store accepts.
+//
+// Three surfaces used to hand-type this list -- the tl_save description, the
+// tl_search filter description, and the rejection message tl_save returns --
+// and by the time anyone checked, all three were wrong in different ways. One
+// of them still told callers that `decision` and `architecture` were invalid.
+var typeNames = func() string {
+	names := make([]string, 0, len(memory.AllTypes()))
+	for _, t := range memory.AllTypes() {
+		names = append(names, string(t))
+	}
+	return strings.Join(names, ", ")
+}()
 
 // Config knobs for the server. Project is the fallback project identifier
 // used when a tool call omits the `project` argument; in production it
