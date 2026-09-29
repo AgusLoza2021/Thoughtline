@@ -37,7 +37,7 @@ func registerTLSearch(srv *server.MCPServer, s *storage.Storage, cfg Config) {
 			mcp.WithDescription(tlSearchDescription),
 			mcp.WithString("query",
 				mcp.Required(),
-				mcp.Description("Keyword query. Each whitespace-delimited token is matched as a literal phrase (implicit AND). Queries containing '/' are first matched against topic_key as a GLOB pattern; if any rows match, FTS does not run."),
+				mcp.Description("Keyword query. Each whitespace-delimited token is matched as a literal phrase (implicit AND). A query containing '/' is treated as a topic key instead: it is matched against topic_key as a GLOB pattern, then retried as a prefix, and only if both find nothing does full-text search run. So 'design/auth' finds 'design/auth/jwt'."),
 			),
 			mcp.WithString("type",
 				mcp.Description("Optional filter — one of: " + typeNames + "."),
