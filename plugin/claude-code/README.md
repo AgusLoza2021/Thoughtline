@@ -16,6 +16,16 @@ were removed when the server was retired, so installing this directory
 registers nothing. What is left (hooks, skill, commands, agents, examples) is
 kept below as a record of how the plugin worked.
 
+Two things in here are still executable rather than descriptive, and both were left
+alone deliberately. `hooks/hooks.json` registers the retired binary's hook events,
+and `cmd/thoughtline/protocol.go` in the repository root is what emits the v0.1.0
+protocol markdown. The manifest a plugin needs in order to install is gone, so the
+manifest registers nothing; the hooks test reads it as archive evidence, so deleting
+it would break the record; and the emitted protocol *is* the record of what v0.1.0
+injected into a session — retargeting that output would edit the archive into
+disagreeing with itself. The files around them that are read as instructions (skill,
+commands, agent, examples) carry the retirement banner instead.
+
 ---
 
 > **Legacy — the v0.1.0 setup.** Everything below documents `thoughtline`, the
