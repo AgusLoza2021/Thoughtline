@@ -6,6 +6,59 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+> **This is not a release plan.** Thoughtline is retired; no release will ever carry any of this.
+> The entries below separate three different things: changes that landed on `main` and were
+> never released, work that was **parked mid-feature** before it was finished, and the
+> decisions that ended the project. Every parked entry says so in its own heading. Nothing
+> here is a promise, and no date below is a release date.
+
+### Removed — the retired server is no longer distributed (2026-09-28)
+
+- `.github/workflows/release.yml` — the only publishing path (a `v*.*.*` tag running
+  GoReleaser) — is gone, so no further release can be cut.
+- The Claude Code plugin manifests are gone: `plugin/claude-code/.claude-plugin/plugin.json`
+  (what made the plugin installable at all), `.claude-plugin/marketplace.json` (the listing)
+  and `plugin/claude-code/.mcp.json` (which registered `thoughtline serve` in a client).
+- `SECURITY.md` no longer describes a live local-first server, nor promises an
+  acknowledgement within 5 business days and a fix within 30 days. It states the retired
+  status and keeps only the two threat classes still worth reporting here: the frozen code,
+  and the automation around it.
+- **Why**: the repository declared the v0.1.0 MCP server retired while still publishing,
+  listing and supporting it. Those four things were the only parts that actively did so.
+- **Deliberately kept**: `scripts/install.{ps1,cmd}` and `.goreleaser.yaml` still exist and are
+  still linked from the docs — including from inside the byte-identical legacy blocks in
+  `docs/integrations/`. The installers run `go install ...@latest` against a module whose code
+  is still present, so their reach is unchanged: what changed is publication, not reach.
+- `ci.yml` and `plugin.yml` also stay — a build check and a protocol-contract check, not
+  distribution. They keep the archived code compiling and its contract tested.
+
+### Docs — the retired server is marked consistently (2026-09-28)
+
+Sixteen Markdown pages carried a `<!-- retired-v0.1.0 -->` banner, but the repository read as
+if the v0.1.0 MCP server were still current: six of those banners did not fix the page body,
+three pages the audit never covered had no banner at all, and three claims were simply false.
+
+The banner now names what replaced the server and each page whose body *is* the old
+documentation closes with a `Legacy` notice saying that what follows is a record, not steps to
+follow. Pages that keep a live half — `docs/AGENT-SETUP.md`, `docs/integrations/*` — put that
+half in front of the notice. Three pages the audit had missed are now covered:
+`docs/media/README.md`, `cmd/migrate/README.md` and `docs/pitch/why-thoughtline.md` (which
+keeps its Spanish, as that page always has).
+
+Three false claims are corrected in the same pass:
+
+- `docs/COMPARISON.md` no longer says the `check-no-claude-mem` scripts "still run in CI".
+  They were deleted with the AGPL firewall; the page says so and points at `CONTRIBUTING.md`.
+- `docs/decisions/0002-search-strategy-fts5-first.md` cited three `_engram-research` line
+  numbers that no longer pointed where the ADR said they did, and called one of them "the
+  FTS5 virtual table" when the line is `return nil, err`. The claims are corrected in an
+  appended `## Amendment`, each scoped to the revision it was verified at — including the
+  `bm25()` citation, which was true of that snapshot and is not true of Engram today.
+- `docs/research/*.md` keep their bodies: they are dated snapshots, not current
+  documentation. Each now ends with a `## What changed since this snapshot` note against
+  Engram's current `main`, which also fixes an undercount ("up to 16 tools") that was already
+  wrong when the snapshot was taken.
+
 ### Removed — the AGPL firewall (2026-09-24)
 
 - `scripts/check-no-claude-mem.{sh,ps1}` and their two CI steps are gone, along with the
@@ -26,7 +79,37 @@ The v0.1.0 Go MCP server — twelve `tl_*` tools, the SQLite schema, the Bubblet
 
 **Impact.** Your data is unaffected — and do **not** migrate memories *into* the retired server; keep them in Engram. The in-flight `storage-caps` and TUI work below is parked, and `main` is not a supported upgrade path.
 
-### Removed (BREAKING) — TUI flags (`tui-memory-workspace`)
+### Storage caps (`storage-caps`) — **parked mid-feature, never released**
+
+The first of two changes in the `architecture/token-economy` goal, which set out to cut the
+number of tokens a session spends on memory. This half bounded how much a single save can
+write and how much a single read can return. Phases 0–3 landed on `main` on 2026-05-15;
+**phase 4 — the integration test and the closing commit — never landed**, so the change was
+never verified, never archived, and produced no `openspec/` artifacts. Surviving `go test`
+coverage and the three commits below are the entire record of it.
+
+- **Observation cap** — `memory.MaxObservationChars = 50000`, enforced in `internal/server`
+  before validation: content over the limit is cut on a rune boundary and gets a
+  `…[truncated by Thoughtline at 50000 chars]` marker, so stored content is always valid
+  UTF-8 and exactly the cap in runes. It coexists with the pre-existing 64 KiB
+  `memory.MaxContentBytes` byte ceiling rather than replacing it.
+- **Dedupe window** — `storage.DedupeWindow = 15 * time.Minute` plus `Storage.DedupeCheck`:
+  a save that carries no `topic_key` and whose SHA-256 over `trim(title) + NUL + trim(content)`
+  already exists for the same brain returns the existing row instead of inserting a second one.
+  It runs only when `topic_key == ""`, so upsert semantics are untouched.
+- **Schema v6** — partial covering index `idx_memories_hash` on
+  `(brain_id, normalized_hash, created_at) WHERE deleted_at IS NULL`. Additive and idempotent;
+  applied automatically on first open.
+- **Context budget** — `server.ContextResponseMaxChars = 4000` for `tl_context`. Snippets
+  strip oldest-first, then whole entries drop oldest-first, and the newest entry is never
+  dropped (the newest-entry floor), so its ID always survives for post-compaction recovery.
+
+**Why it stopped.** The work was sound but half-shipped; it stopped because the project did.
+`main` is not an upgrade path, so finishing phase 4 would have added tests for a feature of a
+retired server. The resume checkpoint survives in Engram at `sdd/storage-caps/state`; the
+second change, `slim-inject`, was never started.
+
+### Removed (BREAKING) — TUI flags (`tui-memory-workspace`) — **parked, never released**
 - `--theme {brand|zbrush|mono}` CLI flag — single semantic palette replaces the multi-theme system
 - `--no-splash` CLI flag — splash screen removed
 - `--splash-ms N` CLI flag — splash duration setting removed
@@ -36,7 +119,7 @@ Invoking any of the removed flags prints a friendly migration error to stderr an
 thoughtline ui: --theme was removed in v0.2 (single semantic palette). See CHANGELOG.md.
 ```
 
-### Added — Tabbed Memory Workspace TUI (`tui-memory-workspace`)
+### Added — Tabbed Memory Workspace TUI (`tui-memory-workspace`) — **parked, never released**
 - 6 tabs (Home, Memories, Search, Inbox, Sessions, Help) reachable with digit keys 1-6 or `tab` / `shift+tab`
 - Global Quick Actions hotkeys: `[S]` save (CLI/MCP hint), `[/]` search, `[M]` memories, `[I]` inbox
 - Inbox tab with `[A]` accept, `[E]` edit-then-promote, `[R]` reject for pending captures from `tl_capture`
@@ -46,12 +129,12 @@ thoughtline ui: --theme was removed in v0.2 (single semantic palette). See CHANG
 - Help tab with a single-source-of-truth keybindings registry and roadmap rendered from `roadmap.yaml`
 - Drift test guards `keybindings.go` against silent divergence from `flat_model.go`'s Update ladder
 
-### Changed — TUI (`tui-memory-workspace`)
+### Changed — TUI (`tui-memory-workspace`) — **parked, never released**
 - Single semantic palette replaces the multi-theme system: cyan/blue = navigation, purple `#C4A7E7` = brand, green = success, yellow = warn, red = error, gray = meta. Carry-over: the gamedev-purple Brand color is preserved from the predecessor Rose-Pine-Moon palette.
 - Brand surface: text `🧠 Thoughtline` (with the muted tagline `Local memory for game projects`) replaces the block-letter ASCII art
 - Project Health card on the Home tab now shows GLOBAL counts across all projects (previously scoped to the cwd basename which caused 0-count bugs in v0.1.0)
 
-### Storage (`tui-memory-workspace`)
+### Storage (`tui-memory-workspace`) — **parked, never released**
 - New `storage.MarkRejected(ctx, id)` method backing the inbox `[R]` reject action
 - Schema migrated to v5 (adds `rejected` to the `pending_events` status CHECK constraint) — runs automatically on first start and preserves all existing data
 
