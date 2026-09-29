@@ -1,15 +1,13 @@
 // Package memory defines the core domain types for Thoughtline.
 //
-// Status: archived with the v0.1.0 MCP server. This package is the domain layer
-// of the retired engine. It still compiles and its tests still pass, and it is
-// kept as the record of what that server enforced. It is not the product, and it
-// is not the normative vocabulary.
+// Status: live. This package is the domain layer, and the server validates every
+// save through it: a save carrying a type outside the eleven values below is
+// rejected rather than stored.
 //
-// The live catalogue is docs/design/memory-domain.md, and it is maintained
-// independently of this package. The two have deliberately diverged: the
-// catalogue carries fourteen types in two tiers, models a `global` scope, and
-// permits a dot in `topic_key` for version numbers. This copy knows none of that,
-// on purpose — it is frozen at what the v0.1.0 server accepted.
+// The catalogue in docs/design/memory-domain.md is broader than this package, and
+// the two currently disagree. The catalogue carries fourteen types in two tiers,
+// documents a `global` scope, and permits a dot in `topic_key` for version
+// numbers; none of the three is accepted here.
 //
 // A Memory is a single observation persisted by the user (via an AI assistant
 // calling tl_save). Each Memory carries:
@@ -17,9 +15,9 @@
 //   - Type        — one of the eleven values this package closes the set to; see
 //                   AllTypes.
 //   - Scope       — project (default; tied to a project id) or personal
-//                   (cross-project, per-developer ergonomics). Only the two
-//                   values the v0.1.0 server modelled; the live rules also allow
-//                   `global`, which this package does not represent.
+//                   (cross-project, per-developer ergonomics). Only those two
+//                   are accepted; the catalogue also documents `global`, which
+//                   this package does not represent.
 //   - TopicKey    — optional stable key for evolving topics. When set, tl_save
 //                   upserts: same project + same topic_key replaces the prior
 //                   row, preserving created_at and bumping revision_count.
@@ -39,6 +37,4 @@
 // concerns — those belong in internal/storage. The split keeps the domain
 // reusable across storage backends.
 //
-// It is kept for the record: the split, the sentinel errors and the frozen type
-// set are what the retired server shipped.
 package memory
