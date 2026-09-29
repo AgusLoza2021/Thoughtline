@@ -20,6 +20,9 @@ func registerTLPendingList(srv *server.MCPServer, s *storage.Storage, cfg Config
 		mcp.NewTool("tl_pending_list",
 			mcp.WithTitleAnnotation("List Pending Events"),
 			mcp.WithReadOnlyHintAnnotation(true),
+			mcp.WithDestructiveHintAnnotation(false),
+			mcp.WithIdempotentHintAnnotation(true),
+			mcp.WithOpenWorldHintAnnotation(false),
 			mcp.WithDescription(`List raw hook events waiting for promotion.
 
 Returns a paginated list of pending events captured by thoughtline hook. Use

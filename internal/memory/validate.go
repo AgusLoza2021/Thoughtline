@@ -1,6 +1,7 @@
 package memory
 
 import (
+	"fmt"
 	"regexp"
 	"strings"
 	"unicode/utf8"
@@ -9,14 +10,17 @@ import (
 )
 
 // topicKeyRe enforces the topic-key shape this server accepts: lowercase letters,
-// digits, slash, underscore, hyphen and dot; must start with [a-z0-9]; total
-// length 2..129 chars (1 lead + 1..128 trail). The dot is there for version
-// numbers, which are the only dotted keys the catalogue's measurement found.
-var topicKeyRe = regexp.MustCompile(`^[a-z0-9][a-z0-9/_.-]{1,128}$`)
+// digits, slash, underscore, hyphen and dot; must start with [a-z0-9]; at most
+// MaxTopicKeyLen characters in total. The dot is there for version numbers,
+// which are the only dotted keys the catalogue's measurement found.
+//
+// Built from MaxTopicKeyLen so the constant and the pattern cannot disagree.
+var topicKeyRe = regexp.MustCompile(fmt.Sprintf(`^[a-z0-9][a-z0-9/_.-]{1,%d}$`, MaxTopicKeyLen-1))
 
 // tagRe enforces the tag shape: lowercase, digit, colon, underscore, hyphen;
-// must start with [a-z0-9]; total length 1..41 chars.
-var tagRe = regexp.MustCompile(`^[a-z0-9][a-z0-9:_-]{0,40}$`)
+// must start with [a-z0-9]; at most MaxTagLen characters in total. Built from
+// the constant for the same reason.
+var tagRe = regexp.MustCompile(fmt.Sprintf(`^[a-z0-9][a-z0-9:_-]{0,%d}$`, MaxTagLen-1))
 
 // Validate enforces the domain rules the server applies to every save: the
 // fourteen types this package closes, the two scopes below, the topic-key shape
