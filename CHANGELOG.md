@@ -12,6 +12,45 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 > decisions that ended the project. Every parked entry says so in its own heading. Nothing
 > here is a promise, and no date below is a release date.
 
+### Fixed — two CI flakes that were test defects, not engine defects (2026-09-29)
+
+Two tests in `internal/events` were intermittently red on CI, and both were measuring the
+scheduler rather than the bus:
+
+- `TestBus_SlowSubscriberDrop` waited a fixed 50 ms for a concurrently-draining goroutine while
+  the publish loop ran flat out. On a loaded runner that goroutine was scheduled zero times
+  during the loop, so the 64-slot buffer filled and events were dropped as if nobody were
+  reading — `want 100 events, got 98`, then `got 80`. Reproduced locally with `-cpu=1` as
+  `got 64`, exactly the buffer size. It now yields every eight publishes and waits for the tail
+  against a deadline.
+- `TestBus_GoroutineLeak` censused `runtime.NumGoroutine()` while every other test in its
+  package ran in parallel, two of them spawning 100 publisher goroutines each, and a goroutine
+  stays countable for a moment after its work is done. It reported theirs as its own leak:
+  `before 12, after 46`, against a tolerance of 5. The bus starts no goroutines at all. That
+  test no longer runs in parallel.
+
+`internal/events/bus.go` is untouched by both fixes.
+
+### Docs — the type catalogue stops denying what agents are told to use (2026-09-29)
+
+Every agent session on this stack is instructed with the same seven types —
+`bugfix | decision | architecture | discovery | pattern | config | preference`. The catalogue
+agreed with four of them. Measured against 2,336 real observations in 13 projects, 579
+(24.8%) carried one of the three the catalogue called invalid, and `discovery` alone
+accounted for 447 of those: the most-chosen agent type in every single project. The seven
+types this repository had added for game work accounted for 4 uses across the same 2,336.
+
+Those seven now accept a smaller job rather than being deleted. The catalogue is two tiers:
+seven core types, which is what the ecosystem already teaches, ordered by measured use; and
+seven optional game-dev extensions. Three rule defects went with it: `scope` now documents
+`global` (30 measured uses across six projects, against a claim that it did not exist),
+`topic_key` permits a dot (all four dotted keys measured are version numbers), and every
+count in every live document moved from eleven to fourteen.
+
+[`docs/design/memory-domain.md`](docs/design/memory-domain.md) is now the only complete copy
+of the list. It previously appeared in fifteen files, this one included. The preset keeps the core seven
+because it is copied out of this repository into other projects, and it says why.
+
 ### Docs — the adoption path stops being homework (2026-09-29)
 
 The README's step 3 told the reader to "put the type list into whatever your editor calls
@@ -23,7 +62,7 @@ server did carry one: `serverInstructions` in `internal/server/server.go` primes
 the vocabulary, the `topic_key` patterns and proactive saving. The successor dropped it.
 
 [`presets/AGENTS.md`](presets/AGENTS.md) is that artifact, restored as a file you copy into your
-own project: when to save, the eleven types with their `topic_key` patterns, the four-line
+own project: when to save, the seven core types with their `topic_key` patterns, the four-line
 content shape, where tags actually live now that Engram has no tags field, and the hard rules
 with what each one costs when it drifts. It is what README step 3 links to, and what
 `memory-domain.md` points at.
@@ -59,7 +98,7 @@ repeated there.
   `capture_prompt: false` for automated saves.
 - **Decided, and it does not change the vocabulary**: `decayReviewAfterMonths`
   (`internal/store/store.go:380`) assigns a review horizon to exactly `decision`, `policy` and
-  `preference`. Nine of this vocabulary's eleven types therefore have no review horizon and
+  `preference`. Twelve of this vocabulary's fourteen types therefore have no review horizon and
   never appear in `mem_review`. The fix is not to reshape the type list to fit someone else's
   provisional map — the request goes upstream, to extend that map or make the decay policy
   configurable.

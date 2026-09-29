@@ -124,12 +124,25 @@ func TestBus_SlowSubscriberDrop(t *testing.T) {
 		}
 	}()
 
+	// Publish, yielding periodically so the fast consumer is scheduled while the
+	// loop runs. Without the yield this test measures the runner's scheduler
+	// rather than the bus: on a loaded runner the drain goroutine is starved for
+	// the whole loop, the buffer fills, and events are dropped as if nobody were
+	// draining. Eight events per yield against 64 slots leaves the buffer room.
 	for i := 0; i < publishCount; i++ {
 		smallBus.Publish(events.MemoryCreated{Brain: brainA, MemoryID: int64(i), At: time.Now()})
+		if i%8 == 0 {
+			runtime.Gosched()
+		}
 	}
 
-	// Give the fast consumer goroutine a moment to drain remaining buffered events.
-	time.Sleep(50 * time.Millisecond)
+	// Wait for the tail with a deadline rather than a fixed sleep. The same
+	// starvation that motivated the yield above made "50ms is enough" untrue on
+	// the same runners, and two lost events were reported as a bus defect.
+	deadline := time.Now().Add(5 * time.Second)
+	for received.Load() < publishCount && time.Now().Before(deadline) {
+		time.Sleep(time.Millisecond)
+	}
 
 	// Cancel both subs so the drain goroutine sees channel close.
 	cancelFast()
@@ -277,8 +290,15 @@ func TestBus_MultipleSubscribersSameBrain(t *testing.T) {
 }
 
 // TestBus_GoroutineLeak — subscribe+cancel N times; goroutine count stable.
+//
+// Deliberately not parallel. This test censuses runtime.NumGoroutine(), which is
+// only a meaningful measurement when nothing else is running: every other test in
+// this package calls t.Parallel(), and two of them spawn 100 publisher goroutines
+// each. A goroutine stays countable for a short while after its work is done, so
+// a census taken beside them reports their goroutines as this test's leak. It did
+// exactly that on a loaded windows runner — "before 12, after 46" against a
+// tolerance of 5 — for a bus that provably starts no goroutines at all.
 func TestBus_GoroutineLeak(t *testing.T) {
-	t.Parallel()
 	bus := events.NewWithBuffer(4)
 	const brainA int64 = 1
 

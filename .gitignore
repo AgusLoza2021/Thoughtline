@@ -53,3 +53,8 @@ logs/
 
 # ODD feature tracking (local working notes, mirrors Engram)
 odd/
+
+# Local runtime state — machine-specific, never source, never shared
+.atl/
+.codegraph/
+.claude/settings.local.json

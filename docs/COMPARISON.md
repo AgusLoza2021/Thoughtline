@@ -16,7 +16,7 @@ Three names come up when you search for "memory for an AI coding assistant". The
 
 **[claude-mem](https://github.com/thedotmack/claude-mem) is a different bet on that same layer.** Rather than waiting to be told what to save, it captures what your agent does during a session, compresses it with AI, and injects the relevant parts back later. You install it instead of the other one, not alongside it.
 
-**Thoughtline is neither.** It is the vocabulary: the eleven `type` values and the tag conventions that decide what a memory is *called*. It sits on top of an explicit-save server, which today means Engram. It is documents, not a binary — there is nothing to install and no third slot in your config.
+**Thoughtline is neither.** It is the vocabulary: the `type` values and the tag conventions that decide what a memory is *called*. It sits on top of an explicit-save server, which today means Engram. It is documents, not a binary — there is nothing to install and no third slot in your config.
 
 ## A layer and two servers, not three columns
 
@@ -39,7 +39,7 @@ Two servers, one slot in your editor's config. The axis that separates them is w
 | Typing | Explicit: the caller names the `type`. Because typing is a choice, a vocabulary is possible at all | Capture is not a typing step, so a shared vocabulary is not something you can hand it by design |
 | Who can contribute a save | Anything that speaks MCP | The tool, watching the session |
 | Licence | MIT | Apache-2.0 |
-| Adoption, measured 2026-09-24 | ~6.8k stars | ~94.6k stars |
+| Adoption, measured 2026-09-29 | 6,931 stars | 94,903 stars |
 
 That last row is a snapshot, not a verdict — counts move, and they measure attention rather than fit. Check both repositories before you weight it.
 
@@ -47,7 +47,7 @@ Neither row says which is better, because "better" depends on a question only yo
 
 ## What this repository adds to a server
 
-1. **A gamedev vocabulary decided in advance.** Without one, every session invents its own words and the store fills with mush — see the [memory domain](design/memory-domain.md) for why a field that accepts any string gives you no shared language. The eleven types (`scene-pattern`, `asset-reference`, `perf-gotcha`, `pipeline-step`, `script-pattern`, …) exist so that "the lantern texture import settings that didn't blow out the bloom" has a category before you need one.
+1. **A vocabulary decided in advance.** Without one, every session invents its own words and the store fills with mush — see the [memory domain](design/memory-domain.md) for why a field that accepts any string gives you no shared language. The types exist so that "the lantern texture import settings that didn't blow out the bloom" has a category before you need one. Seven of them are the ones the agent ecosystem already teaches (`discovery`, `architecture`, `bugfix`, `decision`, `config`, `pattern`, `preference`); seven more are optional game-dev extensions. That list lives in the memory domain and nowhere else.
 2. **Tags tuned for engines and pipelines.** `engine:unity`, `platform:switch`, `pipeline:fbx-to-godot` — see [tag conventions](design/tag-conventions.md), including where tags actually live now that they are not a field.
 3. **Adoption docs per editor and per engine.** The [integration guides](integrations/) exist so that step 3 of the README — teaching the agent the words — is copy-paste rather than a research project.
 

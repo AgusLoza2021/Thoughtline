@@ -5,8 +5,10 @@ import (
 	"time"
 )
 
-// Type is the kind of memory being stored. The set is closed by design — see
-// docs/design/memory-domain.md for the rationale and per-type usage.
+// Type is the kind of memory being stored. This package closes the set to the
+// eleven values below, and that closure is frozen with the retired v0.1.0 server.
+// The live catalogue is neither closed nor this list; it lives in
+// docs/design/memory-domain.md.
 type Type string
 
 const (
@@ -40,7 +42,8 @@ func AllTypes() []Type {
 	}
 }
 
-// Valid reports whether t is one of the catalogued types.
+// Valid reports whether t is one of the eleven types this package closes the set
+// to. It says nothing about the live catalogue, which is broader.
 func (t Type) Valid() bool {
 	for _, allowed := range AllTypes() {
 		if t == allowed {
@@ -51,7 +54,8 @@ func (t Type) Valid() bool {
 }
 
 // Scope governs whether a memory belongs to a specific project or travels
-// with the developer across projects.
+// with the developer across projects. Only the two values the v0.1.0 server
+// modelled; the live rules also allow `global`.
 type Scope string
 
 const (

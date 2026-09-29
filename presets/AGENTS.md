@@ -23,21 +23,21 @@ One good memory beats five fragments. If a memory with the same `topic_key` alre
 
 | `type` | Use it for | `topic_key` pattern |
 | --- | --- | --- |
-| `game-design-decision` | A gameplay or design choice and its "why" | `design/<system>/<choice>` |
-| `scene-pattern` | A recurring entity hierarchy or component setup | `scene/<engine>/<pattern>` |
-| `asset-reference` | An asset's path, source, import settings, and why | `asset/<category>/<name>` |
-| `perf-gotcha` | A performance trap you only learn by hitting it | `perf/<platform>/<area>` |
-| `pipeline-step` | A reproducible asset or build pipeline step | `pipeline/<source>-to-<target>/<kind>` |
-| `script-pattern` | An engine-script idiom worth reusing | `script/<engine>/<concept>` |
-| `bugfix` | A bug, its root cause, and the fix | usually omit it; `bug/<area>` if it recurs |
-| `convention` | A project-wide naming or structure rule | `convention/<area>` |
-| `preference` | Per-developer ergonomics — **`scope` MUST be `personal`** | `preference/<area>` |
-| `decision` | A technical or product decision with cross-session weight | `decision/<area>/<choice>` |
+| `discovery` | Something non-obvious you found out that no existing memory covers | `<domain>/<subject>` |
 | `architecture` | System structure: packages, boundaries, contracts | `architecture/<area>` |
+| `bugfix` | A bug, its root cause, and the fix | usually omit it; `bug/<area>` if it recurs |
+| `decision` | A technical or product decision with cross-session weight | `decision/<area>/<choice>` |
+| `config` | A setting, flag or version pin whose exact value has to be reproduced | `config/<area>` |
+| `pattern` | A solution shape you would reuse in a different file | `pattern/<area>` |
+| `preference` | Per-developer ergonomics — **`scope` MUST be `personal`** | `preference/<area>` |
+
+These seven are ordered by measured use across 2,336 real memories in 13 projects, and that is why they are the seven: `discovery` 447, `architecture` 391, `bugfix` 390, `decision` 326, `config` 84, `pattern` 48, `preference` 42. Every agent session on this stack is already told to choose from this list, so a catalogue that contradicts it gets contradicted right back.
 
 If nothing fits, **pick the closest one — do not invent a type.** An invented type is invisible to every future search by category, which is the exact failure this vocabulary exists to prevent. If a type is genuinely missing, open an issue; new types are additive.
 
-> Engram's own tools write their own types (`session_summary`, for example). That is fine and out of scope — this table governs the memories *you* decide to save.
+A game project can also reach for the optional extensions — `game-design-decision`, `scene-pattern`, `asset-reference`, `perf-gotcha`, `pipeline-step`, `script-pattern`, `convention`. They are not in the table because nothing measured has needed one: together they account for 4 of those 2,336 memories. This file is copied out of its own repository, so it stays self-contained by design; the full catalogue, with the required sections and a worked example per type, is at [`docs/design/memory-domain.md`](https://github.com/AgusLoza2021/Thoughtline/blob/main/docs/design/memory-domain.md).
+
+> Engram's own tools write their own types (`session_summary`, `manual`). That is fine and out of scope — this table governs the memories *you* decide to save.
 
 ## 3. Shape the content
 
@@ -50,7 +50,7 @@ Every memory carries at least these four lines:
 **Learned**: gotchas, surprises, what you would do differently.
 ```
 
-Types that ask for more, get more: `game-design-decision` wants *Alternatives considered*; `perf-gotcha` wants *Symptom* / *Root cause* / *Fix*; `pipeline-step` wants numbered *Steps* plus a *Verification*; `asset-reference` wants *Path* / *Source* / *Import settings* / *Reason*.
+Types that ask for more, get more: `bugfix` wants *Symptom* / *Root cause* / *Fix*; `decision` wants *Alternatives considered*; `config` wants *Why this value*; `pattern` wants *When NOT to use it*.
 
 Write for the next session, not for the current one. **A memory nobody can act on is worse than no memory — it looks like knowledge.**
 
@@ -82,8 +82,8 @@ These are not style preferences. Each one costs you something concrete when it d
 | `title` is non-empty and ≤ 200 characters | Titles stop working as an index; search results read as a wall of sentences |
 | `content` is non-empty and self-contained | The memory looks like knowledge but the next session cannot act on it |
 | **Always pass `project`** | The memory becomes invisible to every per-project recall |
-| `scope` is `project` or `personal`; `preference` **must** be `personal`, everything else `project` | Memories leak across projects, or hide from the project that needs them |
-| `topic_key`, when present, is lowercase with no spaces and no leading slash (`^[a-z0-9][a-z0-9/_-]{1,128}$`) | Nothing breaks loudly — the key quietly stops being greppable |
+| `scope` is `project`, `personal` or `global`; `preference` **must** be `personal`, everything else `project` | Memories leak across projects, or hide from the project that needs them |
+| `topic_key`, when present, is lowercase with no spaces and no leading slash (`^[a-z0-9][a-z0-9/_.-]{1,128}$`); dots only for version numbers | Nothing breaks loudly — the key quietly stops being greppable |
 | Tags match `^[a-z0-9][a-z0-9:_-]{0,40}$`, lowercase | Tags misspell themselves into invisibility |
 | Keep `content` well under 64 KiB | Engram does not enforce a limit; very large memories degrade search and recall |
 

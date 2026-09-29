@@ -31,7 +31,7 @@ You stop re-explaining things like:
 - That Android batching gotcha on the chairs — the draw-call count you couldn't cross
 - The animation curve numbers your animator finally locked in
 
-Memories are typed (`scene-pattern`, `asset-reference`, `perf-gotcha`, `pipeline-step`, `script-pattern`) and tagged (`engine:unity`, `platform:switch`, `pipeline:fbx-to-godot`) so you can search them later.
+Memories are typed (`discovery`, `bugfix`, `decision`, `config`, `pattern`) and tagged (`engine:unity`, `platform:switch`, `pipeline:fbx-to-godot`) so you can search them later.
 
 **Any engine** — Unity, Unreal, Godot, PlayCanvas, Bevy, your own.
 **Any AI tool that speaks MCP** — Claude Code, Cursor, Zed, Rider, Visual Studio, JetBrains.
@@ -42,7 +42,7 @@ Memories are typed (`scene-pattern`, `asset-reference`, `perf-gotcha`, `pipeline
 
 This is the part worth understanding before adopting anything, because it explains why the rest of this repository is documents instead of code.
 
-Engram stores an observation's `type` as a **free-form string**. It accepts `perf-gotcha` exactly as happily as `bugfix` — verified end to end: save with a type of `perf-gotcha`, read it back, and it returns byte-for-byte unchanged. That is a deliberate and correct choice for a general-purpose tool.
+Engram stores an observation's `type` as a **free-form string**. It accepts `perf_bugfix_thing` exactly as happily as `bugfix` — verified end to end: save under an invented type, read it back, and it returns byte-for-byte unchanged. That is a deliberate and correct choice for a general-purpose tool.
 
 But a field that accepts anything gives you no *shared* language — and a memory you cannot search by category is a memory you will not find again. Left to its own devices, every session invents its own words and the store slowly fills with mush.
 
@@ -59,21 +59,21 @@ So the division of labour is:
 
 ## The taxonomy
 
-Eleven types, each with a reason to exist. The full specification — including the tag vocabulary (`engine:`, `platform:`, `pipeline:`) and worked examples per engine — lives in [`docs/design/tag-conventions.md`](docs/design/tag-conventions.md) and [`docs/design/memory-domain.md`](docs/design/memory-domain.md).
+Seven core types, each with a reason to exist, ordered by measured use across 2,336 real memories in 13 projects. The full catalogue — the required sections per type, the tag vocabulary (`engine:`, `platform:`, `pipeline:`) and worked examples per engine — lives in [`docs/design/memory-domain.md`](docs/design/memory-domain.md) and [`docs/design/tag-conventions.md`](docs/design/tag-conventions.md). That file is the only place the complete catalogue lives; the table below is the short version.
 
-| Type                   | What it captures                                                         |
-| ---------------------- | ------------------------------------------------------------------------ |
-| `game-design-decision` | Design choices and the reasoning behind them                             |
-| `scene-pattern`        | Recurring entity hierarchies / component setups in your engine of choice |
-| `asset-reference`      | Path, version, import settings, and origin of a model/texture/sound      |
-| `perf-gotcha`          | Performance traps you only learn by hitting them (drawcalls, GC, batching) |
-| `pipeline-step`        | A reproducible step in your asset/build pipeline (Blender → engine, etc.) |
-| `script-pattern`       | An engine-script idiom worth remembering                                 |
-| `bugfix`               | Bug + root cause + fix, with engine/platform tags                        |
-| `convention`           | Naming, structure, project-wide rules                                    |
-| `preference`           | Per-developer ergonomics (scope = personal)                              |
-| `decision`             | Technical or architectural decisions with rationale (project-scoped)     |
-| `architecture`         | System-level structural knowledge: packages, boundaries, contracts       |
+| Type           | Measured use | What it captures                                                    |
+| -------------- | ------------ | ------------------------------------------------------------------- |
+| `discovery`    | 447          | Something non-obvious you found out that no existing memory covers   |
+| `architecture` | 391          | System structure: packages, boundaries, contracts                   |
+| `bugfix`       | 390          | A bug, its root cause, and the fix                                  |
+| `decision`     | 326          | A technical or product decision with rationale                      |
+| `config`       | 84           | A setting, flag or version pin whose exact value has to be reproduced |
+| `pattern`      | 48           | A reusable solution shape                                           |
+| `preference`   | 42           | Per-developer ergonomics (scope = personal)                         |
+
+These seven are the ones every agent session on this stack is already told to choose from — `type: bugfix | decision | architecture | discovery | pattern | config | preference`. A catalogue that disagrees with that instruction gets contradicted back, which is how the previous revision of this table ended up with 24.8% of a real store typed in words it declared invalid.
+
+Game projects can also reach for seven optional extensions — `game-design-decision`, `scene-pattern`, `asset-reference`, `perf-gotcha`, `pipeline-step`, `script-pattern`, `convention` — documented in the same file. Together they account for 4 of those 2,336 memories, so they are available rather than recommended.
 
 Each memory carries the same envelope: `topic_key`, `scope`, `project`, `created_at`, `revision_count`, free-form content.
 
@@ -90,7 +90,7 @@ Each memory carries the same envelope: `topic_key`, `scope`, `project`, `created
 
 ## How this relates to Engram
 
-Engram is the engine, and it is excellent: **6,800+ stars, 30 releases, shipping continuously**, with SQLite + FTS5, an MCP server, an HTTP API, a CLI and its own TUI. It is the general-purpose tool, and its vocabulary is deliberately unspecified.
+Engram is the engine, and it is excellent: **6,931 stars and 30 releases, measured on 2026-09-29**, with SQLite + FTS5, an MCP server, an HTTP API, a CLI and its own TUI. It is the general-purpose tool, and its vocabulary is deliberately unspecified.
 
 Thoughtline is **the opinionated layer on top**: the vocabulary, and the engine-specific guidance that goes with it. One repository provides the machinery; this one provides the language for a particular kind of work.
 
