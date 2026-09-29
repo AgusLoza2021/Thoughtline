@@ -12,6 +12,26 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 > decisions that ended the project. Every parked entry says so in its own heading. Nothing
 > here is a promise, and no date below is a release date.
 
+### Docs — the type catalogue stops denying what agents are told to use (2026-09-29)
+
+Every agent session on this stack is instructed with the same seven types —
+`bugfix | decision | architecture | discovery | pattern | config | preference`. The catalogue
+agreed with four of them. Measured against 2,336 real observations in 13 projects, 579
+(24.8%) carried one of the three the catalogue called invalid, and `discovery` alone
+accounted for 447 of those: the most-chosen agent type in every single project. The seven
+types this repository had added for game work accounted for 4 uses across the same 2,336.
+
+Those seven now accept a smaller job rather than being deleted. The catalogue is two tiers:
+seven core types, which is what the ecosystem already teaches, ordered by measured use; and
+seven optional game-dev extensions. Three rule defects went with it: `scope` now documents
+`global` (30 measured uses across six projects, against a claim that it did not exist),
+`topic_key` permits a dot (all four dotted keys measured are version numbers), and every
+count in every live document moved from eleven to fourteen.
+
+[`docs/design/memory-domain.md`](docs/design/memory-domain.md) is now the only complete copy
+of the list. It previously appeared in fourteen files. The preset keeps the core seven
+because it is copied out of this repository into other projects, and it says why.
+
 ### Docs — the adoption path stops being homework (2026-09-29)
 
 The README's step 3 told the reader to "put the type list into whatever your editor calls

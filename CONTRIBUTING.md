@@ -19,11 +19,11 @@ go vet ./...
 
 The default storage path is `$THOUGHTLINE_HOME/thoughtline.db`, falling back to a per-OS data directory.
 
-> **The Go engine is archived, and it is not the product.** The live part of this repository is the vocabulary: [`docs/design/`](docs/design/), [`internal/memory/`](internal/memory/) (the normative type list) and [`presets/AGENTS.md`](presets/AGENTS.md) (what your agent reads). Building the engine still works, and it is worth doing if you are changing its historical record — but a change that only touches the vocabulary needs no Go build at all.
+> **The Go engine is archived, and it is not the product.** The live part of this repository is the vocabulary: [`docs/design/memory-domain.md`](docs/design/memory-domain.md) (the type catalogue, and the only complete copy of it) and [`presets/AGENTS.md`](presets/AGENTS.md) (what your agent reads). [`internal/memory/`](internal/memory/) is the archived engine's copy of the same list. Building the engine still works, and it is worth doing if you are changing its historical record — but a change that only touches the vocabulary needs no Go build at all.
 
 ## Code conventions
 
-- **Package layout**: `cmd/thoughtline` (entry), `internal/server` (MCP wiring), `internal/storage` (SQLite), `internal/memory` (domain types). The split is deliberate — keep it. Note that only `internal/memory` is still normative: it holds the type catalogue that `presets/AGENTS.md` teaches, and its tests are what fix the set at eleven types.
+- **Package layout**: `cmd/thoughtline` (entry), `internal/server` (MCP wiring), `internal/storage` (SQLite), `internal/memory` (domain types). The split is deliberate — keep it. Note that the type catalogue is no longer wired to this code: it lives in [`docs/design/memory-domain.md`](docs/design/memory-domain.md), and `internal/memory` holds the archived engine's old copy of it.
 - **No CGO**. We use `modernc.org/sqlite` precisely to keep cross-compilation trivial. PRs that introduce CGO will be asked to revert.
 - **Error wrapping**: use `fmt.Errorf("...: %w", err)`. Surface root causes; don't swallow them.
 - **Logs to stderr only**. stdout is reserved for MCP protocol traffic.

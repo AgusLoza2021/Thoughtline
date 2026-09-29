@@ -45,7 +45,7 @@ copy identical text into every host."*
 
 **1. This repository does not restate another project's tool mechanics.**
 `docs/integrations/claude-code-protocol.md` teaches what this repository owns — the
-vocabulary (which of the eleven types, where tags go, how `topic_key` is shaped) and the
+vocabulary (which of the catalogued types, where tags go, how `topic_key` is shaped) and the
 behaviour that follows from it (when to save, when to correct a memory instead of saving
 it twice, what to pin, how to treat a recalled memory that is stale or contested, how to
 close a session and leave learnings behind). For mechanics it points at Engram's canonical
@@ -64,7 +64,7 @@ repository — the previous pinned reading was `3687c2f`, and the difference bet
 two is exactly the kind of drift a citation is supposed to expose.
 
 **4. The `type` vocabulary remains this repository's, and it is a recommendation.**
-Eleven types tuned to gamedev work is the project's reason to exist. Engram does not
+The type list is the project's reason to exist. Engram does not
 enforce them, and this repository will not pretend otherwise: the guidance is to always
 pass a type, not a claim that the server checks one.
 
@@ -83,7 +83,7 @@ duplication of things we do not control.
 (`internal/store/store.go:380-384`) assigns a review horizon to exactly three `type` strings —
 `decision` (six months), `policy` (twelve) and `preference` (three) — and the comment above the
 map states the consequence itself: *"Types absent from this map get `review_after` = NULL
-(Phase 1 behavior)."* Nine of this vocabulary's eleven types therefore have no review horizon
+(Phase 1 behavior)."* Twelve of this vocabulary's fourteen types therefore have no review horizon
 and never appear in `mem_review`.
 
 Three options were weighed. **(b) — make the canonical `type` one of Engram's values and move
@@ -123,9 +123,28 @@ of someone else's repository is the failure being corrected, at larger scale. It
 a small accurate page into a large stale one.
 
 **Delete the protocol page and send readers to Engram.** Rejected: the vocabulary and the
-behaviour it implies are the product. Engram's protocol cannot teach which of eleven types
-a Unity pipeline gotcha belongs in.
+behaviour it implies are the product. Engram's protocol cannot teach which of the
+catalogued types a Unity pipeline gotcha belongs in.
 
 **Keep the duplicate block and add a "keep these in agreement" note.** Rejected: a note is not a
 mechanism. The note would have been written by the same change that let the clause go stale
 in seven files — it had no such note and did not need one to drift.
+
+## Amendment — 2026-09-29 (the catalogue was retiered)
+
+The counts written above are from 2026-09-28, and the shape of the list has changed since.
+Measured across 2,336 observations in 13 projects, every agent session on this stack is
+instructed to choose from `bugfix | decision | architecture | discovery | pattern | config |
+preference` — a set this repository's catalogue denied three of. `discovery` alone accounts
+for 447 observations, the most-chosen agent type in every project, while the seven game-dev
+types added here total 4 uses across the same 2,336.
+
+The catalogue is therefore now two tiers: the seven the ecosystem already teaches as core,
+and the seven game-dev additions as optional extensions, fourteen in total. The list lives in
+exactly one file, [`docs/design/memory-domain.md`](../design/memory-domain.md) — the previous
+revision repeated it in fourteen files and was wrong in all of them by the time anyone
+checked. `scope` now documents `global`, which has 30 measured uses, and `topic_key` permits
+a dot, because all four dotted keys measured are version numbers.
+
+Nothing in this decision changes. The vocabulary is still ours, still a recommendation, and
+the request still goes upstream.

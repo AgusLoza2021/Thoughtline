@@ -16,7 +16,7 @@ Three names come up when you search for "memory for an AI coding assistant". The
 
 **[claude-mem](https://github.com/thedotmack/claude-mem) is a different bet on that same layer.** Rather than waiting to be told what to save, it captures what your agent does during a session, compresses it with AI, and injects the relevant parts back later. You install it instead of the other one, not alongside it.
 
-**Thoughtline is neither.** It is the vocabulary: the eleven `type` values and the tag conventions that decide what a memory is *called*. It sits on top of an explicit-save server, which today means Engram. It is documents, not a binary — there is nothing to install and no third slot in your config.
+**Thoughtline is neither.** It is the vocabulary: the `type` values and the tag conventions that decide what a memory is *called*. It sits on top of an explicit-save server, which today means Engram. It is documents, not a binary — there is nothing to install and no third slot in your config.
 
 ## A layer and two servers, not three columns
 
@@ -47,7 +47,7 @@ Neither row says which is better, because "better" depends on a question only yo
 
 ## What this repository adds to a server
 
-1. **A gamedev vocabulary decided in advance.** Without one, every session invents its own words and the store fills with mush — see the [memory domain](design/memory-domain.md) for why a field that accepts any string gives you no shared language. The eleven types (`scene-pattern`, `asset-reference`, `perf-gotcha`, `pipeline-step`, `script-pattern`, …) exist so that "the lantern texture import settings that didn't blow out the bloom" has a category before you need one.
+1. **A vocabulary decided in advance.** Without one, every session invents its own words and the store fills with mush — see the [memory domain](design/memory-domain.md) for why a field that accepts any string gives you no shared language. The types exist so that "the lantern texture import settings that didn't blow out the bloom" has a category before you need one. Seven of them are the ones the agent ecosystem already teaches (`discovery`, `architecture`, `bugfix`, `decision`, `config`, `pattern`, `preference`); seven more are optional game-dev extensions. That list lives in the memory domain and nowhere else.
 2. **Tags tuned for engines and pipelines.** `engine:unity`, `platform:switch`, `pipeline:fbx-to-godot` — see [tag conventions](design/tag-conventions.md), including where tags actually live now that they are not a field.
 3. **Adoption docs per editor and per engine.** The [integration guides](integrations/) exist so that step 3 of the README — teaching the agent the words — is copy-paste rather than a research project.
 
