@@ -79,14 +79,16 @@ the `topic_key` shape appear in eight places. Those are ours, they change on our
 and a reader pasting a block into an editor needs them present. What was removed is the
 duplication of things we do not control.
 
-**Known limitation, left open.** `decayReviewAfterMonths` (`internal/store/store.go:380`)
-assigns a review horizon to exactly three `type` strings: `decision`, `policy` and
-`preference`. Nine of this vocabulary's eleven types therefore have no review horizon and
-never appear in `mem_review`. The options are (a) ask upstream to extend that map, (b) make
-the canonical `type` one of Engram's values and move gamedev specificity into `topic_key`
-and tags, or (c) accept the gap and lean on `mem_doctor`. This record does not choose: (b)
-is the only option fully under this project's control, but it spends the vocabulary's
-specificity, which is the differentiator — so it is the owner's call, not this record's.
+**Known limitation, left open.** `decayReviewAfterMonths` (`internal/store/store.go:380-384`)
+assigns a review horizon to exactly three `type` strings — `decision` (six months), `policy`
+(twelve) and `preference` (three) — and the comment above the map states the consequence
+itself: *"Types absent from this map get `review_after` = NULL (Phase 1 behavior)."* Nine of
+this vocabulary's eleven types therefore have no review horizon and never appear in `mem_review`.
+The options are (a) ask upstream to extend that map, (b) make the canonical `type` one of
+Engram's values and move gamedev specificity into `topic_key` and tags, or (c) accept the gap
+and lean on `mem_doctor`. This record does not choose: (b) is the only option fully under this
+project's control, but it spends the vocabulary's specificity, which is the differentiator —
+so it is the owner's call, not this record's.
 
 **Scope.** Every capability named here is local to one machine. No networked or multi-user
 behaviour is documented by this decision, and none is implied by it.
