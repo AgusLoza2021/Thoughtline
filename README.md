@@ -90,7 +90,7 @@ Each memory carries the same envelope: `topic_key`, `scope`, `project`, `created
 
 ## How this relates to Engram
 
-Engram is the engine, and it is excellent: **6,800+ stars, 30 releases, shipping continuously**, with SQLite + FTS5, an MCP server, an HTTP API, a CLI and its own TUI. It is the general-purpose tool, and its vocabulary is deliberately unspecified.
+Engram is the engine, and it is excellent: **6,931 stars and 30 releases, measured on 2026-09-29**, with SQLite + FTS5, an MCP server, an HTTP API, a CLI and its own TUI. It is the general-purpose tool, and its vocabulary is deliberately unspecified.
 
 Thoughtline is **the opinionated layer on top**: the vocabulary, and the engine-specific guidance that goes with it. One repository provides the machinery; this one provides the language for a particular kind of work.
 

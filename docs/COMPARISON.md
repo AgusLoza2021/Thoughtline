@@ -39,7 +39,7 @@ Two servers, one slot in your editor's config. The axis that separates them is w
 | Typing | Explicit: the caller names the `type`. Because typing is a choice, a vocabulary is possible at all | Capture is not a typing step, so a shared vocabulary is not something you can hand it by design |
 | Who can contribute a save | Anything that speaks MCP | The tool, watching the session |
 | Licence | MIT | Apache-2.0 |
-| Adoption, measured 2026-09-24 | ~6.8k stars | ~94.6k stars |
+| Adoption, measured 2026-09-29 | 6,931 stars | 94,903 stars |
 
 That last row is a snapshot, not a verdict — counts move, and they measure attention rather than fit. Check both repositories before you weight it.
 
