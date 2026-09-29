@@ -290,8 +290,15 @@ func TestBus_MultipleSubscribersSameBrain(t *testing.T) {
 }
 
 // TestBus_GoroutineLeak — subscribe+cancel N times; goroutine count stable.
+//
+// Deliberately not parallel. This test censuses runtime.NumGoroutine(), which is
+// only a meaningful measurement when nothing else is running: every other test in
+// this package calls t.Parallel(), and two of them spawn 100 publisher goroutines
+// each. A goroutine stays countable for a short while after its work is done, so
+// a census taken beside them reports their goroutines as this test's leak. It did
+// exactly that on a loaded windows runner — "before 12, after 46" against a
+// tolerance of 5 — for a bus that provably starts no goroutines at all.
 func TestBus_GoroutineLeak(t *testing.T) {
-	t.Parallel()
 	bus := events.NewWithBuffer(4)
 	const brainA int64 = 1
 
