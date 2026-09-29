@@ -66,7 +66,7 @@ repeated there.
 - **Why**: the repository declared the v0.1.0 MCP server retired while still publishing,
   listing and supporting it. Those four things were the only parts that actively did so.
 - **Deliberately kept**: `scripts/install.{ps1,cmd}` and `.goreleaser.yaml` still exist and are
-  still linked from the docs — including from inside the byte-identical legacy blocks in
+  still linked from the docs — including from inside the archived legacy blocks in
   `docs/integrations/`. The installers run `go install ...@latest` against a module whose code
   is still present, so their reach is unchanged: what changed is publication, not reach.
 - `ci.yml` and `plugin.yml` also stay — a build check and a protocol-contract check, not
