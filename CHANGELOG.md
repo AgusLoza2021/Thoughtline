@@ -45,6 +45,14 @@ half in front of the notice. Three pages the audit had missed are now covered:
 `docs/media/README.md`, `cmd/migrate/README.md` and `docs/pitch/why-thoughtline.md` (which
 keeps its Spanish, as that page always has).
 
+The ten specs under `openspec/specs/` — the project's current contract — carry the marker too.
+They needed three different notices rather than one. Seven describe the retired engine outright
+(`brain-domain`, `claude-code-integration`, `cognitive-config`, `engram-migration`,
+`event-bus`, `memory-graph`, `passive-capture`). `memory-type-taxonomy` is half current: the 11
+type values are the product this repository still owns, and only the `Type.Valid()` enforcement
+belongs to the retired server. `tui-memory-workspace` and `tui-removed` are neither: they
+describe code that landed on `main` and was never shipped — `v0.1.0` predates it.
+
 Three false claims are corrected in the same pass:
 
 - `docs/COMPARISON.md` no longer says the `check-no-claude-mem` scripts "still run in CI".

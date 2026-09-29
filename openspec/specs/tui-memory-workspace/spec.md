@@ -1,6 +1,14 @@
 # tui-memory-workspace Specification
 
+<!-- retired-v0.1.0 -->
 > Status: shipped
+>
+> **Built, never released.** This landed on `main` but no Thoughtline release ever carried it:
+> the TUI work was parked when the project was repositioned, and `main` is not an upgrade path.
+> Read it as the design that was built, not as a contract a released version honours. For what
+> this project is now — a gamedev memory vocabulary that runs on
+> [Engram](https://github.com/Gentleman-Programming/engram) — read the
+> [README](../../../README.md).
 
 ## Purpose
 
