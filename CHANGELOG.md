@@ -12,6 +12,43 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 > decisions that ended the project. Every parked entry says so in its own heading. Nothing
 > here is a promise, and no date below is a release date.
 
+### Docs — the memory protocol stops restating Engram, which is why it was wrong (2026-09-28)
+
+`docs/integrations/claude-code-protocol.md` opened by claiming to be "the canonical Thoughtline
+memory protocol block for AI assistants" and then quoted another project's tool mechanics from
+memory. That is a structural problem rather than a proofreading one: a hand-maintained copy of
+someone else's interface has no mechanism behind it, so it drifted. Four of its mechanics were
+wrong against Engram `3ba7df6` (2026-09-28): `scope` was described as having two values when
+`normalizeScope` accepts `personal` and `global` and folds everything else to `project`; `type`
+was written up as a constraint Engram enforces nowhere; search was taught as `mem_search` first
+instead of Engram's `mem_context` → `mem_search` → `mem_get_observation`; and results were
+undersold as "snippet and metadata" when `state` and the relation annotations are meant to be
+acted on. The same stale `scope` clause sat byte-identical in seven files.
+
+The page now teaches what this repository owns — the vocabulary and the behaviour that follows
+from it — and points at Engram's canonical protocol for the mechanics. Behaviour is stated once:
+`docs/AGENT-SETUP.md` holds the canonical drop-in block, and the six per-editor guides keep a
+paste-ready block of vocabulary only, each one naming the canonical block and why it is not
+repeated there.
+
+- Capabilities that were absent or unmentioned are now documented: `mem_update` and
+  `mem_suggest_topic_key` (correcting and evolving a memory instead of saving it twice),
+  `mem_delete`, `mem_pin`/`mem_unpin`, `mem_review`, `mem_doctor`, conflict resolution through
+  `mem_judge`/`mem_compare`, passive capture via a `## Key Learnings:` section, and
+  `capture_prompt: false` for automated saves.
+- **Recorded limitation, not fixed here**: `decayReviewAfterMonths`
+  (`internal/store/store.go:380`) assigns a review horizon to exactly `decision`, `policy` and
+  `preference`. Nine of this vocabulary's eleven types therefore have no review horizon and
+  never appear in `mem_review`. The documentation says so; it does not change the vocabulary.
+- [ADR 0007 — this repository owns the vocabulary, not the tool mechanics](docs/decisions/0007-vocabulary-not-mechanics.md)
+  writes the ownership boundary down, pins the Engram revision its claims were read from, and
+  states the three ways out of the review-horizon gap without choosing one.
+- **Scope**: local memory only. Nothing networked or multi-user is documented, and every
+  capability named here is local to one machine.
+- **Why**: the vocabulary is the product; the mechanics belong to Engram. A page that prints no
+  mechanics cannot disagree with them, so the class of drift that produced these four wrong
+  claims is closed rather than re-corrected.
+
 ### Removed — the retired server is no longer distributed (2026-09-28)
 
 - `.github/workflows/release.yml` — the only publishing path (a `v*.*.*` tag running
