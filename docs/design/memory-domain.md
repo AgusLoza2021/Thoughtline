@@ -275,12 +275,12 @@ There is no validator any more. Engram accepts any `type` string — a deliberat
 
 So these rules are a contract with your agent, not a gate. What makes them real is [`presets/AGENTS.md`](../../presets/AGENTS.md) — a file you copy into your project so that this catalogue sits where your agent reads its instructions. Step 3 of the adoption path in the [README](../../README.md) is that copy step.
 
-**This file is the only complete copy of the catalogue.** Every other document — the README, the editor guides, the comparison — names a type or two as an example and links here. An earlier revision repeated the full list in fourteen files, and by the time anyone checked, the list was wrong in all of them at once. Change the catalogue here, and here only.
+**This file is the only complete copy of the catalogue.** Every other document — the README, the editor guides, the comparison — names a type or two as an example and links here. An earlier revision repeated the full list across **fifteen files, this one included**, and by the time anyone checked, the list was wrong in all of them at once. (The archived `openspec/` proposals carry it too; those are a frozen record and were left alone, along with the retired engine's own copy in `internal/memory/`.) Change the catalogue here, and here only.
 
 | Rule | What you lose if the agent drifts |
 | ---- | --------------------------------- |
 | `type` is one of the 14 catalogue values; a new type needs an issue first | Free-form types accumulate until `type` is noise — the exact failure this vocabulary exists to prevent |
-| `scope` is `project`, `personal` or `global`; `preference` **must** be `personal`, everything else `project` | Memories leak across projects, or hide from the project that needs them |
+| `scope` is `project` (the default), `personal` or `global`; `preference` **must** be `personal`, and everything else stays `project` unless it genuinely applies to every project | Memories leak across projects, or hide from the project that needs them |
 | `title` is non-empty and ≤ 200 chars, short and searchable | Titles stop working as an index and search results read as a wall of sentences |
 | `content` is non-empty and self-contained | A memory the next session cannot act on is worse than no memory — it looks like knowledge |
 | `topic_key`, when present, matches `^[a-z0-9][a-z0-9/_.-]{1,128}$` — lowercase, no spaces, no leading slash, dots only for version numbers | Nothing breaks loudly; the key simply stops being greppable and consistent |

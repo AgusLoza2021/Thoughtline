@@ -29,7 +29,7 @@ seven optional game-dev extensions. Three rule defects went with it: `scope` now
 count in every live document moved from eleven to fourteen.
 
 [`docs/design/memory-domain.md`](docs/design/memory-domain.md) is now the only complete copy
-of the list. It previously appeared in fourteen files. The preset keeps the core seven
+of the list. It previously appeared in fifteen files, this one included. The preset keeps the core seven
 because it is copied out of this repository into other projects, and it says why.
 
 ### Docs — the adoption path stops being homework (2026-09-29)
