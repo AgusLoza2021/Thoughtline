@@ -2,12 +2,13 @@
 
 > For the vocabulary the protocol refers to, see the
 > [memory domain](../design/memory-domain.md) and the
-> [tag conventions](../design/tag-conventions.md). For the server itself, see
-> [Engram](https://github.com/Gentleman-Programming/engram).
+> [tag conventions](../design/tag-conventions.md). For the tools themselves —
+> every argument, every default, every return shape — see the
+> [tool catalogue](../TOOLS.md).
 
 This page is the **Thoughtline layer** for Claude Code and compatible clients: the vocabulary, the save-and-recall behaviour, and the habits that keep a *local* memory base worth searching. It answers *what to save* and *how to keep it good*.
 
-It is not Engram's tool reference, and it does not try to be. Engram owns its tools and documents them in [its memory protocol](https://github.com/Gentleman-Programming/engram/blob/main/DOCS.md#memory-protocol-full-text) — that page is authoritative for tool mechanics and argument details, and it is the one to re-read when Engram ships. This page stays deliberately short so it can stay true; Engram's own documentation authority note is explicit that related surfaces "must change together" without copying identical text into every host.
+It is not the server's tool reference, and it does not try to be. That reference is [`docs/TOOLS.md`](../TOOLS.md), and it is authoritative for arguments, defaults and return shapes. This page stays deliberately short so it can stay true — and so that a change to a tool's arguments has exactly one place to land.
 
 Copy the block below into your `CLAUDE.md` as the `## Thoughtline Persistent Memory — Protocol` section.
 
@@ -15,12 +16,12 @@ Copy the block below into your `CLAUDE.md` as the `## Thoughtline Persistent Mem
 
 ## Thoughtline Persistent Memory — Protocol
 
-You have Engram's memory tools available.
+You have Thoughtline's memory tools available.
 This protocol is MANDATORY and ALWAYS ACTIVE while this block is in your project instructions — not something you activate on demand.
 
 ### PROACTIVE SAVE TRIGGERS (mandatory — do NOT wait for user to ask)
 
-Call `mem_save` IMMEDIATELY and WITHOUT BEING ASKED after any of these:
+Call `tl_save` IMMEDIATELY and WITHOUT BEING ASKED after any of these:
 
 - Architecture or design decision made
 - Team convention documented or established
@@ -34,29 +35,29 @@ Call `mem_save` IMMEDIATELY and WITHOUT BEING ASKED after any of these:
 - Pattern established (naming, structure, convention)
 - User preference or constraint learned
 
-Self-check after EVERY task: "Did I make a decision, fix a bug, learn something non-obvious, or establish a convention? If yes, call `mem_save` NOW."
+Self-check after EVERY task: "Did I make a decision, fix a bug, learn something non-obvious, or establish a convention? If yes, call `tl_save` NOW."
 
-#### `mem_save` usage
+#### `tl_save` usage
 
 ```jsonc
-// Required: title, type, content
-// Optional: scope, topic_key, project, capture_prompt
+// Required: title, content, type
+// Optional: scope, topic_key, project, tags, session_id
 {
   "title": "Use WAL journal mode for all SQLite connections",
-  "type": "decision",                  // one of this vocabulary's 11 types — always pass it
-  "scope": "project",                  // "project" (default) or "personal" in this vocabulary
+  "type": "decision",                  // one of the fourteen catalogued types — always pass it
+  "scope": "project",                  // "project" (default) or "personal"
   "topic_key": "decision/sqlite-wal",  // stable key → replaces the stored memory on re-save
   "project": "my-game",
-  "capture_prompt": false,             // false for automated/artifact saves, true (default) otherwise
-  "content": "**Tags**: platform:windows, tool:claude-code\n\n**What**: Enable WAL via DSN pragma.\n**Why**: Concurrent tool calls need readers + writer simultaneously.\n**Where**: src/storage/db.ts\n**Learned**: busy_timeout=5000 prevents lock errors under load."
+  "tags": ["platform:windows", "tool:claude-code"],
+  "content": "**What**: Enable WAL via the connection string.\n**Why**: Concurrent tool calls need readers and a writer at the same time.\n**Where**: src/storage/db.ts\n**Learned**: busy_timeout=5000 prevents lock errors under load."
 }
 ```
 
 Three things about this payload are easy to get wrong:
 
-1. **Always pass `type`.** It is a free-form string — nothing validates it, and Engram's own tool description defaults it to `manual`. A memory typed `manual` is not in this vocabulary and will never be found by a type filter. The vocabulary is an argument for consistency, not a constraint the server enforces.
-2. **`scope` is not a filter you have much use for here.** This vocabulary uses two values: `project` (default — shared project knowledge) and `personal` (your own notes). Engram additionally accepts `global`; it is not part of this vocabulary, which is local-first by design.
-3. **There is no `tags` field.** Tags live on a `**Tags**:` line as the first line of `content`, comma-separated, in `key:value` form. Engram indexes the body, so the line stays findable — but it is not a filter, so treat it as an aid to recall rather than a schema. Full vocabulary: [tag conventions](../design/tag-conventions.md).
+1. **Always pass `type`, and pass it from the catalogue.** The server checks the field against the fourteen types in [`memory-domain.md`](../design/memory-domain.md) and refuses anything else. An invented type is a failed save, not a memory quietly filed under a default. The set is closed.
+2. **`scope` has two values.** `project` is the default — shared knowledge for the project the working directory belongs to. `personal` is your own notes. `preference` must be `personal` and everything else must be `project`; a save asking for `global` is refused.
+3. **Tags go in `tags`**, a list of lowercase `key:value` strings. `tl_search` filters on the field and `tl_get_observation` prints it back. A `**Tags**:` first line in `content` still works and is what a human reading raw markdown sees — but it is indexed as body text, so it is searchable and not filterable. Full vocabulary: [tag conventions](../design/tag-conventions.md).
 
 **Recommended content structure** (use **What** / **Why** / **Where** / **Learned**):
 
@@ -67,25 +68,25 @@ Three things about this payload are easy to get wrong:
 **Learned**: [gotchas, edge cases, surprises — omit if none]
 ```
 
-**Two saves that look alike are not the same save.** Re-saving a byte-identical memory inside Engram's rolling dedupe window is folded into the existing one rather than appended; re-saving with a `topic_key` you already used **replaces** the stored title and content. That is the intended way to evolve a topic — and the reason a new topic needs a new key.
+**Two saves that look alike are not the same save.** A byte-identical save carries no `topic_key`: inside the dedupe window it is a noop, and you get the existing id back unchanged. A save that reuses a `topic_key` **replaces** the stored title, content and tags. That is the intended way to evolve a topic — and the reason a new topic needs a new key.
 
 #### EVOLVING AND CORRECTING A MEMORY
 
 A wrong memory is worse than a missing one, and re-saving is not always the fix.
 
-- **New topic, unsure of the key** → `mem_suggest_topic_key` derives a stable `topic_key` from `type` + `title`. Use it *before* the first save when the topic is one you expect to revisit.
-- **Existing memory is now wrong or incomplete** → `mem_update`. Pass `id` plus the fields to change. For a surgical edit use the paired `find` / `replace` inputs: both literal, both case-sensitive, both global, and neither can be combined with `content`.
-- **Memory is obsolete and should not be recalled** → `mem_delete`. Soft delete is the default; hard delete is opt-in and permanent.
+- **Existing memory is now wrong or incomplete** → `tl_update`. Pass `id` plus the fields to change: `title`, `content`, `tags`. There is no find-and-replace — send the whole new body. An empty `tags` array clears them.
+- **Memory is obsolete and should not be recalled** → `tl_delete`. A soft delete by id: the row leaves search and context, and its `topic_key` is freed for reuse.
+- **Two memories are entangled** → `tl_link` records the edge and `tl_related` reads it back in either direction. The relations are `supersedes`, `contradicts`, `refines`, `depends_on`, `references`, `related` and `derived_from`. Nothing detects the relationship for you; recording it is the judgement.
 
-Prefer `mem_update` over a second `mem_save` when you are correcting the same topic, and prefer `mem_delete` over leaving a claim you know is false in the index.
+Prefer `tl_update` over a second `tl_save` when you are correcting the same topic, and prefer `tl_delete` over leaving a claim you know is false in the index.
 
 ### WHEN TO SEARCH MEMORY
 
 On any variation of "remember", "recall", "what did we do", "how did we solve", "recordar", "acordate", or references to past work:
 
-1. Call `mem_context` **first** — it is the cheap check of recent sessions, prompts and observations, and it usually answers "what were we doing".
-2. If that does not answer it, call `mem_search` with relevant keywords.
-3. If a result looks promising, call `mem_get_observation` for the full untruncated content.
+1. Call `tl_context` **first** — the recent memories of this project, cheapest and usually enough to answer "what were we doing".
+2. If that does not answer it, call `tl_search` with relevant keywords.
+3. If a result looks promising, call `tl_get_observation` for the full untruncated content.
 
 Also search PROACTIVELY when:
 
@@ -93,52 +94,59 @@ Also search PROACTIVELY when:
 - User mentions a topic you have no context on
 - User's FIRST message references the project, a feature, or a problem
 
-#### `mem_search` usage
+#### `tl_search` usage
 
 ```jsonc
-// Keyword search
+// Keyword search — default limit 10, server cap 50
 { "query": "WAL journal mode sqlite", "project": "my-game", "limit": 5 }
 
-// Filter by type — one of this vocabulary's 11 values
+// Filter by type
 { "query": "crash on startup", "type": "bugfix" }
 
-// Broader recall: "all" (default) is AND across tokens, "any" is OR
-{ "query": "asset bundle android apk", "match_mode": "any" }
+// Filter by tag
+{ "query": "export", "tags": ["engine:unity", "pipeline:fbx"] }
 
-// Across every project on this machine, when you are not sure where it was saved
-{ "query": "blender export", "all_projects": true }
+// Newest first, rather than by relevance
+{ "query": "release checklist", "recent_first": true }
+
+// A query containing "/" is tried against topic_key first: "design/auth"
+// finds "design/auth/jwt" without needing a wildcard
+{ "query": "design/auth" }
 ```
+
+A snippet is a preview. When a result looks like the answer, read the whole of it with `tl_get_observation`.
 
 #### Reading a result
 
-Do not read a result as a bare title and snippet. Each entry carries state you are expected to act on:
+A hit carries its `ID`, `Project`, `Type`, `Scope`, `Topic` when it is keyed, `Revision`, `Score`, `Updated`, `Tags` when it has any, and a `Snippet`. That is the whole set. There is no health state on a memory and no relation annotation in a result — if two memories contradict each other, that is a link you recorded, not a flag the server raises. Read the linked memory before you rely on either one.
 
-- **`state`** — `active`, or `needs_review` when the memory has outlived the review horizon for its `type` (see below). A `needs_review` hit is a candidate for `mem_update`, `mem_delete`, or `mem_review` — not a fact to trust unchanged.
-- **Relation annotations** — `supersedes:`, `superseded_by:`, `conflicts:` and `conflict: contested by #N (pending)` appear directly under a result when the memory is entangled with another one. When you see one, read the other memory before you rely on either.
-
-#### `mem_get_observation` usage
+#### `tl_get_observation` usage
 
 ```jsonc
-// Call with the id from a mem_search result for full untruncated content
+// Call with the id from a tl_search result for full untruncated content
 { "id": 42 }
 ```
 
-Always call `mem_get_observation` when a snippet is a preview and you need the full content.
+Always call `tl_get_observation` when a snippet is a preview and you need the full content.
 
 ### KEEPING THE BASE GOOD (local, cheap, do it without being asked)
 
-A memory base rots in three ways: nothing is pinned, nothing is retired, and contradictions are never resolved. All three have local tools.
+A memory base rots in two ways: nothing is ever retired, and contradictions are never recorded. Both are yours to do — this engine implements no decay, no review horizon and no automatic re-surfacing, and says so in [`memory-domain.md`](../design/memory-domain.md).
 
-- **Pin what a future session must not miss.** `mem_pin` puts an observation ahead of recent ones in `mem_context`; `mem_unpin` undoes it. Pinned state is local to this machine. Pin the handful of memories that define a project — the architecture decision, the convention everything else follows.
-- **Retire what has aged out.** `mem_review` with `action: "list"` returns observations whose review horizon has passed; `action: "mark_reviewed"` resets one using its type's decay policy. Review state is local too.
-- **Resolve contradictions when a save surfaces one.** `mem_save` can come back with `candidates[]` and `judgment_required: true` — it detected an existing memory that may contradict what you just saved. Inspect the candidates and call `mem_judge` with `judgment_id` and a `relation` of `related`, `compatible`, `scoped`, `conflicts_with`, `supersedes`, or `not_conflict`. If the relation is `supersedes` or `conflicts_with` **and** the memory is typed `architecture`, `policy` or `decision`, ask the user before recording it — and always ask when your confidence is below 0.7. `mem_compare` judges a pair you picked yourself.
-- **Diagnose before you guess.** `mem_doctor` runs a read-only diagnostic report and takes an optional `project` or `check` filter. Reach for it when a save or a search behaves unexpectedly rather than inventing a workaround.
-
-> **The one gap worth knowing.** Engram's review horizon is keyed on the exact `type` string, and it currently exists for only three types: `decision` (six months), `policy` (twelve) and `preference` (three). Everything typed `bugfix`, `architecture`, `convention`, `perf-gotcha`, `scene-pattern`, `asset-reference`, `pipeline-step`, `script-pattern` or `game-design-decision` is treated as permanently `active` and will never appear in `mem_review` — Engram says so in the comment above the map itself: *"Types absent from this map get `review_after` = NULL (Phase 1 behavior)."* Use the review tools where they apply, and treat staleness for the other types as your own judgement — `memory-domain.md` records the same limitation, and [ADR 0007](../decisions/0007-vocabulary-not-mechanics.md) records why it is accepted rather than fixed.
+- **Retire what has aged out.** There is no review queue and no `state` flag. If a memory is superseded, `tl_update` it to say so, `tl_link` it to its replacement, or `tl_delete` it. The judgement *is* the mechanism.
+- **Record an entanglement when you notice one.** `tl_link(from_id, to_id, relation)` writes the edge; `tl_related` reads every edge on a memory. When the edge is `supersedes` or `contradicts` and the memory is typed `architecture` or `decision`, say so to the user rather than quietly rewriting history.
+- **Judge a suspected duplicate without writing anything.** `tl_judge(existing_id, incoming_title, incoming_content, relation)` formats a comparison and a recommended action, and it does **not** touch the database. Its relation set is its own — `supersedes`, `compatible`, `conflicts_with`, `scoped`, `not_conflict` — and it persists nothing. Use `tl_link` when you want the decision to outlive the turn.
+- **Look at what the store holds.** `tl_stats` reports counts by type, project and scope, and takes `"*"` for every project. It is how you notice that three months of saves all landed on one type.
 
 ### PASSIVE CAPTURE
 
-End a completed task with a `## Key Learnings:` section — numbered items, one learning each. Engram extracts each item into its own observation and skips duplicates.
+The Claude Code plugin wires six hooks — `SessionStart`, `UserPromptSubmit`, `PreToolUse`, `PostToolUse`, `Stop` and `SessionEnd` — to `thoughtline hook <event>`. Each one stores the **raw event payload** as a pending event. Nothing is summarised, and nothing is extracted.
+
+Pending events are invisible to search until you promote them. Read the queue with `tl_pending_list` (status `pending` by default), inspect one with `tl_pending_get`, and turn the ones worth keeping into memories with `tl_promote` — which takes the fields to file them under, because a raw payload does not know what a memory looks like.
+
+Passive capture is opt-in and off by default: every hook no-ops unless `THOUGHTLINE_PASSIVE_CAPTURE=1` is set.
+
+End a completed task with a `## Key Learnings:` section — numbered items, one learning each.
 
 ```
 ## Key Learnings:
@@ -147,27 +155,28 @@ End a completed task with a `## Key Learnings:` section — numbered items, one 
 2. JWT refresh tokens need atomic rotation to prevent race conditions
 ```
 
-Use this for the small, real learnings that would not justify a `mem_save` payload of their own. `mem_capture_passive` does the same thing explicitly, on any text that contains such a section.
+Nothing parses that section for you, but it ends up inside the captured `Stop` payload, which is where a promoted memory tends to come from. Write it for the next reader, then promote it yourself.
 
 ### SESSION CLOSE PROTOCOL (mandatory)
 
-Before ending a session or saying "done" / "listo" / "that's it", call `mem_session_summary`:
+Open a session with `tl_session_start` — it returns the UUIDv7 that `tl_save` accepts as `session_id` — and close it with `tl_session_summary`, which requires both `id` and `summary`:
 
 ```jsonc
 {
-  "content": "## Goal\n[What we were working on this session]\n\n## Instructions\n[User preferences or constraints discovered — skip if none]\n\n## Discoveries\n- [Technical findings, gotchas, non-obvious learnings]\n\n## Accomplished\n- [Completed items with key details]\n\n## Next Steps\n- [What remains to be done — for the next session]\n\n## Relevant Files\n- path/to/file — [what it does or what changed]"
+  "id": "<the UUIDv7 tl_session_start returned>",
+  "summary": "## Goal\n[What we were working on this session]\n\n## Instructions\n[User preferences or constraints discovered — skip if none]\n\n## Discoveries\n- [Technical findings, gotchas, non-obvious learnings]\n\n## Accomplished\n- [Completed items with key details]\n\n## Next Steps\n- [What remains to be done — for the next session]\n\n## Relevant Files\n- path/to/file — [what it does or what changed]"
 }
 ```
 
-This is NOT optional. If you skip this, the next session starts blind.
+This is NOT optional. If you skip this, the next session starts blind. After a compaction, pass the compacted text as `compaction_block` and the tool recovers the session id from it.
 
 ### AFTER COMPACTION
 
 After a context compaction (or if you see "FIRST ACTION REQUIRED"):
 
-1. Call `mem_session_summary` with the compacted summary content
-2. Call `mem_context` to recover the recent state of this project
-3. Call `mem_search` with keywords from the current task to recover prior decisions
+1. Call `tl_session_summary` with `compaction_block` set to the compacted summary
+2. Call `tl_context` to recover the recent state of this project
+3. Call `tl_search` with keywords from the current task to recover prior decisions
 4. Only THEN continue working
 
 ### DELIVERY GUARANTEE
@@ -176,19 +185,7 @@ Memory operations are internal bookkeeping, not the answer. Finish the memory wo
 
 ### Topic Key Format (reference)
 
-| Memory type | Suggested topic_key pattern |
-|-------------|----------------------------|
-| `decision` | `decision/<area>/<choice>` |
-| `architecture` | `architecture/<area>` |
-| `bugfix` | `bug/<area>` or omit (each bug is unique) |
-| `convention` | `convention/<area>` |
-| `preference` | `preference/<area>` |
-| `game-design-decision` | `design/<system>/<choice>` |
-| `scene-pattern` | `scene/<engine>/<pattern>` |
-| `asset-reference` | `asset/<category>/<name>` |
-| `perf-gotcha` | `perf/<platform>/<area>` |
-| `pipeline-step` | `pipeline/<source>-to-<target>/<asset-type>` |
-| `script-pattern` | `script/<engine>/<concept>` |
+Every one of the fourteen types has a documented key pattern, listed per type in [`memory-domain.md`](../design/memory-domain.md) — `decision/<area>/<choice>`, `architecture/<area>`, `perf/<platform>/<area>`, `convention/<area>`, and so on. A key is `category/subject`, lowercase and slash-separated, and it is what an upsert matches on, so re-reading the same key is how a topic evolves. A query containing `/` is tried against `topic_key` before full-text search runs, which makes the key you choose the cheapest way to find it again.
 
 ### SDD Artifact Naming (for SDD workflows)
 
@@ -235,3 +232,28 @@ Every fact below was read out of Engram's source or docs at that revision. The e
 | Nothing about correcting, pinning, reviewing or resolving | `EVOLVING AND CORRECTING`, `KEEPING THE BASE GOOD`, `PASSIVE CAPTURE`, `DELIVERY GUARANTEE` | Six Engram capabilities with real local value were never mentioned: `mem_update`, `mem_suggest_topic_key`, `mem_delete`, `mem_pin`/`mem_unpin`, `mem_review`, `mem_doctor`, plus conflict resolution via `mem_judge`/`mem_compare` and passive capture via `## Key Learnings:`. |
 | `capture_prompt` unmentioned | Documented, with the "`false` for automated saves" rule | The default is `true`; Engram's own guidance is that automated artifact saves should opt out. |
 | "This document is the canonical Thoughtline memory protocol block" | This page owns the vocabulary and the behaviour; Engram's protocol is authoritative for tool mechanics | Two pages claiming canonicality for the same tools is how the page above went stale without anyone noticing. |
+
+Both tables above are accurate history and stay as they are. What follows is what changed when the server came back.
+
+## What this revision changed (2026-09-29)
+
+The retirement was reversed: this repository ships the memory server again, so the protocol speaks `tl_*` once more. [ADR 0008](../decisions/0008-the-engine-is-the-product.md) records why, and supersedes [ADR 0007](../decisions/0007-vocabulary-not-mechanics.md) without editing it. Every claim below was read out of this repository's own source, which is the point — the mechanics and the page that describes them now live in the same place.
+
+| Then (2026-09-28) | Now | Why |
+|------|-----|-----|
+| `mem_save`, `mem_search`, `mem_get_observation`, `mem_context`, `mem_update`, `mem_delete`, `mem_session_summary` | `tl_save`, `tl_search`, `tl_get_observation`, `tl_context`, `tl_update`, `tl_delete`, `tl_session_summary` | The tools are this project's again. |
+| "It is not Engram's tool reference" | [`TOOLS.md`](../TOOLS.md) owns the arguments; this page owns the vocabulary and the habits | One reference, not two, and not a pointer into another project. |
+| `"type": "decision" // one of this vocabulary's 11 types` | Fourteen, checked by the server | `Validate` rejects an unknown type outright. Eleven was undercounting; the catalogue is 7 core plus 7 gamedev extensions. |
+| "`scope`: `project`, `personal` or `global`" | Two: `project` or `personal`. `preference` must be `personal` | `global` was Engram's. The column has a two-value CHECK, and a request for `global` is refused with a message that names the divergence. |
+| `"capture_prompt": false` | Removed | No counterpart: there is no prompt-capture path to opt out of. |
+| `mem_suggest_topic_key` derives a key from `type` + `title` | No counterpart | A query containing `/` is matched against `topic_key` as a GLOB, retried as a prefix, and only then falls through to full-text search. `mem_pin` has no counterpart either: there is no pinning, so a memory that must not be missed has to be findable by its content. |
+| "Pin what a future session must not miss" (`mem_pin`/`mem_unpin`) | Nothing pins. `tl_context` orders by `updated_at` | The ordering is a column, not an operator. |
+| "Retire what has aged out" (`mem_review` with its review horizon) | No review horizon is implemented here | `tl_stats` shows what the store holds; retiring a memory is `tl_update`, `tl_link` or `tl_delete`, and the judgement is the whole mechanism. |
+| "`state` is `active` or `needs_review`; relation annotations appear under a result" | A hit has no health state and no relation annotation | Those fields were Engram's. The fields a hit actually carries are the ones listed above. |
+| "`mem_save` can come back with `candidates[]` and `judgment_required: true`" | `tl_save` returns the saved memory and nothing else | Nothing in this server detects a contradiction. `tl_judge` compares what *you* hand it, and writes nothing. |
+| "`mem_judge` records the relation; `mem_compare` judges a pair" | `tl_judge` formats a comparison, `tl_link` writes the edge | The two relation sets are different and neither is a schema enum. |
+| `mem_doctor` runs a diagnostic report | No counterpart | A failed call returns the error that caused it. |
+| "`mem_capture_passive` extracts a `## Key Learnings:` section" | Six Claude Code hooks store the raw event payload in `pending_events`; `tl_promote` files the ones you keep | Nothing parses a section. Capture is opt-in behind `THOUGHTLINE_PASSIVE_CAPTURE=1`. |
+| "`mem_session_summary` takes only `content`" | `tl_session_summary` requires `id` and `summary`, and recovers `id` from `compaction_block` after a compaction | `tl_session_start` returns the id, so the agent has it. |
+| `match_mode: "any"` and `all_projects: true` on `mem_search` | `tl_search` has neither; it filters on `type`, `scope`, `project`, `topic_key`, `tags`, and can sort with `recent_first` | Different server, different arguments. Only `project` scopes a search, and `tl_stats` is where `"*"` spans every project. |
+| An 11-row topic-key table duplicated from the domain page | A pointer to the per-type patterns, which live in one place | The table was a second copy of a catalogue. Second copies drift, and this one had already lost three types. |
