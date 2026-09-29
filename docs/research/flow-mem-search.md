@@ -1,6 +1,7 @@
 # Flow: `mem_search` — End-to-End Trace
 
-> The "intelligence" of Engram lives here. Citations are `file:line` in Engram at commit `3687c2f82ded4735beab80d915cb8136a54cef63` (2026-04-28), the snapshot this trace was written against, linked as GitHub permalinks pinned to that commit. On Engram's current `main` the line numbers may have drifted.
+> The "intelligence" of Engram lives here. Citations are `file:line` in Engram at commit `3687c2f82ded4735beab80d915cb8136a54cef63` (2026-04-28), the snapshot this trace was written against, linked as GitHub permalinks pinned to that commit. On Engram's current `main` the line numbers may have drifted. One section below is now the
+> opposite of true: see the drift note at the end of this page.
 
 ## 1. Tool registration
 
@@ -223,3 +224,55 @@ These are the architectural choices this flow forces. Each one shapes the data m
 | D18 | **Should results include the project name unconditionally, or only on cross-project search?** | Include unconditionally — disambiguates personal vs project scope at a glance. |
 | D19 | **Telemetry on search** | Log query, hit-count, top rank locally (debug-only). Do NOT phone home. |
 | D20 | **Result limit cap** | Mirror Engram's hard cap (20). Anything more bloats agent context. |
+
+## What changed since this snapshot — search is no longer pure BM25
+
+Re-verified on 2026-09-28 against Engram at
+[`3ba7df62`](https://github.com/Gentleman-Programming/engram/tree/3ba7df6235f5a58ca0898dc312421881c1fb0acf).
+Everything above reads `3687c2f8` correctly, and one section of it is now the opposite of
+true: §5, "Ranking and scoring".
+
+At the snapshot ranking was plain `ORDER BY fts.rank`. Engram's `main` ranks with an
+explicit weighted expression, declared at `internal/store/store.go:368-375` and built at
+`:4966`:
+
+```go
+bm25(observations_fts, 5.0, 1.0, 0.0, 0.0, 0.0, 3.0)
+```
+
+The column weights are now deliberate. **Title 5.0, content 1.0, topic_key 3.0**, and
+`tool_name`, `type` and `project` are weighted **0.0** — they no longer contribute to the
+score at all. That raw score is then multiplied by a composite boost:
+
+| Boost | Weight | Shape |
+| --- | --- | --- |
+| Pinned | `0.10` | flat, applied when the row is pinned |
+| Recency | `0.06` | half-score at 30 days, then saturating |
+| Stability | `0.04` | from `revision_count + duplicate_count`, diminishing at scale 4.0 |
+
+So of the five "there is no boost" lines in §5, two are now false, one changed its reason,
+and two stand:
+
+- **No recency boost** — false; there is one.
+- **No popularity/`duplicate_count` boost** — false; it is folded into stability.
+- **No type-weighted boost** — still no boost, but for a sharper reason: `type` is weighted
+  `0.0` inside the BM25 expression, so it is excluded from the ranked corpus rather than
+  merely unboosted. The §3b sentence describing the corpus as "title + content + tool_name
+  + type + project + topic_key, weighted equally by BM25" is no longer accurate in either
+  direction.
+- **No scope boost** — stands.
+- **No length penalty beyond what BM25 does** — stands.
+
+The "one synthetic rank" claim also stands: topic-key direct hits still get `-1000`.
+
+Two structural changes landed as well. The preview path became first-class —
+`buildSearchPreviewFTSQuery` and `SearchPreviewsContext` select `substr(o.content, 1, 300)`
+with an explicit `truncated` flag, where the snapshot built previews in the handler. And
+`handleSearch` and `resolveReadProject` no longer exist under those names; the handler layer
+was reorganized around them. `sanitizeFTS` (and with it §3b's sanitization claim) survives
+unchanged.
+
+**What this changes for us**: D1 ("start FTS5-only, mirror Engram") and D8 ("pure BM25 in
+v1") were written against a project that ordered by `fts.rank` and nothing else. Engram has
+since decided that was not enough, and now boosts. That is evidence in favour of boosts
+being a real lever rather than a v2 nicety — and it is a decision this project has not made.

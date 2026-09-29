@@ -1,6 +1,8 @@
 # Engram Anatomy — Architectural Reconnaissance
 
-> First-pass map of the Engram codebase, written for someone who has never opened it. Every claim cites a `file:line` from Engram at commit `3687c2f82ded4735beab80d915cb8136a54cef63` (2026-04-28), the snapshot this reconnaissance was written against. Links are GitHub permalinks pinned to that commit, so the cited lines stay valid; on Engram's current `main` the line numbers may have drifted.
+> First-pass map of the Engram codebase, written for someone who has never opened it. Every claim cites a `file:line` from Engram at commit `3687c2f82ded4735beab80d915cb8136a54cef63` (2026-04-28), the snapshot this reconnaissance was written against. Links are GitHub permalinks pinned to that commit, so the cited lines stay valid; on Engram's current `main` the line numbers may have drifted. That warning now covers more
+> than line numbers — six tools, new `mem_save` arguments and a rewritten ranking have
+> landed since: see the drift note at the end of this page.
 
 Engram is a Go-based persistent-memory MCP server. It exposes long-lived memory (decisions, bug fixes, conventions, session summaries) over both an HTTP REST API and an MCP stdio server, backed by an embedded SQLite database with FTS5 full-text search.
 
@@ -42,7 +44,7 @@ The path between `main()` and the MCP server accepting requests:
 2. For `engram mcp`, control jumps to `func cmdMCP(cfg store.Config)` ([main.go:765](https://github.com/Gentleman-Programming/engram/blob/3687c2f82ded4735beab80d915cb8136a54cef63/cmd/engram/main.go#L765)).
 3. `cmdMCP` parses an optional `--tools=` allowlist ([main.go:768-775](https://github.com/Gentleman-Programming/engram/blob/3687c2f82ded4735beab80d915cb8136a54cef63/cmd/engram/main.go#L768)).
 4. It opens the SQLite store: `store.New(cfg)` ([main.go:777](https://github.com/Gentleman-Programming/engram/blob/3687c2f82ded4735beab80d915cb8136a54cef63/cmd/engram/main.go#L777) → [store.go:515](https://github.com/Gentleman-Programming/engram/blob/3687c2f82ded4735beab80d915cb8136a54cef63/internal/store/store.go#L515)). `store.New` runs `openDB("sqlite", dbPath)` ([store.go:524](https://github.com/Gentleman-Programming/engram/blob/3687c2f82ded4735beab80d915cb8136a54cef63/internal/store/store.go#L524)), sets pragmas (`WAL`, `busy_timeout=5000`, `synchronous=NORMAL`, `foreign_keys=ON`) and runs `migrate()` ([store.go:596](https://github.com/Gentleman-Programming/engram/blob/3687c2f82ded4735beab80d915cb8136a54cef63/internal/store/store.go#L596)).
-5. It builds an MCP server: `mcp.NewServerWithConfig(s, mcpCfg, allowlist)` ([main.go:785](https://github.com/Gentleman-Programming/engram/blob/3687c2f82ded4735beab80d915cb8136a54cef63/cmd/engram/main.go#L785) → [mcp.go:214](https://github.com/Gentleman-Programming/engram/blob/3687c2f82ded4735beab80d915cb8136a54cef63/internal/mcp/mcp.go#L214) → [mcp.go:218](https://github.com/Gentleman-Programming/engram/blob/3687c2f82ded4735beab80d915cb8136a54cef63/internal/mcp/mcp.go#L218)) which calls `server.NewMCPServer("engram", "0.1.0", …)` from `mark3labs/mcp-go` and then `registerTools(...)` ([mcp.go:239](https://github.com/Gentleman-Programming/engram/blob/3687c2f82ded4735beab80d915cb8136a54cef63/internal/mcp/mcp.go#L239)) which registers up to 16 tools (`mem_save`, `mem_search`, `mem_get_observation`, etc.) via `srv.AddTool(mcp.NewTool(...), handlerFn)`.
+5. It builds an MCP server: `mcp.NewServerWithConfig(s, mcpCfg, allowlist)` ([main.go:785](https://github.com/Gentleman-Programming/engram/blob/3687c2f82ded4735beab80d915cb8136a54cef63/cmd/engram/main.go#L785) → [mcp.go:214](https://github.com/Gentleman-Programming/engram/blob/3687c2f82ded4735beab80d915cb8136a54cef63/internal/mcp/mcp.go#L214) → [mcp.go:218](https://github.com/Gentleman-Programming/engram/blob/3687c2f82ded4735beab80d915cb8136a54cef63/internal/mcp/mcp.go#L218)) which calls `server.NewMCPServer("engram", "0.1.0", …)` from `mark3labs/mcp-go` and then `registerTools(...)` ([mcp.go:239](https://github.com/Gentleman-Programming/engram/blob/3687c2f82ded4735beab80d915cb8136a54cef63/internal/mcp/mcp.go#L239)) which registers up to 17 tools (`mem_save`, `mem_search`, `mem_get_observation`, etc.) via `srv.AddTool(mcp.NewTool(...), handlerFn)`.
 6. Finally, `serveMCP(mcpSrv)` ([main.go:787](https://github.com/Gentleman-Programming/engram/blob/3687c2f82ded4735beab80d915cb8136a54cef63/cmd/engram/main.go#L787)) — which is `mcpserver.ServeStdio` ([main.go:70](https://github.com/Gentleman-Programming/engram/blob/3687c2f82ded4735beab80d915cb8136a54cef63/cmd/engram/main.go#L70)) — blocks on stdin/stdout running the MCP protocol.
 
 For `engram serve`, `cmdServe` ([main.go:650](https://github.com/Gentleman-Programming/engram/blob/3687c2f82ded4735beab80d915cb8136a54cef63/cmd/engram/main.go#L650)) opens the same store, builds an HTTP server via `server.New(s, port)` ([server.go:57](https://github.com/Gentleman-Programming/engram/blob/3687c2f82ded4735beab80d915cb8136a54cef63/internal/server/server.go#L57)) which registers REST routes in `s.routes()` ([server.go:105](https://github.com/Gentleman-Programming/engram/blob/3687c2f82ded4735beab80d915cb8136a54cef63/internal/server/server.go#L105)), and listens on `127.0.0.1:7437` by default ([main.go:651](https://github.com/Gentleman-Programming/engram/blob/3687c2f82ded4735beab80d915cb8136a54cef63/cmd/engram/main.go#L651)).
@@ -138,3 +140,29 @@ From [go.mod](https://github.com/Gentleman-Programming/engram/blob/3687c2f82ded4
 | Update-check on every CLI invocation | **SKIP** | Privacy + offline friction. Make it opt-in. |
 
 The single most important takeaway: **Engram's intelligence lives in two places only — the FTS5 schema/triggers and the `topic_key` upsert in `AddObservation`**. Everything else (sync, conflict, TUI, obsidian) is bolt-on. Thoughtline can ship a credible v1 by porting just those two ideas plus the MCP tool registrations.
+
+## What changed since this snapshot
+
+Re-verified on 2026-09-28 against Engram at
+[`3ba7df62`](https://github.com/Gentleman-Programming/engram/tree/3ba7df6235f5a58ca0898dc312421881c1fb0acf),
+Engram's `main` on that date. Everything above is a correct reading of `3687c2f8`; this
+section exists because the record is pinned and the project it describes is not.
+
+**The tool surface grew from 17 to 23.** Six tools did not exist at the snapshot:
+`mem_review`, `mem_pin`, `mem_unpin`, `mem_list_projects`, `mem_doctor`, `mem_compare`.
+The count in §2 read "up to 16" and was already an undercount — `3687c2f8` registers 17,
+each behind its own `if shouldRegister(...)` gate. It is corrected to 17 above, because a
+wrong count in a reference page is a defect rather than drift.
+
+**The two files this page points at roughly doubled.** `internal/mcp/mcp.go` went from
+1,763 to 3,544 lines, and `internal/store/store.go` from 5,783 to 11,529. The line-number
+citations above stay valid as permalinks and no longer resolve to the same code on `main`.
+
+**Search stopped being pure BM25.** See the drift note in
+[`flow-mem-search.md`](flow-mem-search.md): Engram now weights `bm25()` per column and
+composes it with pinned, recency and stability boosts. The "REUSE FTS5 + BM25 ranking"
+line in §6 is no longer a description of one behaviour — it is now a decision about which
+of two behaviours to mirror.
+
+**Still true**: there is no embedding code anywhere and the reserved columns are still
+never written, so §5 stands as written.

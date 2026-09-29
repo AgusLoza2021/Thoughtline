@@ -1,6 +1,8 @@
 # Flow: `mem_save` — End-to-End Trace
 
-> Trace from MCP client request to persisted SQLite row. Citations are `file:line` in Engram at commit `3687c2f82ded4735beab80d915cb8136a54cef63` (2026-04-28), the snapshot this trace was written against, linked as GitHub permalinks pinned to that commit. On Engram's current `main` the line numbers may have drifted.
+> Trace from MCP client request to persisted SQLite row. Citations are `file:line` in Engram at commit `3687c2f82ded4735beab80d915cb8136a54cef63` (2026-04-28), the snapshot this trace was written against, linked as GitHub permalinks pinned to that commit. On Engram's current `main` the line numbers may have drifted. Four of the claims below are
+> no longer true of Engram, including the one this trace is named after: see the drift note
+> at the end of this page.
 
 ## 1. Tool registration
 
@@ -299,3 +301,39 @@ sequenceDiagram
     - Keep `topic_key` semantics 1:1 with Engram — they're load-bearing.
     - Return structured tool results (JSON content block) alongside the human-readable summary.
     - Make conflict surfacing opt-in (config flag), not always-on.
+
+## What changed since this snapshot
+
+Re-verified on 2026-09-28 against Engram at
+[`3ba7df62`](https://github.com/Gentleman-Programming/engram/tree/3ba7df6235f5a58ca0898dc312421881c1fb0acf).
+Everything above reads `3687c2f8` correctly. Four of its claims are no longer true of
+Engram, and each one is a rule this project still has to choose.
+
+**1. `mem_save` accepts `project` now.** §1 states "There is no `project` argument by
+design", quoting the comment at `mcp.go:893`: `// project field intentionally not read —
+auto-detect only (REQ-308)`. That comment is not in Engram's `main`. The tool now takes
+`project`, `project_choice_reason` and `recovery_token`, plus a `capture_prompt` boolean,
+and `content` gained an `observation` alias for older clients.
+
+**2. Gotcha 2 is now inverted.** "`mem_save` ignores any client-supplied `project`
+argument" was true at `3687c2f8` and is false today. What Engram chose instead is the part
+worth reading: `project` is accepted only when it is *backed by known context* — an
+existing project, a matching session, repo config, or an explicit recovery from an
+`ambiguous_project` error — and an unbacked name fails loudly instead of being silently
+dropped. That is a third option between "ignore the argument" and "trust the caller", and
+it is the one this project should evaluate when it writes its own rule.
+
+**3. `scope` has three values, not two.** §3's schema comment reads
+`-- 'project' | 'personal'`. Engram's `normalizeScope` now returns `personal`, `global` or
+`project`, and the `scope` argument documents all three. `global` did not exist at the
+snapshot.
+
+**4. The topic-key upsert now overwrites `session_id`.** §6 point 3 says `session_id`,
+`created_at` and `sync_id` are all preserved, and gotcha 6 confirms it. At `main` the
+upsert's `UPDATE` sets `session_id = ?`, so the original session no longer keeps the row —
+only `created_at` and `sync_id` survive. This was called out in the snapshot as "correct,
+just not obvious", so the reversal is worth noting rather than merely correcting.
+
+**Still true, and load-bearing**: `AddObservation` still never writes `embedding`,
+`embedding_model` or `embedding_created_at`, and the reserved columns remain dead schema.
+§5 stands as written.
