@@ -6,9 +6,9 @@ import (
 )
 
 // Type is the kind of memory being stored. This package closes the set to the
-// eleven values below, and that closure is frozen with the retired v0.1.0 server.
-// The live catalogue is neither closed nor this list; it lives in
-// docs/design/memory-domain.md.
+// eleven values below, and tl_save rejects anything outside it. The catalogue in
+// docs/design/memory-domain.md lists more; see the package doc for the
+// disagreement.
 type Type string
 
 const (
@@ -54,8 +54,8 @@ func (t Type) Valid() bool {
 }
 
 // Scope governs whether a memory belongs to a specific project or travels
-// with the developer across projects. Only the two values the v0.1.0 server
-// modelled; the live rules also allow `global`.
+// with the developer across projects. Only two values are accepted; the
+// catalogue also documents `global`, which this package does not represent.
 type Scope string
 
 const (
