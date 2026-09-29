@@ -23,7 +23,11 @@ protocol markdown. The manifest a plugin needs in order to install is gone, so t
 manifest registers nothing; the hooks test reads it as archive evidence, so deleting
 it would break the record; and the emitted protocol *is* the record of what v0.1.0
 injected into a session — retargeting that output would edit the archive into
-disagreeing with itself. The files around them that are read as instructions (skill,
+disagreeing with itself. The repository's own workflow asserts it: `plugin.yml` runs
+`thoughtline protocol --event session-start` and greps the result for `ACTIVE PROTOCOL`
+and `tl_session_summary` on every change under `plugin/**`, so rewriting that text would
+break the contract check that guards the archive.
+The files around them that are read as instructions (skill,
 commands, agent, examples) carry the retirement banner instead.
 
 ---
