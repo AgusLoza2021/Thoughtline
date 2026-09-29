@@ -12,16 +12,18 @@
 The plugin as described below is retired. The files that made it installable —
 the manifest (`.claude-plugin/plugin.json`), the marketplace listing
 (`.claude-plugin/marketplace.json`) and the MCP registration (`.mcp.json`) —
-were removed when the server was retired, so installing this directory
-registers nothing. What is left (hooks, skill, commands, agents, examples) is
-kept below as a record of how the plugin worked.
+are present again, so installing this directory does register an MCP server
+named `tl`. What it registers is `thoughtline serve`, a retired and
+unmaintained binary, so installing this gets you the archive rather than a
+supported integration. The rest of the directory (hooks, skill, commands,
+agents, examples) is kept below as a record of how the plugin worked.
 
-Two things in here are still executable rather than descriptive, and both were left
+Three things in here are still executable rather than descriptive, and all were left
 alone deliberately. `hooks/hooks.json` registers the retired binary's hook events,
 and `cmd/thoughtline/protocol.go` in the repository root is what emits the v0.1.0
-protocol markdown. The manifest a plugin needs in order to install is gone, so the
-manifest registers nothing; the hooks test reads it as archive evidence, so deleting
-it would break the record; and the emitted protocol *is* the record of what v0.1.0
+protocol markdown. The manifest a plugin needs in order to install is present again, so
+it is a live registration: deleting it would make the plugin uninstallable again; and
+the emitted protocol *is* the record of what v0.1.0
 injected into a session — retargeting that output would edit the archive into
 disagreeing with itself. The repository's own workflow asserts it: `plugin.yml` runs
 `thoughtline protocol --event session-start` and greps the result for `ACTIVE PROTOCOL`
@@ -87,7 +89,8 @@ The protocol is one source of truth: **the binary**. The bash scripts that used 
 ```
 plugin/claude-code/
 ├── .claude-plugin/
-│   └── plugin.json         # plugin manifest (name, version, keywords, repo)
+│   ├── plugin.json         # plugin manifest (name, version, keywords, repo)
+│   └── marketplace.json    # marketplace listing for the plugin
 ├── LICENSE                 # MIT
 ├── README.md               # this file
 ├── .mcp.json               # MCP server registration
