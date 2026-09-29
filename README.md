@@ -2,10 +2,10 @@
 
 # Thoughtline
 
-**A memory vocabulary for game developers — the gamedev types and tags that [Engram](https://github.com/Gentleman-Programming/engram) doesn't ship.**
+**A local-first memory MCP server for game developers — with the memory types and tags that generic memory tools don't ship.**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Runs on Engram](https://img.shields.io/badge/runs%20on-Engram-7C3AED)](https://github.com/Gentleman-Programming/engram)
+[![MCP server](https://img.shields.io/badge/MCP-memory%20server-7C3AED)](docs/TOOLS.md)
 
 *Save your project's lore. Recall it from any session. Forever.*
 
@@ -13,13 +13,15 @@
 
 ---
 
-## What this is now
+## What this is
 
-**A vocabulary, not a memory server.**
+**A memory server, and the vocabulary that makes it worth searching.**
 
-Generic memory tools speak the language of backend engineers: `bugfix`, `decision`, `architecture`, `pattern`. Useful — but nowhere near the texture of building games. This repository is the missing opinion: the memory **types** and **tags** shaped for how a game studio actually works, plus the engine-specific guidance to start using them in five minutes.
+This repository ships its own MCP memory server. It keeps memories in a local SQLite file, searches them with FTS5, and exposes the `tl_*` tool surface over MCP: save a memory, search for one, read one in full, link related ones, judge a pending capture, and open or close a session. A Bubbletea dashboard ships with it. It is a single Go build — `go build -o thoughtline ./cmd/thoughtline`.
 
-It runs on [**Engram**](https://github.com/Gentleman-Programming/engram), the local-first memory server for AI coding assistants. **You install Engram; you use this vocabulary.** No fork, no plugin, nothing to build.
+On top of that sits the part generic memory tools do not have. Their vocabulary is the language of backend engineers: `bugfix`, `decision`, `architecture`, `pattern`. Useful — and nowhere near the texture of building games. This repository is the missing opinion: the memory **types** and **tags** shaped for how a game studio actually works, plus the guidance to start using them in five minutes.
+
+That vocabulary is not welded to this server. It runs unchanged on [**Engram**](https://github.com/Gentleman-Programming/engram) too, because both store a memory's `type` as a free-form string — see the section on Engram below.
 
 ### What it actually saves you
 
@@ -40,7 +42,7 @@ Memories are typed (`discovery`, `bugfix`, `decision`, `config`, `pattern`) and 
 
 ## Why a vocabulary has to be an opinion
 
-This is the part worth understanding before adopting anything, because it explains why the rest of this repository is documents instead of code.
+This is the part worth understanding before adopting anything, because it explains why the vocabulary lives in documents while the storage lives in code.
 
 Engram stores an observation's `type` as a **free-form string**. It accepts `perf_bugfix_thing` exactly as happily as `bugfix` — verified end to end: save under an invented type, read it back, and it returns byte-for-byte unchanged. That is a deliberate and correct choice for a general-purpose tool.
 
@@ -48,12 +50,12 @@ But a field that accepts anything gives you no *shared* language — and a memor
 
 So the division of labour is:
 
-| Layer | Who owns it |
+| Layer | Where it lives |
 | --- | --- |
-| Storage, FTS5 search, MCP tools, sessions, TUI | **Engram** |
-| The words you store — types, tags, and what each one is *for* | **this repository** |
+| Storage, FTS5 search, MCP tools, sessions, TUI | this repository's server — or Engram, if you run the vocabulary there |
+| The words you store — types, tags, and what each one is *for* | this repository |
 
-**Engram gives you the storage. This repository gives you the words.** That is the entire point, and it is why nothing here needs to be a fork.
+**The storage and the words ship together here, and the words alone still work on Engram.** That is why the vocabulary is written down instead of hard-coded: it is the part that has to survive a change of engine.
 
 ---
 
@@ -81,39 +83,46 @@ Each memory carries the same envelope: `topic_key`, `scope`, `project`, `created
 
 ## How to adopt it in five minutes
 
+There are two engines this vocabulary can run on. Pick one — not both, or you end up with two separate memory stores.
+
+**With this repository's server**
+
+1. **Build it.** `go build -o thoughtline ./cmd/thoughtline`, and put the binary on your `PATH`.
+2. **Wire it into your editor.** The Claude Code plugin under [`plugin/claude-code/`](plugin/claude-code/README.md) registers it for you, and any other MCP client takes a standard stdio server entry. Platform notes live in [Installation](docs/INSTALLATION.md).
+3. **Teach your agent the words.** This is the step that makes the vocabulary real — and the one most people skip. Copy [`presets/AGENTS.md`](presets/AGENTS.md) into your project — as `AGENTS.md`, or pasted into `CLAUDE.md`, a rules file or a skill — and your agent will type memories correctly from the first session. There is nothing to install; **the file is the artefact.**
+
+**With Engram as the engine**
+
 1. **Install Engram.** Prefer the latest stable release from [Engram's releases](https://github.com/Gentleman-Programming/engram/releases). Homebrew works too — `brew install gentleman-programming/tap/engram` — though the tap lags the release line. Windows, Linux and source builds: [Engram's installation guide](https://github.com/Gentleman-Programming/engram/blob/main/docs/INSTALLATION.md).
 2. **Wire it into your editor.** Engram documents its own MCP setup for Claude Code, Cursor, Zed, Copilot, Windsurf and others. For Claude Code specifically: `claude plugin marketplace add Gentleman-Programming/engram && claude plugin install engram`.
-3. **Teach your agent the words.** This is the step that makes the vocabulary real — and the one most people skip. Because Engram accepts any type string and ships no validator, the model will fall back to its own defaults unless you tell it otherwise. Copy [`presets/AGENTS.md`](presets/AGENTS.md) into your project — as `AGENTS.md`, or pasted into `CLAUDE.md`, a rules file or a skill — and your agent will type memories correctly from the first session. There is nothing to install; **the file is the artefact.**
-4. **Read the tag conventions** for the longer form: [`docs/design/tag-conventions.md`](docs/design/tag-conventions.md).
+3. **Teach your agent the words.** Same file and same step as above. A memory's type is a free-form string with no validator on either side, so the model falls back to its own defaults unless you tell it otherwise.
+
+Either way, **read the tag conventions** for the longer form: [`docs/design/tag-conventions.md`](docs/design/tag-conventions.md).
 
 ---
 
 ## How this relates to Engram
 
-Engram is the engine, and it is excellent: **6,931 stars and 30 releases, measured on 2026-09-29**, with SQLite + FTS5, an MCP server, an HTTP API, a CLI and its own TUI. It is the general-purpose tool, and its vocabulary is deliberately unspecified.
+[Engram](https://github.com/Gentleman-Programming/engram) is the general-purpose engine, and it is excellent: **6,931 stars and 30 releases, measured on 2026-09-29**, with SQLite + FTS5, an MCP server, an HTTP API, a CLI and its own TUI. Its vocabulary is deliberately unspecified — it accepts any type string.
 
-Thoughtline is **the opinionated layer on top**: the vocabulary, and the engine-specific guidance that goes with it. One repository provides the machinery; this one provides the language for a particular kind of work.
+Thoughtline is the opinionated one: the same kind of machinery, carrying the types and tags that game work needs. Both are local-first memory servers for AI coding assistants, and the vocabulary documented here runs on either of them.
 
-They are complements, not competitors. If you are not building games, use Engram on its own — you will be well served.
+They are separate tools with separate stores, so **installing both gives you two places to look** — which is the fastest way to lose a memory you saved. Pick one. If you are not building games, use Engram on its own; you will be well served.
 
 ---
 
-## What happened to the MCP server
+## Where the engine stands
 
-Thoughtline v0.1.0 shipped its own Go MCP server: fifteen `tl_*` tools, a SQLite schema, a Bubbletea dashboard and a migrator. **That server is retired.** The reasons are worth recording plainly:
+The server is in the tree, it builds, and its own test suite passes. Two facts about its state matter before you rely on it:
 
-- Engram now ships the same architectural pieces — TUI, HTTP API, sessions, richer tooling — while being maintained continuously by a team. A parallel implementation by one person cannot stay level with that, and pretending otherwise burns effort for nothing.
-- Every differentiator this project claimed turned out to be either **absorbed upstream** or, like the taxonomy, **not a property of the engine at all**.
+- **The newest published tag is not the current source.** `v0.1.0` was cut on 2026-05-07 and the source has moved on since — the published binary exposes fewer tools than `main` does. Build from the repository to get current behaviour.
+- **`main` sits mid-feature.** The `storage-caps` work landed its first three phases on 2026-05-15 and its fourth phase never landed; the second change in that goal, `slim-inject`, was never started. Nothing in the tool surface described above depends on the unfinished phase, and the resume checkpoint is recorded as `sdd/storage-caps/state`.
 
-Retiring it loses nothing that mattered. The design reasoning, the ADRs, the research and the taxonomy are what carried judgement; the engine was the part that got commoditized. The original documentation is preserved verbatim in the appendix below so the record stays complete.
-
-> **Do not migrate memories into the retired server.** The migrator (`cmd/migrate`) and the server are unmaintained, and `main` stops mid-feature in the `storage-caps` work. Keep your data in Engram.
+There is no release cadence here: [`CHANGELOG.md`](CHANGELOG.md) is the record of what changed and why, and it is a live document.
 
 ### Where the decisions live
 
-The engine is gone, so the boundary it leaves behind has to be written down somewhere: what this repository still owns, and what it deliberately stops owning. That one is [ADR 0007 — this repository owns the vocabulary, not the tool mechanics](docs/decisions/0007-vocabulary-not-mechanics.md), and it is the reason the pages that teach memory here describe behaviour instead of restating Engram's tools.
-
-The rest of the corpus — the v0.1.0 engine records and the search, storage and capture decisions that outlived it — is in [`docs/decisions/`](docs/decisions/).
+The corpus is the part that carried the judgement, and it is all still here: [`docs/decisions/`](docs/decisions/) holds the architectural decisions, [`docs/research/`](docs/research/) the investigations, and [`docs/design/`](docs/design/) the domain and tag catalogues. These pages describe behaviour; [`docs/TOOLS.md`](docs/TOOLS.md) is the tool reference.
 
 ### Attribution
 
@@ -123,9 +132,9 @@ This paragraph lives here rather than in [LICENSE](LICENSE) on purpose: GitHub's
 
 ---
 
-# Appendix — the v0.1.0 MCP server (retired)
+# Appendix — the v0.1.0 documentation set
 
-Everything below documents the retired server as it stood at v0.1.0, kept for the record. Parts of it are superseded by the sections above. In particular, the comparison table's claim that gamedev types exist "at the schema level" is misleading: Engram stores any type string, which is exactly why this vocabulary is worth having.
+Everything below documents the server as it stood at `v0.1.0`, kept as the record of that point. Parts of it are superseded by the sections above — in particular the comparison table's claim that gamedev types exist "at the schema level", which is misleading: a memory's type is stored as a free-form string, and that is exactly why the vocabulary is worth having.
 
 ---
 
