@@ -49,16 +49,31 @@ func New(s *storage.Storage, cfg Config) *server.MCPServer {
 
 // serverInstructions is sent once when an MCP client connects. It primes the
 // model on what the server is for and how to use it.
-const serverInstructions = `Thoughtline is a local-first persistent memory store designed for game-development workflows. Use the tl_* tools to save and recall project lore (design decisions, scene patterns, asset references, performance gotchas, pipeline steps, bug fixes, conventions).
+const serverInstructions = `Thoughtline is a local-first persistent memory store. Use the tl_* tools to save and recall project lore: decisions and their reasoning, architecture, bugs and root causes, performance gotchas, conventions, and anything else the next session would not have guessed.
 
-Save proactively — don't wait to be asked. When making a non-trivial decision, fixing a bug, or noticing a gotcha, call tl_save with a short title, structured content (What/Why/Where/Learned), and a stable topic_key when the topic is likely to evolve.
+Save proactively — don't wait to be asked. When making a non-trivial decision, fixing a bug, or noticing a gotcha, call tl_save with a short title, structured content (What/Why/Where/Learned), and a stable topic_key when the topic is likely to evolve. Reuse the topic_key to revise a memory instead of saving the same thing twice.
+
+type is a closed set of fourteen. A save carrying anything else is rejected rather than filed under a default. The seven canonical types:
+  - discovery — what is left over once nothing sharper fits, and therefore the largest bucket
+  - bugfix, decision, architecture, config, pattern, preference
+The seven game-development extensions, all optional:
+  - game-design-decision, scene-pattern, asset-reference, perf-gotcha, pipeline-step, script-pattern, convention
+
+preference must be saved with scope personal; every other type is project-scoped.
 
 Topic-key conventions:
+  - <area>/<subject>                 — discovery, the default when nothing sharper fits
+  - decision/<area>/<choice>          — decision
+  - architecture/<area>               — architecture
+  - bug/<area>                        — bugfix
+  - config/<area>/<key>               — config
+  - convention/<area>                 — convention, pattern
+  - preference/<area>                 — preference (scope MUST be personal)
   - design/<system>/<choice>          — game-design-decision
   - scene/<engine>/<pattern>          — scene-pattern
   - asset/<category>/<name>           — asset-reference
   - perf/<platform>/<area>            — perf-gotcha
   - pipeline/<source>-to-<target>/... — pipeline-step
   - script/<engine>/<concept>         — script-pattern
-  - convention/<area>                 — convention
-  - preference/<area>                 — preference (scope MUST be personal)`
+
+The authoritative catalogue — required content sections and worked examples for every type — is docs/design/memory-domain.md in the Thoughtline repository.`

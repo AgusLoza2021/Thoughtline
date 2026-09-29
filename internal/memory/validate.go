@@ -9,18 +9,19 @@ import (
 )
 
 // topicKeyRe enforces the topic-key shape this server accepts: lowercase letters,
-// digits, slash, underscore, hyphen; must start with [a-z0-9]; total length
-// 2..129 chars (1 lead + 1..128 trail). docs/design/memory-domain.md also permits
-// a dot, for version numbers, which this regex rejects.
-var topicKeyRe = regexp.MustCompile(`^[a-z0-9][a-z0-9/_-]{1,128}$`)
+// digits, slash, underscore, hyphen and dot; must start with [a-z0-9]; total
+// length 2..129 chars (1 lead + 1..128 trail). The dot is there for version
+// numbers, which are the only dotted keys the catalogue's measurement found.
+var topicKeyRe = regexp.MustCompile(`^[a-z0-9][a-z0-9/_.-]{1,128}$`)
 
 // tagRe enforces the tag shape: lowercase, digit, colon, underscore, hyphen;
 // must start with [a-z0-9]; total length 1..41 chars.
 var tagRe = regexp.MustCompile(`^[a-z0-9][a-z0-9:_-]{0,40}$`)
 
-// Validate enforces the domain rules the server applies to every save. It is
-// narrower than the catalogue in docs/design/memory-domain.md: it admits the
-// eleven types this package closes and the two scopes below.
+// Validate enforces the domain rules the server applies to every save: the
+// fourteen types this package closes, the two scopes below, the topic-key shape
+// and the tag shape. The catalogue in docs/design/memory-domain.md documents one
+// scope more than this does -- `global` -- and nothing else wider.
 // It mutates nothing — callers can apply trimming themselves before saving.
 //
 // Errors returned are sentinel values from this package (e.g. ErrEmptyTitle).
