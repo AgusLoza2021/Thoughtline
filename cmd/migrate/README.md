@@ -1,5 +1,20 @@
 # cmd/migrate — Engram → Thoughtline migration tool
 
+<!-- retired-v0.1.0 -->
+> **Retired — this page documents the v0.1.0 MCP server.** That server is
+> unmaintained, so the migration steps below are not a supported path: see the
+> [README](../../README.md), which says plainly not to migrate memories into it.
+> For what this project is now — a gamedev memory vocabulary that runs on
+> [Engram](https://github.com/Gentleman-Programming/engram) — read the
+> [README](../../README.md), the [memory domain](../../docs/design/memory-domain.md) and the
+> [tag conventions](../../docs/design/tag-conventions.md).
+
+---
+
+> **Legacy — the v0.1.0 setup.** Everything below documents `thoughtline`, the
+> retired server, and its `tl_*` tools. It is a record of how the project worked,
+> not instructions to follow.
+
 This binary reads your existing [Engram](https://github.com/Gentleman-Programming/engram) memory database and copies every active observation into Thoughtline. It is a **one-shot, idempotent migration tool** — safe to run multiple times, safe to interrupt and re-run.
 
 ---

@@ -1,9 +1,34 @@
-d# Why Thoughtline — pitch & talking points
+# Why Thoughtline — pitch & talking points
+
+<!-- retired-v0.1.0 -->
+> **Retirado — esta página describe el server MCP v0.1.0.** Ese server quedó sin
+> mantener, así que el argumentario de abajo ya no es una posición vigente.
+> Para lo que este proyecto es ahora — un vocabulario de memoria para gamedev que
+> corre sobre [Engram](https://github.com/Gentleman-Programming/engram) — leé el
+> [README](../../README.md), el [dominio de memoria](../design/memory-domain.md) y
+> las [convenciones de tags](../design/tag-conventions.md).
 
 > Cheat-sheet para explicar Thoughtline en 10 segundos, en una reu, o cuando te tiran una objeción.
 > No es documentación técnica. Para eso está el [README](../../README.md) y [ARCHITECTURE.md](../ARCHITECTURE.md).
 
 ---
+
+> **Legado — la posición previa al pivote.** Todo lo de abajo es el pitch del
+> 2026-04-30, escrito cuando Thoughtline era un server propio. Se conserva como
+> registro de cómo se pensaba el proyecto entonces, no como argumentario para
+> usar hoy.
+
+**Antes de citar algo de esta página**, tres afirmaciones quedaron superadas por
+el pivote:
+
+- **"¿Por qué no usamos Engram directamente?"** (punto 3): hoy la respuesta es la
+  opuesta. El proyecto *es* una capa de vocabulario gamedev sobre Engram, así que
+  esa fila argumenta contra la posición actual.
+- **"Ya está construido. La M2 ya funciona."** (punto 3): el server se retiró y el
+  código quedó como archivo histórico, no como algo para adoptar. El
+  [README](../../README.md) pide explícitamente no migrar datos hacia él.
+- **"Embeddings está reservado en el schema ... (M5)"** (punto 3): el milestone es
+  M6 y sigue diferido — ver [ADR 0002](../decisions/0002-search-strategy-fts5-first.md).
 
 ## 1. Para vos (ELI5) — la respuesta de 10 segundos
 
