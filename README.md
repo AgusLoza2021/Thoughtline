@@ -258,7 +258,7 @@ There are several memory tools out there. Here's where Thoughtline sits:
 | AI auto-recalls in new sessions         | ✅               | ✅         | ✅                   | ✅                    | ❌ you have to remind it        |
 | Survives context compactions            | ✅               | ✅         | ⚠️ partial           | ⚠️ partial            | ✅                              |
 | Per-project scoping (no cross-bleed)    | ✅               | ✅         | ⚠️ workspace-only    | ❌ global             | ✅ folder structure             |
-| Game-dev memory types at the schema level | ✅ 11 types    | ❌ generic | ❌ free-form         | ❌ free-form          | ❌ you invent the structure     |
+| Closed type catalog, validated on save   | ✅ 14 types    | ❌ generic | ❌ free-form         | ❌ free-form          | ❌ you invent the structure     |
 | Engine / platform / pipeline tag vocab  | ✅ canonical     | ❌         | ❌                   | ❌                    | ❌                              |
 | Topic-key upserts (no duplicates)       | ✅               | ✅         | ❌                   | ❌                    | manual                          |
 | Sessions with structured digests        | ✅ UUIDv7        | ⚠️ basic   | ❌                   | ❌                    | manual                          |
