@@ -12,6 +12,27 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 > decisions that ended the project. Every parked entry says so in its own heading. Nothing
 > here is a promise, and no date below is a release date.
 
+### Docs — the adoption path stops being homework (2026-09-29)
+
+The README's step 3 told the reader to "put the type list into whatever your editor calls
+project instructions", and the repository shipped no such file. `docs/design/memory-domain.md`
+went further and named that step as *the* thing that makes the vocabulary real — "these rules
+are a contract with your agent, not a gate" — so the enforcement mechanism the design doc
+depended on was a document the user was expected to write from scratch. The retired v0.1.0
+server did carry one: `serverInstructions` in `internal/server/server.go` primes the model on
+the vocabulary, the `topic_key` patterns and proactive saving. The successor dropped it.
+
+[`presets/AGENTS.md`](presets/AGENTS.md) is that artifact, restored as a file you copy into your
+own project: when to save, the eleven types with their `topic_key` patterns, the four-line
+content shape, where tags actually live now that Engram has no tags field, and the hard rules
+with what each one costs when it drifts. It is what README step 3 links to, and what
+`memory-domain.md` points at.
+
+Three live claims were corrected alongside it: the README said the retired server shipped
+"twelve `tl_*` tools" when `internal/server/server.go` registers fifteen; `CONTRIBUTING.md` sent
+contributors to `docs/PROGRESS.md`, which carries the retirement marker; and its "Local setup"
+built the archived engine with no note that it is archived.
+
 ### Docs — the memory protocol stops restating Engram, which is why it was wrong (2026-09-28)
 
 `docs/integrations/claude-code-protocol.md` opened by claiming to be "the canonical Thoughtline
