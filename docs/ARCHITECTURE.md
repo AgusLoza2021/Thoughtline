@@ -2,11 +2,18 @@
 
 <!-- retired-v0.1.0 -->
 > **Retired — this page documents the v0.1.0 MCP server.** That server is
-> unmaintained, so the install and wiring steps below are not a supported path.
+> unmaintained, so the architecture tour below is kept as a record of how it
+> was built, not as guidance for new work.
 > For what this project is now — a gamedev memory vocabulary that runs on
 > [Engram](https://github.com/Gentleman-Programming/engram) — read the
 > [README](../README.md), the [memory domain](design/memory-domain.md) and the
 > [tag conventions](design/tag-conventions.md).
+
+---
+
+> **Legacy — the v0.1.0 server.** Everything below documents `thoughtline`, the
+> retired server, and its `tl_*` tools. It is a record of how the project worked,
+> not instructions to follow.
 
 How Thoughtline is put together. This is the holistic tour. For individual decisions, see [`decisions/`](decisions/) (ADRs). For install steps, [INSTALLATION.md](INSTALLATION.md). For positioning, [COMPARISON.md](COMPARISON.md).
 

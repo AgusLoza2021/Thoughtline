@@ -2,11 +2,25 @@
 
 <!-- retired-v0.1.0 -->
 > **Retired — this page documents the v0.1.0 MCP server.** That server is
-> unmaintained, so the install and wiring steps below are not a supported path.
+> unmaintained, so the plugin install steps and file inventory below are kept
+> as a record of how the plugin worked.
 > For what this project is now — a gamedev memory vocabulary that runs on
 > [Engram](https://github.com/Gentleman-Programming/engram) — read the
 > [README](../../README.md), the [memory domain](../../docs/design/memory-domain.md) and the
 > [tag conventions](../../docs/design/tag-conventions.md).
+
+The plugin as described below is retired. The files that made it installable —
+the manifest (`.claude-plugin/plugin.json`), the marketplace listing
+(`.claude-plugin/marketplace.json`) and the MCP registration (`.mcp.json`) —
+were removed when the server was retired, so installing this directory
+registers nothing. What is left (hooks, skill, commands, agents, examples) is
+kept below as a record of how the plugin worked.
+
+---
+
+> **Legacy — the v0.1.0 setup.** Everything below documents `thoughtline`, the
+> retired server, and its `tl_*` tools. It is a record of how the project worked,
+> not instructions to follow.
 
 Persistent, project-aware memory for [Claude Code](https://claude.com/claude-code). Survives across sessions and compactions. Local-first — no cloud, no telemetry, your `thoughtline.db` lives in your user cache directory.
 
