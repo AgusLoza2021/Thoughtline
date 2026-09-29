@@ -109,6 +109,12 @@ Retiring it loses nothing that mattered. The design reasoning, the ADRs, the res
 
 > **Do not migrate memories into the retired server.** The migrator (`cmd/migrate`) and the server are unmaintained, and `main` stops mid-feature in the `storage-caps` work. Keep your data in Engram.
 
+### Where the decisions live
+
+The engine is gone, so the boundary it leaves behind has to be written down somewhere: what this repository still owns, and what it deliberately stops owning. That one is [ADR 0007 — this repository owns the vocabulary, not the tool mechanics](docs/decisions/0007-vocabulary-not-mechanics.md), and it is the reason the pages that teach memory here describe behaviour instead of restating Engram's tools.
+
+The rest of the corpus — the v0.1.0 engine records and the search, storage and capture decisions that outlived it — is in [`docs/decisions/`](docs/decisions/).
+
 ### Attribution
 
 This project is heavily inspired by Engram (https://github.com/Gentleman-Programming/engram) by Alan Buscaglia, also released under the MIT License. Architectural patterns, tool naming conventions, and storage layout decisions are deliberately kept close to Engram's to ease cross-pollination of improvements.
