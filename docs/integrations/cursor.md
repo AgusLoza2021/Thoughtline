@@ -1,14 +1,5 @@
 # Cursor
 
-<!-- retired-v0.1.0 -->
-> **Retired — the v0.1.0 MCP server this page was written for is unmaintained.**
-> Its install and wiring steps are kept at the bottom as a record of how the project
-> worked, not as a path to follow. For what this project is now — a gamedev memory
-> vocabulary that runs on
-> [Engram](https://github.com/Gentleman-Programming/engram) — read the
-> [README](../../README.md), the [memory domain](../design/memory-domain.md) and the
-> [tag conventions](../design/tag-conventions.md).
-
 ## Using this vocabulary with Cursor today
 
 The server this page used to teach is retired. The server you want now is [Engram](https://github.com/Gentleman-Programming/engram) — install it and point Cursor at it by following Engram's own instructions. What survives from this repository is the layer *above* the server: which `type` to save under, where tags belong, and what a body worth re-reading looks like. That layer was never engine-bound, and it lives in the [memory domain](../design/memory-domain.md) and the [tag conventions](../design/tag-conventions.md).
@@ -63,10 +54,6 @@ at once.
 Tag Cursor-driven saves with `tool:cursor` on that `**Tags**:` line, so they are recognisable later.
 
 ---
-
-> **Legacy — the v0.1.0 setup.** Everything below documents `thoughtline`, the
-> retired server, and its `tl_*` tools. It is a record of how the project worked,
-> not instructions to follow.
 
 [Cursor](https://cursor.com) speaks MCP since 0.50. Wire Thoughtline as a stdio MCP server in two steps.
 

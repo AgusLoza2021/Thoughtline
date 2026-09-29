@@ -1,15 +1,8 @@
 # Claude Code Integration Specification
 
-<!-- retired-v0.1.0 -->
 > Change: `adopt-thoughtline-replace-engram`
 > Status: proposed
 > Operation: ADDED (first formal spec for the Claude Code ↔ Thoughtline integration contract)
->
-> **Retired — this spec describes the v0.1.0 MCP server.** The engine it specifies is
-> unmaintained, so everything below is a requirement of that engine, not a contract this
-> project still honours. For what this project is now — a gamedev memory vocabulary that runs on
-> [Engram](https://github.com/Gentleman-Programming/engram) — read the
-> [README](../../../README.md).
 
 ## Capability Summary
 

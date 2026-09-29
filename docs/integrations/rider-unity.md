@@ -1,14 +1,5 @@
 # JetBrains Rider (Unity)
 
-<!-- retired-v0.1.0 -->
-> **Retired — the v0.1.0 MCP server this page was written for is unmaintained.**
-> Its install and wiring steps are kept at the bottom as a record of how the project
-> worked, not as a path to follow. For what this project is now — a gamedev memory
-> vocabulary that runs on
-> [Engram](https://github.com/Gentleman-Programming/engram) — read the
-> [README](../../README.md), the [memory domain](../design/memory-domain.md) and the
-> [tag conventions](../design/tag-conventions.md).
-
 ## Using this vocabulary with Rider + Unity today
 
 The server this page used to teach is retired. The server you want now is [Engram](https://github.com/Gentleman-Programming/engram) — install it and add it under `Settings → Tools → AI Assistant → MCP servers` by following Engram's own instructions. What survives from this repository is the part that was never about the server: **the Unity vocabulary** — which `type` a Unity lesson belongs under, which tags it carries, and what a body worth re-reading looks like. It lives in the [memory domain](../design/memory-domain.md) and the [tag conventions](../design/tag-conventions.md).
@@ -88,10 +79,6 @@ The three below are the ones this page always recommended, now expressed in the 
 Tag Rider-driven saves with `tool:rider` on that `**Tags**:` line, so they are recognisable later.
 
 ---
-
-> **Legacy — the v0.1.0 setup.** Everything below documents `thoughtline`, the
-> retired server, and its `tl_*` tools. It is a record of how the project worked,
-> not instructions to follow.
 
 [Rider](https://www.jetbrains.com/rider/) added MCP support via the AI Assistant plugin. This page is the canonical setup for Unity developers using Rider.
 

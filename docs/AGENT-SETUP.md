@@ -1,14 +1,5 @@
 # Agent setup
 
-<!-- retired-v0.1.0 -->
-> **Retired — this page documents the v0.1.0 MCP server.** That server is
-> unmaintained, so the per-editor wiring below is kept as a record of how
-> editors were connected to it.
-> For what this project is now — a gamedev memory vocabulary that runs on
-> [Engram](https://github.com/Gentleman-Programming/engram) — read the
-> [README](../README.md), the [memory domain](design/memory-domain.md) and the
-> [tag conventions](design/tag-conventions.md).
-
 ## Tell the agent the protocol today
 
 Most editors don't auto-load skill protocols the way Claude Code does. You have
@@ -89,10 +80,6 @@ line — the `tool:` namespace is listed in the
 [tag conventions](design/tag-conventions.md).
 
 ---
-
-> **Legacy — the v0.1.0 server.** Everything below documents `thoughtline`, the
-> retired server, and its `tl_*` tools. It is a record of how the project worked,
-> not instructions to follow.
 
 Thoughtline speaks the **Model Context Protocol** over stdio, so anything that's an MCP client can use it. This page is the index of per-tool setup guides — one click and you have the right config block for your IDE.
 

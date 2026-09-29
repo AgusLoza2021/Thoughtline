@@ -3,12 +3,6 @@ name: thoughtline-memory
 description: Persistent, project-aware memory for AI coding agents. Use thoughtline whenever you make a decision, fix a bug, learn something non-obvious, or need to recall prior work.
 ---
 
-<!-- retired-v0.1.0 -->
-> **Retired — this file belongs to the v0.1.0 MCP server.** That server is
-> unmaintained, so nothing below is a supported path, a tool to call, or a command to
-> run. The plugin's record starts at the [plugin README](../../README.md); what
-> this project is now is the [repository README](../../../../README.md).
-
 # Thoughtline Memory Protocol
 
 Thoughtline is a local-first SQLite-backed memory system. It survives across sessions and compactions. This protocol is **MANDATORY** and **ALWAYS ACTIVE** when the plugin is installed.

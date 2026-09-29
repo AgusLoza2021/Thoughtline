@@ -1,15 +1,8 @@
 # Brain Domain Specification
 
-<!-- retired-v0.1.0 -->
 > Change: `brain-foundation`
 > Status: shipped
 > Operation: ADDED (new capability — no prior spec exists)
->
-> **Retired — this spec describes the v0.1.0 MCP server.** The engine it specifies is
-> unmaintained, so everything below is a requirement of that engine, not a contract this
-> project still honours. For what this project is now — a gamedev memory vocabulary that runs on
-> [Engram](https://github.com/Gentleman-Programming/engram) — read the
-> [README](../../../README.md).
 
 ## Purpose
 
