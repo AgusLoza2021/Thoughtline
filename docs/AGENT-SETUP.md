@@ -20,6 +20,10 @@ file — `.cursorrules`, `.zed/rules.md`, `~/.config/opencode/AGENTS.md`,
 `GEMINI.md` — or, for Claude Code, take the longer standalone version in
 [integrations/claude-code-protocol.md](integrations/claude-code-protocol.md).
 
+It is maintained here and _only_ here. The per-editor guides below refer to it
+rather than repeating it: a copy of this block in seven files is how the version
+you are reading went stale in all seven at once.
+
 ### The protocol block
 
 ```markdown
@@ -32,8 +36,12 @@ non-obvious feature work, a gotcha, or a stated preference.
 
 Set `type` from the project's vocabulary: `decision`, `convention`, `bugfix`,
 `perf-gotcha`, `pipeline-step`, `script-pattern`, `scene-pattern`,
-`asset-reference`, `game-design-decision`, `architecture`, or `preference`
-(which must use `scope: "personal"`; everything else is `project`).
+`asset-reference`, `game-design-decision`, `architecture`, or `preference`.
+Always pass it - Engram does not validate the field, its default is `manual`,
+and a memory typed `manual` is not in this vocabulary.
+
+`preference` uses `scope: "personal"`; everything else uses `scope: "project"`
+(the default). Engram also accepts `global`; this vocabulary does not use it.
 
 The first line of `content` is a `**Tags**:` line, comma-separated, in
 `key:value` form:
@@ -47,12 +55,22 @@ filter by tag; it is an aid to recall, not an index.
 `topic_key` is `category/subject`, lowercase and slash-separated, e.g.
 `convention/unity/folder-layout`. Re-saving the same key REPLACES the title and
 content rather than appending, so reuse a key only for a topic that evolves.
+Use `mem_suggest_topic_key` when you want a key for a topic you expect to
+revisit.
 
-Search proactively with `mem_search` when the user refers to earlier work, then
-`mem_get_observation` for the full record. Recover the recent state of the
-project with `mem_context` when you pick work back up, and close a working
-block with `mem_session_summary`: Goal / Discoveries / Accomplished / Next
-Steps / Relevant Files.
+Search proactively when the user refers to earlier work: `mem_context` first,
+then `mem_search` with keywords, then `mem_get_observation` for the full record.
+
+Keep the memory good without being asked: `mem_update` to correct or extend one
+instead of saving the same topic twice (its `find`/`replace` inputs are literal,
+case-sensitive and global); `mem_delete` for a claim you know is false;
+`mem_pin` for the few memories a future session must not miss; `mem_review`
+for what has aged out; `mem_doctor` when a save or a search misbehaves. Pass
+`capture_prompt: false` on automated or artifact saves.
+
+Close a working block with `mem_session_summary`: Goal / Discoveries /
+Accomplished / Next Steps / Relevant Files. End a completed task with a
+`## Key Learnings:` section and the small learnings get captured for free.
 ```
 
 ### A complete save, to see the shape

@@ -18,37 +18,38 @@ The other thing that outlived the server is the observation the old step 3 made:
 ### Rules to drop into `AGENTS.md`
 
 ```markdown
-## Persistent memory
+## Persistent memory — the words
 
 You have Engram's memory tools available.
 
-Save proactively after: a decision, a convention, a bug fix, non-obvious feature
-work, a gotcha, or a stated preference.
-
-Set `type` from the project's vocabulary: `decision`, `convention`, `bugfix`,
+Set `type` from this vocabulary: `decision`, `convention`, `bugfix`,
 `perf-gotcha`, `pipeline-step`, `script-pattern`, `scene-pattern`,
-`asset-reference`, `game-design-decision`, `architecture`, or `preference`
-(which must use `scope: "personal"`; everything else is `project`).
+`asset-reference`, `game-design-decision`, `architecture`, or `preference`.
+Always pass it - Engram does not validate the field, its default is `manual`,
+and a memory typed `manual` is not in this vocabulary.
+
+`preference` uses `scope: "personal"`; everything else uses `scope: "project"`
+(the default). Engram also accepts `global`; this vocabulary does not use it.
 
 The first line of `content` is a `**Tags**:` line, comma-separated, in
 `key:value` form:
 
 **Tags**: engine:unity, platform:android, pipeline:fbx
 
-Engram has no tags field, so that line is where tags live - and Engram's
-full-text search indexes the body, so the line stays findable. You cannot
-filter by tag; it is an aid to recall, not an index.
+Engram has no tags field, so that line is where tags live - and its full-text
+search indexes the body, so the line stays findable. You cannot filter by tag;
+it is an aid to recall, not an index.
 
 `topic_key` is `category/subject`, lowercase and slash-separated, e.g.
 `convention/unity/folder-layout`. Re-saving the same key REPLACES the title and
 content rather than appending, so reuse a key only for a topic that evolves.
-
-Search proactively with `mem_search` when the user refers to earlier work, then
-`mem_get_observation` for the full record.
-
-Close a working block with `mem_session_summary`: Goal / Discoveries /
-Accomplished / Next Steps / Relevant Files.
 ```
+
+The behaviour block that goes with it — when to save, how to search, how to
+correct a memory rather than save it twice — is kept in one place, at
+[`docs/AGENT-SETUP.md`](../AGENT-SETUP.md) in the Thoughtline repository. It is
+not repeated here: a copy of that block in seven files went stale in all seven
+at once.
 
 ### A complete save, to see the shape
 
