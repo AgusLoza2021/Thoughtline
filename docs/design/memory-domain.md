@@ -202,7 +202,7 @@ High-level structural decisions about the system — packages, boundaries, data 
 
 There is no validator any more. Engram accepts any `type` string — a deliberate design choice on its part, and precisely the reason this vocabulary earns its place. **Nothing stops your agent from inventing `perf_bugfix_thing` except being told not to.**
 
-So these rules are a contract with your agent, not a gate. Step 3 of the adoption path in the [README](../../README.md) is what makes them real: put the catalogue where your agent reads its instructions.
+So these rules are a contract with your agent, not a gate. What makes them real is [`presets/AGENTS.md`](../../presets/AGENTS.md) — a file you copy into your project so that this catalogue sits where your agent reads its instructions. Step 3 of the adoption path in the [README](../../README.md) is that copy step.
 
 | Rule | What you lose if the agent drifts |
 | ---- | --------------------------------- |
