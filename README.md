@@ -21,7 +21,7 @@ This repository ships its own MCP memory server. It keeps memories in a local SQ
 
 On top of that sits the part generic memory tools do not have. Their vocabulary is the language of backend engineers: `bugfix`, `decision`, `architecture`, `pattern`. Useful — and nowhere near the texture of building games. This repository is the missing opinion: the memory **types** and **tags** shaped for how a game studio actually works, plus the guidance to start using them in five minutes.
 
-That vocabulary is not welded to this server. It runs unchanged on [**Engram**](https://github.com/Gentleman-Programming/engram) too, because both store a memory's `type` as a free-form string — see the section on Engram below.
+That vocabulary is not welded to this server. It runs unchanged on [**Engram**](https://github.com/Gentleman-Programming/engram) too, which stores a memory's `type` as a free-form string; this server is the one that validates it against the closed set — see the section on Engram below.
 
 ### What it actually saves you
 
@@ -55,13 +55,13 @@ So the division of labour is:
 | Storage, FTS5 search, MCP tools, sessions, TUI | this repository's server — or Engram, if you run the vocabulary there |
 | The words you store — types, tags, and what each one is *for* | this repository |
 
-**The storage and the words ship together here, and the words alone still work on Engram.** That is why the vocabulary is written down instead of hard-coded: it is the part that has to survive a change of engine.
+**The storage and the words ship together here, and the words alone still work on Engram.** That is why the vocabulary is both enforced and written down: the code is the single source for the closed set, and the documents are what carry it to an engine that has no opinion of its own.
 
 ---
 
 ## The taxonomy
 
-Seven core types, each with a reason to exist, ordered by measured use across 2,336 real memories in 13 projects. The full catalogue — the required sections per type, the tag vocabulary (`engine:`, `platform:`, `pipeline:`) and worked examples per engine — lives in [`docs/design/memory-domain.md`](docs/design/memory-domain.md) and [`docs/design/tag-conventions.md`](docs/design/tag-conventions.md). That file is the only place the complete catalogue lives; the table below is the short version.
+Seven core types, each with a reason to exist, ordered by measured use across 2,336 real memories in 13 projects, read on 2026-09-29. The full catalogue — the required sections per type, the tag vocabulary (`engine:`, `platform:`, `pipeline:`) and worked examples per engine — lives in [`docs/design/memory-domain.md`](docs/design/memory-domain.md) and [`docs/design/tag-conventions.md`](docs/design/tag-conventions.md). That file is the only place the complete catalogue lives; the table below is the short version.
 
 | Type           | Measured use | What it captures                                                    |
 | -------------- | ------------ | ------------------------------------------------------------------- |
@@ -77,7 +77,7 @@ These seven are the ones every agent session on this stack is already told to ch
 
 Game projects can also reach for seven optional extensions — `game-design-decision`, `scene-pattern`, `asset-reference`, `perf-gotcha`, `pipeline-step`, `script-pattern`, `convention` — documented in the same file. Together they account for 4 of those 2,336 memories, so they are available rather than recommended.
 
-Each memory carries the same envelope: `topic_key`, `scope`, `project`, `created_at`, `revision_count`, free-form content.
+Each memory carries the same envelope: `title`, `type`, `topic_key`, `scope`, `project`, `tags`, `created_at`, `revision_count`, free-form content.
 
 ---
 
@@ -115,7 +115,7 @@ They are separate tools with separate stores, so **installing both gives you two
 
 The server is in the tree, it builds, and its own test suite passes. Two facts about its state matter before you rely on it:
 
-- **The newest published tag is not the current source.** `v0.1.0` was cut on 2026-05-07 and the source has moved on since — the published binary exposes fewer tools than `main` does. Build from the repository to get current behaviour.
+- **The newest published tag is not the current source.** `v0.1.0` was cut on 2026-05-07 and the source has moved on since — the published binary exposes fewer tools than `main` does, and it rejects `discovery`, `config` and `pattern`, three of the core types above. Build from the repository to get current behaviour.
 - **`main` sits mid-feature.** The `storage-caps` work landed its first three phases on 2026-05-15 and its fourth phase never landed; the second change in that goal, `slim-inject`, was never started. Nothing in the tool surface described above depends on the unfinished phase, and the resume checkpoint is recorded as `sdd/storage-caps/state`.
 
 There is no release cadence here: [`CHANGELOG.md`](CHANGELOG.md) is the record of what changed and why, and it is a live document.
