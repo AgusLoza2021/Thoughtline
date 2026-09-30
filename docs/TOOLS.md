@@ -1,19 +1,6 @@
 # Tool catalogue & end-to-end examples
 
-<!-- retired-v0.1.0 -->
-> **Retired — this page documents the v0.1.0 MCP server.** That server is
-> unmaintained, so the tool catalogue below is kept as a record of the
-> interface it exposed, not a list of tools to use.
-> For what this project is now — a gamedev memory vocabulary that runs on
-> [Engram](https://github.com/Gentleman-Programming/engram) — read the
-> [README](../README.md), the [memory domain](design/memory-domain.md) and the
-> [tag conventions](design/tag-conventions.md).
-
 ---
-
-> **Legacy — the v0.1.0 server.** Everything below documents `thoughtline`, the
-> retired server, and its `tl_*` tools. It is a record of how the project worked,
-> not instructions to follow.
 
 The full reference for every MCP tool Thoughtline exposes, plus working examples of the JSON arguments an MCP client sends. Skim the catalogue, then jump to the example block that matches what you're trying to do.
 
@@ -45,7 +32,7 @@ Architecture: [`ARCHITECTURE.md`](ARCHITECTURE.md). Taxonomy: [`design/memory-do
 |-------------|----------|------------------------------------------------------------------------------------------------|
 | `title`     | yes      | Short, searchable headline (≤ 200 chars)                                                       |
 | `content`   | yes      | Markdown body. Recommended structure: **What** / **Why** / **Where** / **Learned**             |
-| `type`      | yes      | One of the 11 catalogued types — see [`design/memory-domain.md`](design/memory-domain.md)      |
+| `type`      | yes      | One of the fourteen catalogued types — see [`design/memory-domain.md`](design/memory-domain.md)      |
 | `scope`     | no       | `project` (default) or `personal`. The `preference` type auto-defaults to `personal`           |
 | `topic_key` | no       | Stable key for evolving topics. Re-saves on the same key upsert (lowercase / `[a-z0-9/_-]`)    |
 | `project`   | no       | Defaults to the working-directory basename (or `THOUGHTLINE_PROJECT` if set)                   |

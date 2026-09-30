@@ -1,15 +1,10 @@
 # Passive Capture Specification
 
-<!-- retired-v0.1.0 -->
 > Change: `passive-capture-hooks`
 > Status: shipped
 > Operation: ADDED (new capability — no prior spec exists)
->
-> **Retired — this spec describes the v0.1.0 MCP server.** The engine it specifies is
-> unmaintained, so everything below is a requirement of that engine, not a contract this
-> project still honours. For what this project is now — a gamedev memory vocabulary that runs on
-> [Engram](https://github.com/Gentleman-Programming/engram) — read the
-> [README](../../../README.md).
+> Amended: 2026-09-29 — the taxonomy this spec defers to is fourteen values, not eleven,
+> since the engine was revived as the product (ADR 0008, `8dccec5`).
 
 ## Capability Summary
 
@@ -200,7 +195,7 @@ The command MUST run in foreground mode only in v1 (no daemon, no background pro
 The `tl_promote` tool MUST accept a batch of one or more `pending_event` IDs plus target memory metadata. For each event ID in the batch, it MUST:
 
 1. Verify the event exists and has `status = 'pending'`.
-2. Create a new memory using the existing 11-type taxonomy with the supplied fields.
+2. Create a new memory using the existing 14-type taxonomy with the supplied fields.
 3. Set the event's `status` to `'promoted'` and `promoted_memory_id` to the new memory's ID.
 
 Each event MUST be processed in its own transaction. Partial success is allowed — failures in one event do NOT roll back others. The tool MUST return a result per event ID indicating success or failure.
@@ -210,7 +205,7 @@ Input shape:
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
 | `event_ids` | []int | Yes | One or more pending_event IDs |
-| `type` | string | Yes | One of the 11 taxonomy types |
+| `type` | string | Yes | One of the 14 taxonomy types |
 | `title` | string | Yes | Memory title |
 | `content` | string | Yes | Memory content |
 | `topic_key` | string | No | Stable topic key for upsert |
@@ -267,7 +262,7 @@ When `tl_promote` creates a memory from a pending event, the new memory MUST hav
 
 ### Requirement 7: Memory Type Taxonomy — Unchanged
 
-This change MUST NOT introduce new values into the 11-type memory taxonomy. Pending events are raw, untyped records. They MUST NOT be stored in the `memories` table. Only `tl_promote` creates memories, and it MUST use one of the existing 11 types. `AllTypes()` MUST still return exactly 11 values after this change is applied.
+This change MUST NOT introduce new values into the 14-type memory taxonomy. Pending events are raw, untyped records. They MUST NOT be stored in the `memories` table. Only `tl_promote` creates memories, and it MUST use one of the existing 14 types. `AllTypes()` MUST still return exactly 14 values after this change is applied.
 
 #### Scenario: tl_search does not surface pending events
 
@@ -279,7 +274,7 @@ This change MUST NOT introduce new values into the 11-type memory taxonomy. Pend
 
 - GIVEN the passive-capture change is fully applied
 - WHEN `AllTypes()` is called
-- THEN it returns exactly 11 types (no new types added)
+- THEN it returns exactly 14 types (no new types added)
 
 ---
 
@@ -302,7 +297,7 @@ Any error inside `thoughtline hook` (DB unavailable, disk full, lock timeout, un
 The TUI Inbox tab MUST support promoting a pending capture with either of two paths:
 
 1. **Passthrough accept (`[A]`)**: The promotion writes a memory using the proposed values from `pending_events.payload` unchanged.
-2. **Edited accept (`[E]`)**: Before the promote call, the user MAY override `type` (constrained to the 11-type taxonomy), `title`, and `content`. The promote then writes a memory using the edited values.
+2. **Edited accept (`[E]`)**: Before the promote call, the user MAY override `type` (constrained to the 14-type taxonomy), `title`, and `content`. The promote then writes a memory using the edited values.
 
 In both paths, the underlying storage write MUST go through the existing `MarkPromoted` code path. The `pending_events` row's `payload` column MUST NOT be mutated by the TUI — it remains the captured source of truth for audit. The created memory MUST inherit `project`, `session_id` (when present), and `captured_at` (where applicable) from the original `pending_events` row, regardless of which path was taken.
 
