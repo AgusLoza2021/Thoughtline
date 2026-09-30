@@ -3,14 +3,17 @@
 > Change: `adopt-thoughtline-replace-engram`
 > Status: proposed
 > Operation: ADDED (first formal spec for the type taxonomy domain)
+> Amended: 2026-09-29 — the closed set is fourteen, not eleven. `discovery`, `config` and
+> `pattern` joined it when the engine was revived as the product (ADR 0008, `8dccec5`). The
+> original eleven all remain in the set.
 
 ## Capability Summary
 
-Defines the closed, exhaustive set of 11 memory type values that `Type.Valid()` MUST accept, the rules for keeping the set closed, and the type/scope coupling constraint that forces `preference` memories into `scope = personal`. This spec is the normative contract; `types.go` and `validate.go` are its implementation.
+Defines the closed, exhaustive set of 14 memory type values that `Type.Valid()` MUST accept, the rules for keeping the set closed, and the type/scope coupling constraint that forces `preference` memories into `scope = personal`. This spec is the normative contract; `types.go` and `validate.go` are its implementation.
 
 ## Requirements
 
-### Requirement 1: Closed Type Set (11 values)
+### Requirement 1: Closed Type Set (14 values)
 
 The system MUST accept exactly the following values for `memory.Type`, case-sensitively, and MUST reject any other string including empty string, whitespace-only, and mixed-case variants:
 
@@ -27,18 +30,21 @@ The system MUST accept exactly the following values for `memory.Type`, case-sens
 | `preference` | Engram 1:1 |
 | `decision` | Engram 1:1 (new — added by this change) |
 | `architecture` | Engram 1:1 (new — added by this change) |
+| `discovery` | Engram 1:1 (added 2026-09-29) |
+| `config` | Engram 1:1 (added 2026-09-29) |
+| `pattern` | Engram 1:1 (added 2026-09-29) |
 
 `Type.Valid()` SHALL iterate `AllTypes()` and return `true` only on an exact byte-level match.
 
 #### Scenario: Known valid types accepted
 
-- GIVEN a `memory.Type` set to any of the 11 values listed above
+- GIVEN a `memory.Type` set to any of the 14 values listed above
 - WHEN `Type.Valid()` is called
 - THEN it returns `true`
 
 #### Scenario: Types outside the set rejected
 
-- GIVEN a `memory.Type` set to `"pattern"`, `"config"`, `"discovery"`, `"manual"`, or any arbitrary string not in the 11-value set
+- GIVEN a `memory.Type` set to `"manual"`, `"gamedev-note"`, or any arbitrary string not in the 14-value set
 - WHEN `Type.Valid()` is called
 - THEN it returns `false`
 
@@ -58,13 +64,13 @@ The system MUST accept exactly the following values for `memory.Type`, case-sens
 
 ### Requirement 2: `AllTypes()` Enumerates the Full Set
 
-`AllTypes()` MUST return a slice of exactly 11 `Type` values in a stable, deterministic order. The slice MUST include both `decision` and `architecture` after this change is applied. Any code that switches on type values (e.g. UI labels, documentation generators) MUST derive its set from `AllTypes()` — hardcoded subsets are prohibited.
+`AllTypes()` MUST return a slice of exactly 14 `Type` values in a stable, deterministic order. The slice MUST include `decision`, `architecture`, `discovery`, `config` and `pattern`. Any code that switches on type values (e.g. UI labels, documentation generators) MUST derive its set from `AllTypes()` — hardcoded subsets are prohibited.
 
-#### Scenario: AllTypes returns 11 values
+#### Scenario: AllTypes returns 14 values
 
 - GIVEN the updated `types.go` is compiled
 - WHEN `AllTypes()` is called
-- THEN the returned slice has length 11 and contains both `"decision"` and `"architecture"`
+- THEN the returned slice has length 14 and contains `"decision"`, `"architecture"`, `"discovery"`, `"config"` and `"pattern"`
 
 #### Scenario: AllTypes used as source of truth for validation
 
