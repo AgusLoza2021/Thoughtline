@@ -10,9 +10,11 @@ Single source of truth for "what's done, what's next, what's blocking publishing
 
 **M-brain-foundation: 🟢 done (2026-05-07).** Schema v4, 4 new packages (`config`, `brain`, `links`, `events`), storage API redesign (brain-scoped queries), isolation invariant test suite, server compat layer. See ADR 0005.
 
-**Passive capture: 🟢 done.** Schema v3, 12 MCP tools, `thoughtline hook`, `thoughtline worker`. See ADR 0004.
+**Passive capture: 🟢 done.** Schema v3, 12 MCP tools as of this session, `thoughtline hook`, `thoughtline worker`. See ADR 0004.
 
 **Milestone M5 (Dashboard): 🟢 done.** M0–M4 are also 🟢 done — see history below. Nine MCP tools + interactive TUI shipped in M5. M6 (Smarts / embeddings) is deferred per ADR 0002.
+
+**MCP surface today: 15 tools.** Three more — `tl_judge`, `tl_link` and `tl_related` — landed in `8f4a6c4` (2026-05-14), after this page's last update, along with the `tags` and `recent_first` arguments on `tl_search`.
 
 ---
 
@@ -80,7 +82,7 @@ Per [ADR 0002](decisions/0002-search-strategy-fts5-first.md), M6 only happens if
 - Behind a feature flag, off by default.
 - `tl_reindex` background tool to backfill embeddings for memories worth re-embedding.
 
-For now, **v0.0.1 ships with M0–M5 complete**. Nine MCP tools + interactive dashboard.
+For now, **v0.0.1 ships with M0–M5 complete**. Twelve MCP tools at that release, plus the interactive dashboard.
 
 ---
 
