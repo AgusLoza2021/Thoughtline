@@ -1,13 +1,5 @@
 # Thoughtline — Presentación
 
-<!-- retired-v0.1.0 -->
-> **Retired — this page documents the v0.1.0 MCP server.** That server is
-> unmaintained, so the install and wiring steps below are not a supported path.
-> For what this project is now — a gamedev memory vocabulary that runs on
-> [Engram](https://github.com/Gentleman-Programming/engram) — read the
-> [README](README.md), the [memory domain](docs/design/memory-domain.md) and the
-> [tag conventions](docs/design/tag-conventions.md).
-
 > Memoria persistente para asistentes de IA. Local. Para siempre.
 > *Persistent memory for AI assistants. Local. Forever.*
 
@@ -83,9 +75,9 @@ Works with **any engine** and **any MCP-capable IDE**.
 
 ## 🛠️ Las herramientas / The tools
 
-12 herramientas MCP que la IA usa sola — vos no tenés que pensar en ellas:
+Las herramientas MCP que la IA usa sola — vos no tenés que pensar en ellas:
 
-12 MCP tools the AI uses on its own — you don't have to think about them:
+The MCP tools the AI uses on its own — you don't have to think about them:
 
 | Tool                 | Qué hace / What it does                                    |
 |----------------------|------------------------------------------------------------|
@@ -98,7 +90,12 @@ Works with **any engine** and **any MCP-capable IDE**.
 | `tl_session_start`   | Abre una sesión / Opens a session                          |
 | `tl_session_summary` | Cierra con un digest estructurado / Closes with digest     |
 | `tl_stats`           | Estadísticas del proyecto / Project stats                  |
-| `tl_pending_*`       | Captura pasiva vía hooks / Passive capture via hooks       |
+| `tl_pending_list`    | Eventos capturados sin archivar / Captured events, unfiled |
+| `tl_pending_get`     | Un evento con su payload / One event with its payload      |
+| `tl_promote`         | Los archiva como memorias / Files them as memories         |
+| `tl_judge`           | Compara antes de escribir (no escribe) / Compares, writes nothing |
+| `tl_link`            | Enlaza dos memorias / Links two memories                   |
+| `tl_related`         | Lee los enlaces de una memoria / Reads a memory's links    |
 
 ---
 
@@ -190,9 +187,9 @@ claude plugin install github:AgusLoza2021/Thoughtline/plugin/claude-code
 
 ## 🌱 Lineage / Origen
 
-**ES** — Thoughtline está parado en los hombros de **[Engram](https://github.com/Gentleman-Programming/engram)** de Alan Buscaglia. Reusamos su forma MCP, su layout de storage, FTS5, topic-key upserts. Lo que agregamos: **taxonomía gamedev-first** y vocabulario para Unity/Unreal/Godot/PlayCanvas. MIT-compatible — las mejoras pueden volver upstream.
+**ES** — Thoughtline está parado en los hombros de **[Engram](https://github.com/Gentleman-Programming/engram)** de Alan Buscaglia. Su diseño desciende del suyo: la forma MCP, el layout de storage, FTS5, topic-key upserts. Lo que agregamos: **taxonomía gamedev-first** y vocabulario para Unity/Unreal/Godot/PlayCanvas. **El motor es nuestro** — Thoughtline lo implementa y lo shippea, no delega la mecánica. MIT-compatible — las mejoras pueden volver upstream.
 
-**EN** — Thoughtline stands on the shoulders of **Engram** by Alan Buscaglia. We reuse its MCP shape, storage layout, FTS5, topic-key upserts. What we add: **gamedev-first taxonomy** and engine vocabulary. MIT — improvements flow back upstream.
+**EN** — Thoughtline stands on the shoulders of **Engram** by Alan Buscaglia. Its design descends from that one: the MCP shape, the storage layout, FTS5, topic-key upserts. What we add: **gamedev-first taxonomy** and engine vocabulary. **The engine is ours** — Thoughtline implements and ships it rather than delegating mechanics. MIT — improvements flow back upstream.
 
 ---
 

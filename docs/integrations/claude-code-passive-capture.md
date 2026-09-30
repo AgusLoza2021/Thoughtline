@@ -1,10 +1,10 @@
 # Claude Code — Passive Capture Integration
 
-## What survives from this page
+## What this page covers
 
-The feature described below — a queue of raw hook events that you review and promote into typed memories — was implemented by the retired server, and its `tl_pending_*` / `tl_promote` tools went with it. The *idea* did not go anywhere, and Engram ships it: passive capture is one of Engram's tools. Wire it to Claude Code's hooks following Engram's own documentation; none of this repository is needed for that, and there is no env var or hook file here to copy.
+The feature described below — a queue of raw hook events that you review and promote into typed memories — ships in this server as the `tl_pending_*` and `tl_promote` tools. Wire it to Claude Code's hooks as described here.
 
-What this page still has to offer is the part that is not engine-specific — and it is the part worth reading before you turn capture on.
+What matters before you turn capture on is not engine-specific, and it is worth reading first.
 
 > **The privacy trade-off does not depend on who wrote the server.** Passive capture stores raw hook payloads: `UserPromptSubmit` (your prompts, verbatim), `PreToolUse` and `PostToolUse` (tool inputs and outputs, which may include file contents, secrets, or paths you would rather not keep). Whichever server you run, that is a copy of your raw session sitting next to your curated memories. The old default was OFF for this reason. Keep it that way until you have decided where that data lands and who can read it.
 

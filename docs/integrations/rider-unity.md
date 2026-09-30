@@ -1,44 +1,36 @@
 # JetBrains Rider (Unity)
 
-<!-- retired-v0.1.0 -->
-> **Retired — the v0.1.0 MCP server this page was written for is unmaintained.**
-> Its install and wiring steps are kept at the bottom as a record of how the project
-> worked, not as a path to follow. For what this project is now — a gamedev memory
-> vocabulary that runs on
-> [Engram](https://github.com/Gentleman-Programming/engram) — read the
-> [README](../../README.md), the [memory domain](../design/memory-domain.md) and the
-> [tag conventions](../design/tag-conventions.md).
+## Using Thoughtline with Rider + Unity today
 
-## Using this vocabulary with Rider + Unity today
+Install Thoughtline, then add it under `Settings → Tools → AI Assistant → MCP servers`. What this page teaches was never about the server: **the Unity vocabulary** — which `type` a Unity lesson belongs under, which tags it carries, and what a body worth re-reading looks like. It lives in the [memory domain](../design/memory-domain.md) and the [tag conventions](../design/tag-conventions.md).
 
-The server this page used to teach is retired. The server you want now is [Engram](https://github.com/Gentleman-Programming/engram) — install it and add it under `Settings → Tools → AI Assistant → MCP servers` by following Engram's own instructions. What survives from this repository is the part that was never about the server: **the Unity vocabulary** — which `type` a Unity lesson belongs under, which tags it carries, and what a body worth re-reading looks like. It lives in the [memory domain](../design/memory-domain.md) and the [tag conventions](../design/tag-conventions.md).
-
-The other thing that outlived the server is the habit the old step 3 recommended: **keep the memory rules in the project, and point the AI Assistant's "additional context" setting at them.** Rider does not auto-load skill files either, so the agent still has to be told when to save and in what shape.
+The habit the old step 3 recommended still holds: **keep the memory rules in the project, and point the AI Assistant's "additional context" setting at them.** Rider does not auto-load skill files either, so the agent still has to be told when to save and in what shape.
 
 ### Rules to keep in `Assets/_AI/RULES.md`
 
 ```markdown
 ## Persistent memory — the words
 
-You have Engram's memory tools available.
+You have Thoughtline's memory tools available (`tl_*`).
 
 Set `type` from this vocabulary: `decision`, `convention`, `bugfix`,
 `perf-gotcha`, `pipeline-step`, `script-pattern`, `scene-pattern`,
 `asset-reference`, `game-design-decision`, `architecture`, or `preference`.
-Always pass it - Engram does not validate the field, its default is `manual`,
-and a memory typed `manual` is not in this vocabulary.
+Always pass it - Thoughtline validates the field, and a save whose type is
+not in this vocabulary is rejected rather than filed under a default.
 
 `preference` uses `scope: "personal"`; everything else uses `scope: "project"`
-(the default). Engram also accepts `global`; this vocabulary does not use it.
+(the default). Thoughtline accepts those two and no others.
 
 The first line of `content` is a `**Tags**:` line, comma-separated, in
 `key:value` form:
 
 **Tags**: engine:unity, platform:android, pipeline:fbx
 
-Engram has no tags field, so that line is where tags live - and its full-text
-search indexes the body, so the line stays findable. You cannot filter by tag;
-it is an aid to recall, not an index.
+`tl_save` also takes a `tags` array; this vocabulary keeps its tags on that
+first line so a memory stays self-describing when it is copied, quoted or
+moved between stores. Thoughtline's full-text search indexes the body, so the
+line stays findable either way.
 
 `topic_key` is `category/subject`, lowercase and slash-separated, e.g.
 `convention/unity/folder-layout`. Re-saving the same key REPLACES the title and
@@ -53,7 +45,7 @@ at once.
 
 ### Unity saves to make on day 1
 
-The three below are the ones this page always recommended, now expressed in the contract Engram actually accepts. Capture them early — your future self will thank you.
+The three below are the ones this page always recommended, now expressed in the contract Thoughtline accepts. Capture them early — your future self will thank you.
 
 ```jsonc
 // Project structure
@@ -88,10 +80,6 @@ The three below are the ones this page always recommended, now expressed in the 
 Tag Rider-driven saves with `tool:rider` on that `**Tags**:` line, so they are recognisable later.
 
 ---
-
-> **Legacy — the v0.1.0 setup.** Everything below documents `thoughtline`, the
-> retired server, and its `tl_*` tools. It is a record of how the project worked,
-> not instructions to follow.
 
 [Rider](https://www.jetbrains.com/rider/) added MCP support via the AI Assistant plugin. This page is the canonical setup for Unity developers using Rider.
 

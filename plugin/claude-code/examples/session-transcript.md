@@ -1,11 +1,5 @@
 # Example — a session with thoughtline active
 
-<!-- retired-v0.1.0 -->
-> **Retired — this file belongs to the v0.1.0 MCP server.** That server is
-> unmaintained, so nothing below is a supported path, a tool to call, or a command to
-> run. The plugin's record starts at the [plugin README](../README.md); what
-> this project is now is the [repository README](../../../README.md).
-
 Annotated transcript showing the agent calling `tl_*` tools at the right moments. Whitespace condensed; the actual MCP traffic is JSON-RPC.
 
 ---

@@ -6,11 +6,54 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
-> **This is not a release plan.** Thoughtline is retired; no release will ever carry any of this.
-> The entries below separate three different things: changes that landed on `main` and were
-> never released, work that was **parked mid-feature** before it was finished, and the
-> decisions that ended the project. Every parked entry says so in its own heading. Nothing
-> here is a promise, and no date below is a release date.
+> **This is not a release plan.** Thoughtline was retired on 2026-09-28 and is now being
+> revived; nothing below has been released, and no date below is a release date. The entries
+> separate three different things: changes that landed on `main` and were never released,
+> work that was **parked mid-feature** before it was finished, and the decisions that ended
+> the project. Every parked entry says so in its own heading.
+
+### Changed — the engine is the product again (2026-09-29)
+
+The project was retired on 2026-09-28 and this repository spent the following
+period describing itself as a memory vocabulary for another project's engine.
+That description was true of the documents and had never been true of the code:
+the MCP server, its SQLite store, its FTS5 search, its sessions and its TUI were
+all still here, and `go build` and `go test ./...` both passed on `main`.
+
+The server is the deliverable again, and the reason is written down in
+[ADR 0008](docs/decisions/0008-the-engine-is-the-product.md), which supersedes
+[ADR 0007](docs/decisions/0007-vocabulary-not-mechanics.md). What that changed:
+
+- `.github/workflows/release.yml` is restored byte-identical to its pre-`cd93aa1`
+  content, so a tagged commit can be published again. Nothing is tagged by this
+  change, and the version question is open. The licence-hygiene steps dropped
+  from `ci.yml` in the same sweep stay dropped: they guard against claude-mem's
+  licence, which is not this project's concern.
+- The front door stops denying the product. `README.md` opens on the server it
+  ships, splits adoption into the two paths that actually exist, and loses the
+  thirteen claims that sent readers elsewhere. `SECURITY.md` and
+  `docs/INSTALLATION.md` follow.
+- The `retired-v0.1.0` notices are gone from the 37 pages that carried them. The
+  openspec specs keep their `Change`/`Status`/`Operation` metadata; only the
+  notice paragraphs were removed.
+- The per-editor guides point at this server again, and their rules block now
+  states this server's behaviour: it validates `type`, it has a `tags` field,
+  and it accepts `project` and `personal`. The three clauses it carried were true
+  of Engram and false of the tool the page installs.
+- `internal/memory`'s own comments no longer call the package an archive.
+
+**Restoring the surface does not re-open the retirement.** The commits that
+retired the project, the entries below that announce it, and ADR 0007's text are
+all part of the record and stay as written. A reversal that deletes the evidence
+of what it reversed cannot be audited.
+
+**One disagreement is named and unresolved.** `docs/design/memory-domain.md`
+lists fourteen types in two tiers, documents a `global` scope and permits a dot
+in `topic_key`; `internal/memory` closes the set at eleven types and accepts
+neither `global` nor a dotted key, so `tl_save` rejects input the catalogue calls
+valid. The catalogue was grown by measurement and the validator was frozen by the
+retirement, which makes this a live defect in the shipped tool rather than a
+documentation drift. It is recorded in ADR 0008 §6 and in the package docs.
 
 ### Restored — the Claude Code plugin is installable again (2026-09-29)
 

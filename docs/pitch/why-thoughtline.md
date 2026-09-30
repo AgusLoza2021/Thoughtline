@@ -1,13 +1,5 @@
 # Why Thoughtline — pitch & talking points
 
-<!-- retired-v0.1.0 -->
-> **Retirado — esta página describe el server MCP v0.1.0.** Ese server quedó sin
-> mantener, así que el argumentario de abajo ya no es una posición vigente.
-> Para lo que este proyecto es ahora — un vocabulario de memoria para gamedev que
-> corre sobre [Engram](https://github.com/Gentleman-Programming/engram) — leé el
-> [README](../../README.md), el [dominio de memoria](../design/memory-domain.md) y
-> las [convenciones de tags](../design/tag-conventions.md).
-
 > Cheat-sheet para explicar Thoughtline en 10 segundos, en una reu, o cuando te tiran una objeción.
 > No es documentación técnica. Para eso está el [README](../../README.md) y [ARCHITECTURE.md](../ARCHITECTURE.md).
 

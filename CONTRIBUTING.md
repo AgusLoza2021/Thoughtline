@@ -4,7 +4,7 @@ Thanks for considering a contribution. Thoughtline is small, opinionated, and we
 
 ## Before opening a PR
 
-1. **Check the open issues.** There is no active-milestone document any more: the v0.1.0 engine's roadmap (`docs/PROGRESS.md`) is retired along with the engine, and the live work is the vocabulary. Work that pulls a future idea forward is fine, but flag it in the PR so we can sequence it.
+1. **Check the open issues.** `docs/PROGRESS.md` is the milestone log the engine was built against; it stops at M5 and reads as history rather than as a live plan. Work that pulls a future idea forward is fine, but flag it in the PR so we can sequence it.
 2. **Read the relevant ADR.** If your change touches architecture (search strategy, storage backend, MCP shape), there's likely an ADR explaining the prior decision. New architectural choices need a new ADR.
 3. **Open an issue first for non-trivial work.** A 30-line bugfix can land directly. A new memory type, a new tool, a schema migration — open an issue first.
 
