@@ -32,7 +32,7 @@ graph TB
       direction TB
       Main["cmd/thoughtline · main()"]
       Server["internal/server<br/>MCP wiring · tool registration"]
-      Tools["9 tool handlers<br/>tl_save · tl_search · tl_context · ..."]
+      Tools["15 tool handlers<br/>tl_save · tl_search · tl_context · ..."]
       Memory["internal/memory<br/>domain types · validation"]
       Storage["internal/storage<br/>SQLite + FTS5"]
       TUI["internal/dashboard<br/>Bubbletea TUI"]
@@ -162,8 +162,6 @@ Bubbletea TUI. Standard model/update/view split (`model.go`, `update.go`, `view.
 
 All registered in `internal/server/server.go`. The text in each `register*` function is the description **the model reads** when deciding whether to call. Treat it as production prose.
 
-| Tool | What it does |
-|---|---|
 | Tool | What it does |
 |---|---|
 | `tl_save` | Persist a memory. Proactive — the agent calls this after decisions, gotchas, fixes, conventions. Supports `topic_key` upsert, and `tags` is a real field. |
