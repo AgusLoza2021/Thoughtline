@@ -1,6 +1,7 @@
 package memory
 
 import (
+	"fmt"
 	"regexp"
 	"strings"
 	"unicode/utf8"
@@ -8,20 +9,23 @@ import (
 	"github.com/google/uuid"
 )
 
-// topicKeyRe enforces the topic-key shape this server accepted: lowercase
-// letters, digits, slash, underscore, hyphen; must start with [a-z0-9]; total
-// length 2..129 chars (1 lead + 1..128 trail). Frozen with the v0.1.0 package:
-// docs/design/memory-domain.md also permits a dot, for version numbers, and is
-// the live rule.
-var topicKeyRe = regexp.MustCompile(`^[a-z0-9][a-z0-9/_-]{1,128}$`)
+// topicKeyRe enforces the topic-key shape this server accepts: lowercase letters,
+// digits, slash, underscore, hyphen and dot; must start with [a-z0-9]; at most
+// MaxTopicKeyLen characters in total. The dot is there for version numbers,
+// which are the only dotted keys the catalogue's measurement found.
+//
+// Built from MaxTopicKeyLen so the constant and the pattern cannot disagree.
+var topicKeyRe = regexp.MustCompile(fmt.Sprintf(`^[a-z0-9][a-z0-9/_.-]{1,%d}$`, MaxTopicKeyLen-1))
 
 // tagRe enforces the tag shape: lowercase, digit, colon, underscore, hyphen;
-// must start with [a-z0-9]; total length 1..41 chars.
-var tagRe = regexp.MustCompile(`^[a-z0-9][a-z0-9:_-]{0,40}$`)
+// must start with [a-z0-9]; at most MaxTagLen characters in total. Built from
+// the constant for the same reason.
+var tagRe = regexp.MustCompile(fmt.Sprintf(`^[a-z0-9][a-z0-9:_-]{0,%d}$`, MaxTagLen-1))
 
-// Validate enforces the domain rules this frozen package models — the set the
-// retired v0.1.0 server enforced. The live catalogue is broader and is documented
-// in docs/design/memory-domain.md.
+// Validate enforces the domain rules the server applies to every save: the
+// fourteen types this package closes, the two scopes below, the topic-key shape
+// and the tag shape. The catalogue in docs/design/memory-domain.md documents one
+// scope more than this does -- `global` -- and nothing else wider.
 // It mutates nothing — callers can apply trimming themselves before saving.
 //
 // Errors returned are sentinel values from this package (e.g. ErrEmptyTitle).
@@ -34,8 +38,8 @@ func Validate(m Memory) error {
 		return ErrInvalidScope
 	}
 
-	// Type/scope coupling. Different in the live rules, which allow `global`;
-	// this is the archived v0.1.0 constraint.
+	// Type/scope coupling. The catalogue permits a `global` scope; this does
+	// not, so every non-preference save is project-scoped.
 	if m.Type == TypePreference && m.Scope != ScopePersonal {
 		return ErrPreferenceMustBePersonal
 	}

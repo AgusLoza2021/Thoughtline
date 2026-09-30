@@ -167,6 +167,9 @@ func TestValidate_TopicKey(t *testing.T) {
 		{"simple slug", "design/inventory-grid", true},
 		{"deep nesting", "perf/android/static-batching", true},
 		{"underscores ok", "convention/asset_naming", true},
+		{"dotted version number ok", "build/gradle-8.4-lock", true},
+		{"dotted decision key ok", "decision/auth/jwt-vs-session", true},
+		{"leading dot rejected", ".design/inventory", false},
 		{"single char too short", "a", false},
 		{"uppercase rejected", "Design/Inventory", false},
 		{"leading slash rejected", "/design/inventory", false},
@@ -211,20 +214,22 @@ func TestValidate_TypeRules_Extended(t *testing.T) {
 		}
 	})
 
-	t.Run("AllTypes returns 11 values including decision and architecture", func(t *testing.T) {
+	t.Run("AllTypes returns the fourteen catalogue values", func(t *testing.T) {
 		types := AllTypes()
-		if len(types) != 11 {
-			t.Fatalf("expected 11 types, got %d: %v", len(types), types)
+		if len(types) != 14 {
+			t.Fatalf("expected 14 types, got %d: %v", len(types), types)
 		}
 		have := make(map[Type]bool, len(types))
 		for _, tp := range types {
 			have[tp] = true
 		}
-		if !have[TypeDecision] {
-			t.Fatalf("AllTypes missing TypeDecision: %v", types)
-		}
-		if !have[TypeArchitecture] {
-			t.Fatalf("AllTypes missing TypeArchitecture: %v", types)
+		for _, want := range []Type{
+			TypeDecision, TypeArchitecture,
+			TypeDiscovery, TypeConfig, TypePattern,
+		} {
+			if !have[want] {
+				t.Fatalf("AllTypes missing %q: %v", want, types)
+			}
 		}
 	})
 
@@ -237,28 +242,42 @@ func TestValidate_TypeRules_Extended(t *testing.T) {
 		}
 	})
 
-	// Spec Requirement 1 — types outside the 11-value set are rejected.
-	t.Run("pattern type rejected", func(t *testing.T) {
+	// Types outside the catalogue are rejected. The three canonical types
+	// this package used to refuse were added by measurement: across the store
+	// the vocabulary was measured against, `discovery` alone accounted for more
+	// observations than every game-dev type combined.
+	t.Run("discovery type accepted with project scope", func(t *testing.T) {
 		m := validMemory()
-		m.Type = "pattern"
-		if err := Validate(m); !errors.Is(err, ErrInvalidType) {
-			t.Fatalf("\"pattern\" should fail ErrInvalidType; got %v", err)
+		m.Type = TypeDiscovery
+		if err := Validate(m); err != nil {
+			t.Fatalf("discovery/project should be valid, got %v", err)
 		}
 	})
 
-	t.Run("config type rejected", func(t *testing.T) {
+	t.Run("config type accepted with project scope", func(t *testing.T) {
 		m := validMemory()
-		m.Type = "config"
-		if err := Validate(m); !errors.Is(err, ErrInvalidType) {
-			t.Fatalf("\"config\" should fail ErrInvalidType; got %v", err)
+		m.Type = TypeConfig
+		if err := Validate(m); err != nil {
+			t.Fatalf("config/project should be valid, got %v", err)
 		}
 	})
 
-	t.Run("discovery type rejected", func(t *testing.T) {
+	t.Run("pattern type accepted with project scope", func(t *testing.T) {
 		m := validMemory()
-		m.Type = "discovery"
-		if err := Validate(m); !errors.Is(err, ErrInvalidType) {
-			t.Fatalf("\"discovery\" should fail ErrInvalidType; got %v", err)
+		m.Type = TypePattern
+		if err := Validate(m); err != nil {
+			t.Fatalf("pattern/project should be valid, got %v", err)
+		}
+	})
+
+	t.Run("new canonical types are not preference-coupled", func(t *testing.T) {
+		for _, tp := range []Type{TypeDiscovery, TypeConfig, TypePattern} {
+			m := validMemory()
+			m.Type = tp
+			m.Scope = ScopePersonal
+			if err := Validate(m); !errors.Is(err, ErrNonPreferenceMustBeProject) {
+				t.Fatalf("%s/personal should fail ErrNonPreferenceMustBeProject; got %v", tp, err)
+			}
 		}
 	})
 

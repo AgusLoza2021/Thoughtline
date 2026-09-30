@@ -2,7 +2,9 @@
 
 This is the canonical vocabulary of Thoughtline: what a "memory" is, which types it can take, and how each type is shaped.
 
-Since 2026-09-24 this vocabulary runs on [Engram](https://github.com/Gentleman-Programming/engram) — the storage engine is no longer part of this repository. That changes one thing above all: the **enforcement model**. No code can reject a malformed memory for you any more. The catalogue below is enforced by *instructing your agent*, which makes the encoding rules and the per-type sections the entire mechanism rather than documentation of a validator.
+The engine enforces this vocabulary, and both are in this repository. `tl_save` runs every memory through the domain layer in [`internal/memory`](../../internal/memory) before it reaches the store, so a save carrying a type outside the catalogue, a malformed `topic_key`, a bad tag or an empty title is **rejected** rather than filed. This page is that catalogue: eight fields you set, fourteen types, and the rules the server checks.
+
+[Engram](https://github.com/Gentleman-Programming/engram) is the other engine that speaks this vocabulary, and this repository ships [`cmd/migrate`](../../cmd/migrate/README.md) to move memories out of it. Where the two differ, this page names the difference instead of averaging it. [ADR 0008](../decisions/0008-the-engine-is-the-product.md) records why the engine came back.
 
 If you are adding a new type, follow [Adding a new memory type](#adding-a-new-memory-type) at the bottom.
 
@@ -10,46 +12,48 @@ If you are adding a new type, follow [Adding a new memory type](#adding-a-new-me
 
 ## The envelope
 
-Every memory — regardless of type — carries the same envelope. On Engram you set six of these fields and Engram owns the rest.
+Every memory — regardless of type — carries the same envelope. You set eight fields; the store owns the rest.
 
 **You set these:**
 
-| Field       | Required | Notes                                                                                        |
-| ----------- | -------- | -------------------------------------------------------------------------------------------- |
-| `title`     | yes      | Short, searchable. Imperative form preferred. ≤ 200 chars                                     |
-| `content`   | yes      | Markdown body — this is where the per-type sections below live                                |
-| `type`      | yes      | One of the catalogue values below. Engram accepts **any** string, so the discipline is yours |
-| `topic_key` | no       | Stable key for evolving topics — see below                                                    |
-| `scope`     | no       | `project` (default), `personal`, or `global` — see below                                      |
-| `project`   | no       | Defaults to Engram's resolved project (explicit → `ENGRAM_PROJECT` → cwd)                      |
+| Field        | Required | Notes                                                                                            |
+| ------------ | -------- | ------------------------------------------------------------------------------------------------ |
+| `title`      | yes      | Short, searchable. Imperative form preferred. ≤ 200 characters                                     |
+| `content`    | yes      | Markdown body — this is where the per-type sections below live                                  |
+| `type`       | yes      | One of the fourteen catalogue values below. Anything else is refused, never folded to a default   |
+| `topic_key`  | no       | Stable key for evolving topics — see below                                                      |
+| `scope`      | no       | `project` (default) or `personal` — see below                                                    |
+| `project`    | no       | Defaults to the working directory's basename when omitted                                        |
+| `tags`       | no       | A real column, and `tl_search` filters on it — see below                                        |
+| `session_id` | no       | Attaches the memory to an open session. Must be a UUIDv7 for a session in the same project       |
 
-**Engram owns these — never write them by hand:** `id`, `sync_id`, `revision_count`, `created_at`, `updated_at`, `last_seen_at`, `duplicate_count`, `session_id`. They are what makes provenance and upserts work.
+**The store owns these — never write them by hand:** `id`, `sync_id`, `brain_id`, `normalized_hash`, `revision_count`, `created_at`, `updated_at`, `deleted_at`. They are what makes provenance and upserts work.
 
 ### Where tags go
 
-The retired engine gave every memory a `tags` array. **Engram has no tags field** — `mem_save` accepts `title`, `content`, `type`, `scope`, `topic_key`, `project` and `session_id`, and nothing else. So the tagging convention splits in two:
+`tags` is a real column, and `tl_search` filters on it, so a tag you expect to query by belongs in the field. The shape is the one [`tag-conventions.md`](tag-conventions.md) defines: lowercase letters, digits, `:`, `_` and `-`, between 1 and 41 characters, starting with a letter or a digit, `key:value` for the namespaced form. Anything else is rejected rather than quietly dropped.
 
-1. **Engine, platform and pipeline tags belong in the `topic_key`.** The key patterns in the catalogue below already carry them: `perf/android/static-batching` states the platform, `scene/playcanvas/interactive-prop` states the engine. This is *better* than a tag — the key is a first-class field you can upsert against and address by name.
-2. **Every other tag goes on a `**Tags**:` line as the first line of `content`**, following the namespaces in [`tag-conventions.md`](tag-conventions.md) (asset category, phase, tooling, performance buckets, ...).
+Two other places a fact can carry a tag:
 
-Rule 2 is viable because Engram's full-text search indexes the body, so a tag that exists only inside `content` stays findable. Verified against Engram 2.x on 2026-09-24 with a body-only probe token: saved inside the body, found by search, never present in the title.
+1. **Inside the `topic_key`**, when the type's key pattern has a slot for it. `perf/android/static-batching` already carries `platform:android`; `scene/playcanvas/interactive-prop` already carries `engine:playcanvas`. This is identity rather than metadata — the key is what an upsert matches on, which is why a platform or an engine the type has a slot for goes here.
+2. **On a `**Tags**:` first line inside `content`**, the convention this vocabulary used before the column existed. It is indexed as body text, so those tags stay findable, but they cannot be filtered.
 
-What you give up is tag **filtering** — Engram cannot filter by tag, only search for it. What you keep is a namespaced, greppable vocabulary in every memory. If Engram ever grows a tags field, only rule 2 changes.
+> **Which one to use: the field.** It survives an edit, it is what `tl_search` filters on, and `tl_get_observation` prints it back. The first line still works and is still what a human reading raw markdown sees, but it is not a second source of truth — a tag that matters belongs in the field.
 
 ---
 
 ### About `topic_key`
 
-A `topic_key` is a stable, readable string naming *what this memory is about* — a slug for a wiki article. It is Engram's own concept, and this vocabulary is built on it.
+A `topic_key` is a stable, readable string naming *what this memory is about* — a slug for a wiki article. It is the store's own concept, and this vocabulary is built on it.
 
-Pass a `topic_key` to `mem_save` and Engram upserts on `(project, topic_key)`:
+Pass a `topic_key` to `tl_save` and the server upserts on `(project, topic_key)`:
 
-1. **First write — inserts.** New `id`, new `sync_id`, `created_at` stamped, `revision_count` 1.
+1. **First write — inserts.** New `id`, new `sync_id`, `created_at` stamped, `revision_count` 0.
 2. **Every later write with the same key — updates in place.** *Same* `id` and *same* `sync_id`, `created_at` preserved, `updated_at` bumped, `revision_count` + 1.
 
-Verified end to end against Engram 2.x on 2026-09-24: two saves sharing a key returned the same `id`, kept `created_at` from the first, and reported `revision_count` 2.
+Measured against this server: two saves sharing a key came back with the same `id` and the same `sync_id`, the first save's `created_at` survived the second (the saves were a second apart, so the timestamps differ visibly), and the revision count went 0, then 1.
 
-> **Gotcha — the upsert replaces, it does not merge.** The later write's `title` and `content` overwrite the earlier ones and the previous text is gone. A keyed memory is a *topic*, not a log: write what is currently true, not a changelog. If you want history, leave `topic_key` unset, or keep the history inside `content`.
+> **Gotcha — the upsert replaces, it does not merge.** The later write's `title`, `content` and `tags` all overwrite the earlier ones and the previous text is gone. A keyed memory is a *topic*, not a log: write what is currently true, not a changelog. If you want history, leave `topic_key` unset, or keep the history inside `content`.
 
 Recommended `topic_key` shape: `category/subject` or `category/subcategory/subject`. Examples:
 
@@ -60,13 +64,15 @@ Recommended `topic_key` shape: `category/subject` or `category/subcategory/subje
 
 A dot is allowed, and its one intended use is a version number: `audit/v0.0.1-features-apagadas`, `design/gdd/crowd-control-v1.1`. That is what the dotted keys in real stores are for, and it is the one case where the key itself should record which revision of a thing you are describing.
 
-The retired engine added a search shortcut that matched queries containing `/` against `topic_key` first — see [ADR 0002](../decisions/0002-search-strategy-fts5-first.md). On Engram there is no such shortcut: you search the key as ordinary text, which is exactly what the examples above are shaped to survive.
+A query containing `/` is treated as a key rather than as text. It is matched against `topic_key` as a GLOB pattern exactly as written, then retried as a prefix, and only if both attempts find nothing does full-text search run. So `architecture/inn` finds `architecture/inn-entity-hierarchy`, `architecture/` finds every key under it, and `design/auth/*` says so explicitly. A query with no `/` never reaches this path, which is why keys are shaped `category/subject` rather than a bare subject — see [ADR 0002](../decisions/0002-search-strategy-fts5-first.md).
 
 ### About `scope`
 
 - `project` (default) — bound to a single project. Most memories live here.
 - `personal` — cross-project, per-developer. Use sparingly, for ergonomics ("I prefer 4-space indents in shaders") that travel with the dev, not the project.
-- `global` — cross-project, machine-wide. Measured on a real store: **30 memories across 6 projects**, two orders of magnitude rarer than `project`. The rarity is the useful part: a memory that belongs to *every* project is usually a symptom of one that belongs to none, so reach for `global` deliberately rather than by default.
+`preference` **must** be `personal`, and every other type must be `project`. The server checks that pairing and refuses a mismatch, so it is not a style rule you can drift from.
+
+There is no third value. Engram's store carries a `global` scope — two orders of magnitude rarer than `project` in a real store, spread thinly across six projects — and this catalogue used to name it. This server does not accept it: `scope` is a stored and filterable attribute, not a visibility rule, and `personal` already means "cross-project, for this developer". A third value would be a label with no behaviour behind it, so the field stays at two and a `global` save is refused by a message that says so. See [ADR 0008](../decisions/0008-the-engine-is-the-product.md).
 
 ---
 
@@ -78,11 +84,11 @@ Fourteen types in two tiers.
 
 **Extension** — this repository's own additions, aimed at game projects. Optional: adopt one only if your domain asks for it.
 
-Engram's own tools write their own types, and those belong to neither tier: `session_summary` (459 observations) and `manual` (91 — the field's default when you pass no type at all). This catalogue governs the memories *you* decide to save.
+Engram's own tools write their own types, and those belong to neither tier: `session_summary` and `manual` — the field's default when a caller passes no type at all. In the store this catalogue was measured against, `session_summary` alone held 459 observations and `manual` held 91. Neither is in the list below, so a migration has to say what each of them *was*; `manual` in particular is refused outright, which is the right outcome — a memory filed under "miscellaneous" is a memory nobody will find again. This catalogue governs the memories *you* decide to save.
 
 ### Core types
 
-Ordered by measured use across 2,336 observations in 13 projects. The order is evidence, not taste.
+Ordered by measured use across 2,336 observations in 13 projects, read from a real Engram store on 2026-09-29. The order is evidence, not taste — and a snapshot, not a constant.
 
 | Type           | Measured use | What it captures                                                 |
 | -------------- | ------------ | ---------------------------------------------------------------- |
@@ -271,46 +277,45 @@ Naming, structure, project-wide rules.
 
 ## How the vocabulary is enforced
 
-There is no validator any more. Engram accepts any `type` string — a deliberate design choice on its part, and precisely the reason this vocabulary earns its place. **Nothing stops your agent from inventing `perf_bugfix_thing` except being told not to.**
+By code. `tl_save` validates every field before it writes, and a memory that fails is refused with a message naming the field and the rule. Nothing is filed under a default, so no wrong memory reaches the store for a later session to trust. The rules live in [`internal/memory`](../../internal/memory): `Validate` in `validate.go`, the catalogue in `types.go`, the limits beside them.
 
-So these rules are a contract with your agent, not a gate. What makes them real is [`presets/AGENTS.md`](../../presets/AGENTS.md) — a file you copy into your project so that this catalogue sits where your agent reads its instructions. Step 3 of the adoption path in the [README](../../README.md) is that copy step.
+| Rule | What you lose if it drifts |
+| ---- | -------------------------- |
+| `type` is one of the fourteen catalogue values | A free-form type accumulates until `type` is noise — the exact failure this vocabulary exists to prevent |
+| `scope` is `project` (the default) or `personal`; `preference` must be `personal` and everything else must be `project` | Memories leak across projects, or hide from the project that needs them |
+| `title` is non-empty and ≤ 200 characters, counted in runes | Titles stop working as an index and search results read as a wall of sentences |
+| `content` is non-empty and ≤ 64 KiB, counted in bytes | A memory the next session cannot act on is worse than no memory — it looks like knowledge |
+| `topic_key`, when present, matches `^[a-z0-9][a-z0-9/_.-]{1,128}$` — lowercase, no spaces, no leading slash, dots only for version numbers | Nothing breaks loudly: the key stops being greppable, and the `/` shortcut stops finding it |
+| A tag matches `^[a-z0-9][a-z0-9:_-]{0,40}$` — lowercase, digits, `key:value` for namespaced tags | Tags misspell themselves into invisibility, and a filter matches nothing without saying so |
+| `session_id`, when present, is a UUIDv7 for a session in the same project | The memory attaches to a session it does not belong to |
 
-**This file is the only complete copy of the catalogue.** Every other document — the README, the editor guides, the comparison — names a type or two as an example and links here. An earlier revision repeated the full list across **fifteen files, this one included**, and by the time anyone checked, the list was wrong in all of them at once. (The archived `openspec/` proposals carry it too; those are a frozen record and were left alone, along with the retired engine's own copy in `internal/memory/`.) Change the catalogue here, and here only.
-
-| Rule | What you lose if the agent drifts |
-| ---- | --------------------------------- |
-| `type` is one of the 14 catalogue values; a new type needs an issue first | Free-form types accumulate until `type` is noise — the exact failure this vocabulary exists to prevent |
-| `scope` is `project` (the default), `personal` or `global`; `preference` **must** be `personal`, and everything else stays `project` unless it genuinely applies to every project | Memories leak across projects, or hide from the project that needs them |
-| `title` is non-empty and ≤ 200 chars, short and searchable | Titles stop working as an index and search results read as a wall of sentences |
-| `content` is non-empty and self-contained | A memory the next session cannot act on is worse than no memory — it looks like knowledge |
-| `topic_key`, when present, matches `^[a-z0-9][a-z0-9/_.-]{1,128}$` — lowercase, no spaces, no leading slash, dots only for version numbers | Nothing breaks loudly; the key simply stops being greppable and consistent |
-| Tags on the `**Tags**:` line match `^[a-z0-9][a-z0-9:_-]{0,40}$`, lowercase, `key:value` for namespaced tags | Tags misspell themselves into invisibility |
-| Keep `content` well under 64 KiB | The retired engine rejected oversize content with a clear error; Engram does not, so this is a writing guideline now. Check Engram for its own limits |
+**This file is the catalogue; [`internal/memory/types.go`](../../internal/memory/types.go) is the list.** They are two copies of one claim, which is why the server builds every user-facing type list — the `tl_save` and `tl_search` descriptions, and the message a rejected save returns — from `AllTypes()` at startup instead of typing it out again. Three hand-typed copies existed and all three had gone stale in different ways; one still called `decision` and `architecture` invalid. An earlier revision of this page repeated the catalogue across **fifteen files**, and by the time anyone checked, the list was wrong in all of them at once. Change the catalogue here and in `types.go`, and nowhere else. (The archived `openspec/` proposals carry it too; those are a frozen record and were left alone.)
 
 ---
 
 ## What your choice of `type` costs
 
-`type` is not only a label. Engram keys one piece of lifecycle behaviour on the exact string, and
-this catalogue is not shaped to match it.
+`type` is a label with a closed set of values, and that is the whole of it here: it is stored, it is
+returned by `tl_get_observation`, and `tl_search` filters on it by exact match. Nothing else in this
+server is keyed on the string. There is no decay, no review horizon and no automatic
+re-surfacing.
 
-Every observation can carry a `review_after` timestamp. Once that passes, the observation reports
+On Engram, an observation can carry a `review_after` timestamp. Once that passes it reports
 `state: "needs_review"` in search results and turns up under `mem_review` with `action: "list"`.
 **That horizon exists for exactly three type strings** — `decision` (six months), `policy`
-(twelve) and `preference` (three) — and Engram's own comment above the map states the rest:
+(twelve) and `preference` (three) — and that engine's own comment above the map states the rest:
 *"Types absent from this map get `review_after` = NULL (Phase 1 behavior)."*
 
-So **twelve of this catalogue's fourteen types never surface as stale and never appear in
-`mem_review`**: everything except `decision` and `preference`. (`policy` is one of the three keys,
-and this catalogue does not use it — a quiet reminder that the map was not written for us.)
+So on that engine twelve of this catalogue's fourteen types never surface as stale: everything
+except `decision` and `preference`. (`policy` is one of the three keys, and this catalogue does not
+use it — a quiet reminder of who the map was written for.)
 
-This does not make the catalogue wrong. It means the review tools are not the whole of memory
-hygiene here: for the other twelve types, deciding that a memory has aged out is your judgement,
-usually expressed as a `mem_update` or a `mem_delete`. Engram's review machinery is real, and it
-covers two of our fourteen types.
-
-See [ADR 0007](../decisions/0007-vocabulary-not-mechanics.md) for why this vocabulary is
-deliberately not reshaped to fit that map, and what is being asked upstream instead.
+This repository's engine implements no horizon, so here the whole of memory hygiene is the writer's
+job: a memory that has aged out is corrected with `tl_update` or retired with `tl_delete`, and
+`tl_stats` shows what is there. If this catalogue ever grows a horizon, it should be decided on this
+repository's terms and recorded in an ADR — not inherited from a map that was not written for us.
+[ADR 0008](../decisions/0008-the-engine-is-the-product.md) records why the vocabulary was left
+alone instead of being reshaped to fit that map.
 
 ---
 
@@ -318,16 +323,19 @@ deliberately not reshaped to fit that map, and what is being asked upstream inst
 
 1. Open an issue describing the use case and at least three real examples.
 2. Discuss in the issue whether an existing type already covers it. Most often it does — the catalogue is deliberately small.
-3. If a new type is justified, add a section to this file following the pattern above: purpose, required content sections, topic-key pattern, a concrete example.
-4. If it belongs in the **core** tier, add it to the table in [`presets/AGENTS.md`](../../presets/AGENTS.md) as well. That file is copied into other projects, so it carries its own copy of the core list by design — this file and that one are the only two copies of the catalogue.
-5. Bump the CHANGELOG.
+3. If a new type is justified, add it in these places, in one change:
+   - a section to this file following the pattern above: purpose, required content sections, topic-key pattern, a concrete example;
+   - the constant and its `AllTypes()` entry in [`internal/memory/types.go`](../../internal/memory/types.go);
+   - the table in [`presets/AGENTS.md`](../../presets/AGENTS.md), if it belongs to the **core** tier. That file is copied into other projects, so it carries its own copy of the core list by design.
+4. Bump the CHANGELOG.
+5. If the new type should not be coupled to `scope` the way `preference` is, that is a change to `Validate` too — say so in the issue.
 
-New types are additive and never breaking, because Engram stores the type string verbatim. Adding one is a documented convention rather than a schema migration — which is the whole advantage of no longer owning the engine.
+Everything else follows on its own: the tool descriptions and the rejection message are built from `AllTypes()` at startup, so a type added to the list is offered by the server without a second edit. Adding a type stays additive and non-breaking, and it is now a change to this repository — the code and the catalogue move together.
 
 ---
 
 ## What we deliberately leave out
 
-- **Free-form `type` — as an engine feature.** Engram allows it, which is right for a general-purpose tool. This vocabulary closes the catalogue by convention instead, so the words stay shared.
-- **Hierarchical types**. No subtypes. If you feel the pull toward `bugfix.android.batching`, use `tags` instead.
+- **Free-form `type`.** Engram allows any string, which is right for a general-purpose tool. This server closes the set, so a save carrying an unknown type is refused instead of stored — and the words stay shared because nothing can invent a new one silently.
+- **Hierarchical types**. No subtypes. If you feel the pull toward `bugfix.android.batching`, use `tags` instead — that is what the column is for.
 - **Per-type custom JSON schemas**. The shared envelope plus tags + markdown content is enough for v1. If a type really needs structured data, that becomes its own ADR.

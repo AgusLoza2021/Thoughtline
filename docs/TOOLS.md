@@ -1,19 +1,6 @@
 # Tool catalogue & end-to-end examples
 
-<!-- retired-v0.1.0 -->
-> **Retired — this page documents the v0.1.0 MCP server.** That server is
-> unmaintained, so the tool catalogue below is kept as a record of the
-> interface it exposed, not a list of tools to use.
-> For what this project is now — a gamedev memory vocabulary that runs on
-> [Engram](https://github.com/Gentleman-Programming/engram) — read the
-> [README](../README.md), the [memory domain](design/memory-domain.md) and the
-> [tag conventions](design/tag-conventions.md).
-
 ---
-
-> **Legacy — the v0.1.0 server.** Everything below documents `thoughtline`, the
-> retired server, and its `tl_*` tools. It is a record of how the project worked,
-> not instructions to follow.
 
 The full reference for every MCP tool Thoughtline exposes, plus working examples of the JSON arguments an MCP client sends. Skim the catalogue, then jump to the example block that matches what you're trying to do.
 
@@ -24,7 +11,7 @@ All MCP tools share the `tl_` prefix.
 | Tool                  | Purpose                                                                                  | Status |
 | --------------------- | ---------------------------------------------------------------------------------------- | ------ |
 | `tl_save`             | Persist a memory; upserts on `topic_key`; identical re-saves are noops                   | ✅ M1  |
-| `tl_search`           | FTS5 + BM25 search with optional filters (`type`, `scope`, `project`, `topic_key` glob) | ✅ M2  |
+| `tl_search`           | FTS5 + BM25 search with optional filters (`type`, `scope`, `project`, `topic_key`, `tags`) | ✅ M2  |
 | `tl_get_observation`  | Fetch full untruncated content of a memory by id                                         | ✅ M2  |
 | `tl_context`          | Recent memories for the active project, ordered by `updated_at DESC`                     | ✅ M3  |
 | `tl_update`           | Patch `title` / `content` / `tags` of an existing memory by id                           | ✅ M3  |
@@ -32,7 +19,15 @@ All MCP tools share the `tl_` prefix.
 | `tl_session_start`    | Open a session; returns a UUIDv7 you thread through subsequent `tl_save` calls           | ✅ M4  |
 | `tl_session_summary`  | Close a session; persists a structured end-of-session digest. Append-once.               | ✅ M4  |
 | `tl_stats`            | Snapshot of memory + session counts. Optional `project` filter (`*` for all)             | ✅ M5  |
+| `tl_pending_list`     | Browse hook events captured but not yet filed                                            | ✅ M5  |
+| `tl_pending_get`      | Read one captured event, payload included                                                | ✅ M5  |
+| `tl_promote`          | File captured events as memories, under the fields you supply                            | ✅ M5  |
+| `tl_judge`            | Format a comparison between a stored memory and one you are about to write. Writes nothing. | ✅ M6  |
+| `tl_link`             | Record a typed edge from one memory to another                                           | ✅ M6  |
+| `tl_related`          | Read every edge on a memory, in either direction                                         | ✅ M6  |
 
+
+`Status` is the release window a tool first shipped in, not a maturity claim. The pending trio landed with the M5 passive-capture work (2026-05-07); `tl_judge`, `tl_link` and `tl_related` followed in `8f4a6c4` (2026-05-14), which is also when `tl_search` grew its `tags` and `recent_first` arguments.
 Architecture: [`ARCHITECTURE.md`](ARCHITECTURE.md). Taxonomy: [`design/memory-domain.md`](design/memory-domain.md). Tags: [`design/tag-conventions.md`](design/tag-conventions.md).
 
 ---
@@ -45,10 +40,10 @@ Architecture: [`ARCHITECTURE.md`](ARCHITECTURE.md). Taxonomy: [`design/memory-do
 |-------------|----------|------------------------------------------------------------------------------------------------|
 | `title`     | yes      | Short, searchable headline (≤ 200 chars)                                                       |
 | `content`   | yes      | Markdown body. Recommended structure: **What** / **Why** / **Where** / **Learned**             |
-| `type`      | yes      | One of the 11 catalogued types — see [`design/memory-domain.md`](design/memory-domain.md)      |
+| `type`      | yes      | One of the fourteen catalogued types — see [`design/memory-domain.md`](design/memory-domain.md). Anything else is refused, never folded to a default |
 | `scope`     | no       | `project` (default) or `personal`. The `preference` type auto-defaults to `personal`           |
-| `topic_key` | no       | Stable key for evolving topics. Re-saves on the same key upsert (lowercase / `[a-z0-9/_-]`)    |
-| `project`   | no       | Defaults to the working-directory basename (or `THOUGHTLINE_PROJECT` if set)                   |
+| `topic_key` | no       | Stable key for evolving topics. Re-saves on the same key replace the stored title, content and tags. Must match `^[a-z0-9][a-z0-9/_.-]{1,128}$` — lowercase, no spaces, no leading slash |
+| `project`   | no       | Precedence: `THOUGHTLINE_PROJECT`, then the working-directory basename, then `default`. Pass it explicitly to file into another project |
 | `tags`      | no       | Lowercase tags, optionally `key:value`. See [`design/tag-conventions.md`](design/tag-conventions.md) for the canonical vocabulary. |
 | `session_id` | no      | Optional UUIDv7 returned by `tl_session_start`. Attaches the memory to that session. Must belong to the same project as the save. Sticky on upsert (omitting it preserves prior linkage). |
 
@@ -56,15 +51,17 @@ Architecture: [`ARCHITECTURE.md`](ARCHITECTURE.md). Taxonomy: [`design/memory-do
 
 | Param       | Required | Notes                                                                                          |
 |-------------|----------|------------------------------------------------------------------------------------------------|
-| `query`     | yes      | Keyword query. Each whitespace-delimited token is a literal phrase (implicit AND). Containing `/` triggers the topic-key GLOB shortcut |
+| `query`     | yes      | Keyword query. Each whitespace-delimited token is a literal phrase (implicit AND). A query containing `/` is tried against `topic_key` first — see the [shortcut](#3-topic-key-shortcut-tried-before-full-text-search) |
 | `type`      | no       | Filter — exact match against one of the catalogued types                                       |
 | `scope`     | no       | Filter — `project` or `personal`                                                               |
 | `project`   | no       | Filter — defaults to the working-directory basename. Pass explicitly to query other projects   |
-| `topic_key` | no       | GLOB filter on `topic_key` (e.g. `design/auth/*`)                                              |
+| `topic_key` | no       | GLOB filter on `topic_key` (e.g. `design/auth/*`). A bare `design/auth` matches the exact key only |
 | `limit`     | no       | Max results. Default 10, hard cap 50                                                           |
-| `offset`    | no       | Pagination offset; pair with `limit`                                                           |
+| `tags`      | no       | Filter — returns memories carrying **every** tag in the list. A tag that matches nothing returns an empty result, not an error |
+| `recent_first` | no    | Sort by `updated_at DESC` instead of relevance. Useful when the question is "what did we just do" rather than "what do we know" |
+| `offset`    | no       | Pagination offset; pair with `limit` |
 
-Results carry: `id`, `sync_id`, `title`, `snippet` (≤ 300 chars from FTS5 `snippet()`), `score` (BM25 — lower = better; topic-key shortcut hits get a synthetic `-1000`), plus all metadata. The response footer always points at `tl_get_observation` for full content.
+Each hit carries `Title`, `ID`, `Sync ID`, `Project`, `Type`, `Scope`, `Topic` (when keyed), `Revision`, `Score`, `Updated`, `Tags` (when present) and `Snippet` (≤ 300 chars, trimmed from the FTS5 `snippet()` in token units). `Score` is BM25 — lower is better, and a topic-key shortcut hit gets a synthetic `-1000` so it sorts above full-text matches. Nothing else is attached: a hit has no health state and no relation annotation. The footer always points at `tl_get_observation` for the full body.
 
 ### `tl_get_observation`
 
@@ -125,9 +122,74 @@ Closes a session **once** — a second `tl_session_summary` on the same id retur
 | Param      | Required | Notes                                                                                    |
 |------------|----------|------------------------------------------------------------------------------------------|
 | `project`  | no       | Filter to a single project, pass `*` for cross-project totals. Defaults to active project.|
-| `recent`   | no       | How many recent memories + sessions to include. Default 10, hard cap 50                  |
 
-Returns a text snapshot of the same numbers the dashboard displays: counts by type / project / scope, open + closed sessions, and the most recent N memories + sessions.
+Returns a text snapshot: counts by type / project / scope, the number of open and closed sessions, the four most recently active projects, and the most recent memories and sessions. `RecentLimit` is a storage option defaulting to 10 and clamped at 50, and it is **not** an MCP argument — there is no way to ask for more over the wire.
+
+---
+### `tl_judge`
+
+| Param             | Required | Notes                                                                                  |
+|-------------------|----------|----------------------------------------------------------------------------------------|
+| `existing_id`     | yes      | The stored memory you are comparing against                                            |
+| `incoming_title`  | yes      | Title of the memory you are about to write                                             |
+| `incoming_content`| yes      | Body of the memory you are about to write                                              |
+| `relation`        | yes      | One of `supersedes`, `compatible`, `conflicts_with`, `scoped`, `not_conflict`           |
+| `note`            | no       | Free-text rationale, echoed into the output                                            |
+
+Formats a side-by-side comparison and a recommended action. It is **read-only**: it writes nothing, records nothing and detects nothing. You supply the verdict, and the relation set here is deliberately different from `tl_link`'s — it is a vocabulary for judging, not for storing. Use `tl_link` when you want the decision to persist.
+
+### `tl_link`
+
+| Param       | Required | Notes                                                                          |
+|-------------|----------|--------------------------------------------------------------------------------|
+| `from_id`   | yes      | Source memory                                                                  |
+| `to_id`     | yes      | Target memory                                                                  |
+| `relation`  | yes      | One of `supersedes`, `contradicts`, `refines`, `depends_on`, `references`, `related`, `derived_from` |
+| `note`      | no       | Why the edge exists                                                            |
+| `project`   | no       | Defaults to the working-directory basename                                     |
+
+Records a directed edge between two memories. The edge is the only thing that survives a contradiction: nothing in the server detects one, so a memory that supersedes another says so because a writer linked it. Both ids must exist and be live.
+
+### `tl_related`
+
+| Param       | Required | Notes                                                                        |
+|-------------|----------|------------------------------------------------------------------------------|
+| `id`        | yes      | The memory whose edges you want                                             |
+| `direction` | no       | `out`, `in` or `both`. Defaults to `both`                                   |
+| `project`   | no       | Defaults to the working-directory basename                                  |
+
+Reads the edges back, with the memory at the other end of each one. This is how you find the replacement for something a search result calls superseded.
+
+### `tl_pending_list`
+
+| Param        | Required | Notes                                                                              |
+|--------------|----------|------------------------------------------------------------------------------------|
+| `project`    | no       | Defaults to the working-directory basename                                         |
+| `status`     | no       | `pending` (default), `promoted` or `dismissed`                                     |
+| `event_type` | no       | Filter by hook event — `session-start`, `user-prompt-submit`, `pre-tool-use`, `post-tool-use`, `stop`, `session-end` |
+| `since`      | no       | Only events captured after this moment                                            |
+| `limit`      | no       | Default 10, hard cap 50                                                            |
+| `offset`     | no       | Pagination offset                                                                  |
+
+Lists hook events captured by the Claude Code plugin. Payloads are stored raw — nothing is summarised or extracted — and they are invisible to `tl_search` until promoted. Capture is opt-in: the hooks no-op unless `THOUGHTLINE_PASSIVE_CAPTURE=1` is set. Reads only; this tool declares itself read-only on the wire.
+
+### `tl_pending_get`
+
+| Param | Required | Notes                                    |
+|-------|----------|------------------------------------------|
+| `id`  | yes      | The pending-event id from `tl_pending_list` |
+
+Returns one captured event with its full payload, which is what you need before deciding whether it is worth filing.
+
+### `tl_promote`
+
+| Param   | Required | Notes                                                                                    |
+|---------|----------|------------------------------------------------------------------------------------------|
+| `items` | yes      | Array of objects; each has `pending_event_id` plus the memory fields to file it under    |
+
+Each item takes `pending_event_id` and then `type`, `topic_key`, `title`, `content`, `scope` and `tags` — the same vocabulary as `tl_save`, because a promoted event *is* a save. A raw payload does not know what a memory looks like, so it cannot fill these in for you.
+
+Promotion runs per event in its own transaction, so a batch that fails halfway leaves the successful ones saved and the rest pending. This is the only tool that answers with JSON rather than text.
 
 ---
 
@@ -196,20 +258,22 @@ Title: …
 Snippets above are previews (≤300 chars, may include '…' ellipses from FTS5). Call tl_get_observation(id: <ID>) to read the full untruncated content of a specific match.
 ```
 
-### 3. Topic-key shortcut — exact lookup or GLOB
+### 3. Topic-key shortcut — tried before full-text search
 
-A query containing `/` is matched against `topic_key` first. If any rows match, FTS5 does **not** run.
+A query containing `/` is matched against `topic_key` first, and FTS5 does not run if it hits.
 
 ```jsonc
-// Exact lookup → O(1)
+// Bare key → an exact match, then an implicit trailing wildcard
 { "query": "scene/playcanvas/inn-cellar" }
 
-// GLOB lookup → all auth design notes
+// Explicit GLOB → all auth design notes. No fallback is added when a
+// wildcard is already present.
 { "query": "design/auth/*" }
 ```
 
-If the shortcut returns zero rows, the query falls through to the FTS5 path automatically.
+The second attempt is the reason `design/auth` finds `design/auth/jwt`: the key is used as typed, and if that matches nothing it is retried with an implicit `*`. Both attempts have to miss before the query falls through to the full-text path automatically — so no query that returns keyed rows today can change its answer.
 
+The trigger is the `/` in the query, not the shape of the key. A key like `inn-entity-hierarchy` has no slash, so it is only reachable through full-text search.
 ### 4. Read the full content with `tl_get_observation`
 
 ```jsonc

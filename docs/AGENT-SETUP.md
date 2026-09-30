@@ -1,19 +1,10 @@
 # Agent setup
 
-<!-- retired-v0.1.0 -->
-> **Retired — this page documents the v0.1.0 MCP server.** That server is
-> unmaintained, so the per-editor wiring below is kept as a record of how
-> editors were connected to it.
-> For what this project is now — a gamedev memory vocabulary that runs on
-> [Engram](https://github.com/Gentleman-Programming/engram) — read the
-> [README](../README.md), the [memory domain](design/memory-domain.md) and the
-> [tag conventions](design/tag-conventions.md).
-
 ## Tell the agent the protocol today
 
 Most editors don't auto-load skill protocols the way Claude Code does. You have
 to tell the agent **when** to save and **what** a memory worth keeping looks
-like. The tools come from Engram now; the instruction is still yours to write.
+like. The server ships the tools; the instruction is still yours to write.
 
 The block below is reusable across editors. Drop it into your project's rules
 file — `.cursorrules`, `.zed/rules.md`, `~/.config/opencode/AGENTS.md`,
@@ -29,46 +20,46 @@ you are reading went stale in all seven at once.
 ```markdown
 ## Persistent memory
 
-You have Engram's memory tools available.
+You have Thoughtline's memory tools available.
 
-Save proactively with `mem_save` after: a decision, a convention, a bug fix,
+Save proactively with `tl_save` after: a decision, a convention, a bug fix,
 non-obvious feature work, a gotcha, or a stated preference.
 
-Set `type` from the project's vocabulary: `decision`, `convention`, `bugfix`,
-`perf-gotcha`, `pipeline-step`, `script-pattern`, `scene-pattern`,
-`asset-reference`, `game-design-decision`, `architecture`, or `preference`.
-Always pass it - Engram does not validate the field, its default is `manual`,
-and a memory typed `manual` is not in this vocabulary.
+Set `type` from the catalogue: `discovery`, `architecture`, `bugfix`,
+`decision`, `config`, `pattern`, `preference`, plus the gamedev extensions
+`convention`, `perf-gotcha`, `pipeline-step`, `script-pattern`,
+`scene-pattern`, `asset-reference` and `game-design-decision`. Always pass it -
+the server checks the field against that list and refuses anything else, so an
+invented type is a failed save rather than a memory nobody will find again.
 
 `preference` uses `scope: "personal"`; everything else uses `scope: "project"`
-(the default). Engram also accepts `global`; this vocabulary does not use it.
+(the default). There is no third value - a save asking for `global` is refused.
 
-The first line of `content` is a `**Tags**:` line, comma-separated, in
-`key:value` form:
+Tags go in the `tags` field, a list of lowercase `key:value` strings:
 
-**Tags**: engine:unity, platform:android, pipeline:fbx
+tl_save(tags=["engine:unity", "platform:android", "pipeline:fbx"])
 
-Engram has no tags field, so that line is where tags live - and Engram's
-full-text search indexes the body, so the line stays findable. You cannot
-filter by tag; it is an aid to recall, not an index.
+`tl_search` filters on that field and `tl_get_observation` prints it back. A
+`**Tags**:` first line in `content` still works and is what a human reading raw
+markdown sees, but it is indexed as body text: it can be searched, not
+filtered, and an edit to the body can lose it.
 
 `topic_key` is `category/subject`, lowercase and slash-separated, e.g.
-`convention/unity/folder-layout`. Re-saving the same key REPLACES the title and
-content rather than appending, so reuse a key only for a topic that evolves.
-Use `mem_suggest_topic_key` when you want a key for a topic you expect to
-revisit.
+`convention/unity/folder-layout`. Re-saving the same key REPLACES the title,
+content and tags rather than appending, so reuse a key only for a topic that
+evolves. A query containing `/` is matched against `topic_key` before full-text
+search runs, so the key you choose is also the cheapest way to find it again.
 
-Search proactively when the user refers to earlier work: `mem_context` first,
-then `mem_search` with keywords, then `mem_get_observation` for the full record.
+Search proactively when the user refers to earlier work: `tl_context` first,
+then `tl_search` with keywords, then `tl_get_observation` for the full record.
 
-Keep the memory good without being asked: `mem_update` to correct or extend one
-instead of saving the same topic twice (its `find`/`replace` inputs are literal,
-case-sensitive and global); `mem_delete` for a claim you know is false;
-`mem_pin` for the few memories a future session must not miss; `mem_review`
-for what has aged out; `mem_doctor` when a save or a search misbehaves. Pass
-`capture_prompt: false` on automated or artifact saves.
+Keep the memory good without being asked: `tl_update` to correct or extend one
+instead of saving the same topic twice; `tl_delete` for a claim you know is
+false; `tl_link` to relate two memories; `tl_stats` to see what the store
+holds. There is no pin and no review queue - if a memory must not be missed,
+say so in its content, and if one has aged out, retire it yourself.
 
-Close a working block with `mem_session_summary`: Goal / Discoveries /
+Close a working block with `tl_session_summary`: Goal / Discoveries /
 Accomplished / Next Steps / Relevant Files. End a completed task with a
 `## Key Learnings:` section and the small learnings get captured for free.
 ```
@@ -79,20 +70,17 @@ Accomplished / Next Steps / Relevant Files. End a completed task with a
 {
   "type": "bugfix",
   "topic_key": "bug/unity/editor-import-hang",
+  "tags": ["engine:unity", "pipeline:blender-to-unity", "tool:cursor"],
   "title": "Unity hangs on import after a Blender re-export",
-  "content": "**Tags**: engine:unity, pipeline:blender-to-unity, tool:cursor\n\n**What**: Cleared Library/ArtifactDB after the .blend re-export. **Why**: Unity reused a stale artifact and the importer deadlocked on the same GUID. **Learned**: a re-export that keeps asset names but changes mesh topology is the trigger; a full reimport is cheaper than debugging it."
+  "content": "**What**: Cleared Library/ArtifactDB after the .blend re-export. **Why**: Unity reused a stale artifact and the importer deadlocked on the same GUID. **Learned**: a re-export that keeps asset names but changes mesh topology is the trigger; a full reimport is cheaper than debugging it."
 }
 ```
 
-Tag the saves you make from your editor with `tool:<editor>` on that `**Tags**:`
-line — the `tool:` namespace is listed in the
-[tag conventions](design/tag-conventions.md).
+Tag the saves you make from your editor with `tool:<editor>` in `tags`. The
+`tool:` namespace is listed in the [tag conventions](design/tag-conventions.md),
+and `tl_search(tags=["tool:cursor"])` finds every memory that carries it.
 
 ---
-
-> **Legacy — the v0.1.0 server.** Everything below documents `thoughtline`, the
-> retired server, and its `tl_*` tools. It is a record of how the project worked,
-> not instructions to follow.
 
 Thoughtline speaks the **Model Context Protocol** over stdio, so anything that's an MCP client can use it. This page is the index of per-tool setup guides — one click and you have the right config block for your IDE.
 

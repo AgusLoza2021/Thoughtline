@@ -18,6 +18,9 @@ func registerTLPendingGet(srv *server.MCPServer, s *storage.Storage, cfg Config)
 		mcp.NewTool("tl_pending_get",
 			mcp.WithTitleAnnotation("Get Pending Event"),
 			mcp.WithReadOnlyHintAnnotation(true),
+			mcp.WithDestructiveHintAnnotation(false),
+			mcp.WithIdempotentHintAnnotation(true),
+			mcp.WithOpenWorldHintAnnotation(false),
 			mcp.WithDescription(`Fetch the full payload of a single pending event by ID.
 
 Use tl_pending_list first to find the ID, then call this to inspect the raw

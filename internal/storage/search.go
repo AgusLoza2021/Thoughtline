@@ -87,12 +87,28 @@ func (s *Storage) Search(ctx context.Context, brainID int64, query string, opts 
 	}
 
 	if strings.Contains(query, "/") {
-		hits, err := s.searchByTopicKey(ctx, brainID, query, opts, limit, offset)
-		if err != nil {
-			return nil, err
+		// A query containing "/" names a topic key, so the key lookup runs
+		// first. It is tried exactly as typed, so a wildcard the caller wrote
+		// stays theirs, and then once more with an implicit trailing wildcard.
+		//
+		// Without that second attempt the shortcut only served callers who
+		// already knew the whole key: "architecture/inn" does not match
+		// "architecture/inn-entity-hierarchy", so the lookup returned nothing
+		// and full-text search ran on a string that is not body text. That is
+		// the one case the shortcut exists to spare a caller, which is why a
+		// miss now widens to a prefix before giving up.
+		globs := []string{query}
+		if !strings.ContainsAny(query, "*?[") {
+			globs = append(globs, query+"*")
 		}
-		if len(hits) > 0 {
-			return hits, nil
+		for _, glob := range globs {
+			hits, err := s.searchByTopicKey(ctx, brainID, glob, opts, limit, offset)
+			if err != nil {
+				return nil, err
+			}
+			if len(hits) > 0 {
+				return hits, nil
+			}
 		}
 		// Shortcut miss → fall through to FTS path.
 	}

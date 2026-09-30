@@ -665,3 +665,67 @@ func TestSearch_RevisionCountIncluded(t *testing.T) {
 		t.Errorf("expected revision_count=1 after one upsert, got %d", results[0].RevisionCount)
 	}
 }
+
+func TestSearch_TopicKeyShortcut_PrefixWithoutWildcard(t *testing.T) {
+	st := newTestStorage(t)
+	ctx := context.Background()
+	brainID := defaultBrainID(t, st)
+
+	oauth := sampleMemory()
+	oauth.TopicKey = "design/auth/oauth"
+	oauth.Title = "OAuth flow"
+	seed(t, st, oauth)
+
+	jwt := sampleMemory()
+	jwt.TopicKey = "design/auth/jwt"
+	jwt.Title = "JWT rotation"
+	seed(t, st, jwt)
+
+	lighting := sampleMemory()
+	lighting.TopicKey = "scene/lighting"
+	lighting.Title = "Lighting"
+	seed(t, st, lighting)
+
+	// A caller who knows the area but not the whole key still finds its rows:
+	// this is the whole point of the shortcut, and a bare GLOB cannot express it.
+	got, err := st.Search(ctx, brainID, "design/auth", SearchOptions{})
+	if err != nil {
+		t.Fatalf("search: %v", err)
+	}
+	if len(got) != 2 {
+		t.Fatalf("prefix shortcut must match both design/auth rows, got %d", len(got))
+	}
+	for _, r := range got {
+		if !strings.HasPrefix(r.TopicKey, "design/auth/") {
+			t.Errorf("unexpected topic_key in prefix result: %q", r.TopicKey)
+		}
+	}
+
+	// A prefix of a single subject narrows to that row.
+	got, err = st.Search(ctx, brainID, "design/auth/oa", SearchOptions{})
+	if err != nil {
+		t.Fatalf("search: %v", err)
+	}
+	if len(got) != 1 || got[0].TopicKey != "design/auth/oauth" {
+		t.Fatalf("expected the single oauth row, got %d results", len(got))
+	}
+
+	// The exact key still wins, and nothing is served twice.
+	got, err = st.Search(ctx, brainID, "design/auth/jwt", SearchOptions{})
+	if err != nil {
+		t.Fatalf("search: %v", err)
+	}
+	if len(got) != 1 || got[0].TopicKey != "design/auth/jwt" {
+		t.Fatalf("expected the single jwt row, got %d results", len(got))
+	}
+
+	// A miss on both attempts still falls through to FTS, and a query that
+	// matches no key and no body returns nothing.
+	got, err = st.Search(ctx, brainID, "design/nothing-here", SearchOptions{})
+	if err != nil {
+		t.Fatalf("search: %v", err)
+	}
+	if len(got) != 0 {
+		t.Errorf("expected 0 results after prefix miss + FTS miss, got %d", len(got))
+	}
+}

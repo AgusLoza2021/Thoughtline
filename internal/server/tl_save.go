@@ -50,7 +50,7 @@ func registerTLSave(srv *server.MCPServer, s *storage.Storage, cfg Config) {
 			),
 			mcp.WithString("type",
 				mcp.Required(),
-				mcp.Description("One of: game-design-decision, scene-pattern, asset-reference, perf-gotcha, pipeline-step, script-pattern, bugfix, convention, preference."),
+				mcp.Description("One of: " + typeNames + ". Anything else is rejected rather than filed under a default."),
 			),
 			mcp.WithString("scope",
 				mcp.Description("project (default) or personal. The 'preference' type REQUIRES personal."),
@@ -252,9 +252,9 @@ func renderDedupedEnvelope(existingID int64, existingCreatedAt, now time.Time) s
 func formatValidationError(err error) string {
 	switch {
 	case errors.Is(err, memory.ErrInvalidType):
-		return "invalid 'type' — must be one of: game-design-decision, scene-pattern, asset-reference, perf-gotcha, pipeline-step, script-pattern, bugfix, convention, preference"
+		return "invalid 'type' — must be one of: " + typeNames
 	case errors.Is(err, memory.ErrInvalidScope):
-		return "invalid 'scope' — must be 'project' or 'personal'"
+		return "invalid 'scope' — must be 'project' or 'personal'. The published catalogue also documents a 'global' scope, which this server does not accept."
 	case errors.Is(err, memory.ErrPreferenceMustBePersonal):
 		return "type 'preference' requires scope='personal'"
 	case errors.Is(err, memory.ErrNonPreferenceMustBeProject):
@@ -270,9 +270,9 @@ func formatValidationError(err error) string {
 	case errors.Is(err, memory.ErrContentTooLong):
 		return fmt.Sprintf("'content' too long (limit %d bytes). Split into smaller observations.", memory.MaxContentBytes)
 	case errors.Is(err, memory.ErrInvalidTopicKey):
-		return "'topic_key' format invalid. Use lowercase letters/digits/'/'/'_'/'-', start with a letter or digit, max 129 chars."
+		return fmt.Sprintf("'topic_key' format invalid. Use lowercase letters/digits/'/'/'_'/'-'/'.', start with a letter or digit, max %d chars.", memory.MaxTopicKeyLen)
 	case errors.Is(err, memory.ErrInvalidTag):
-		return "one of the 'tags' is invalid. Lowercase only, optional ':' for key:value, max 41 chars."
+		return fmt.Sprintf("one of the 'tags' is invalid. Lowercase only, optional ':' for key:value, max %d chars.", memory.MaxTagLen)
 	case errors.Is(err, memory.ErrInvalidSessionID):
 		return "'session_id' must be a valid UUIDv7 (returned by tl_session_start)."
 	default:

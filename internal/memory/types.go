@@ -6,9 +6,8 @@ import (
 )
 
 // Type is the kind of memory being stored. This package closes the set to the
-// eleven values below, and that closure is frozen with the retired v0.1.0 server.
-// The live catalogue is neither closed nor this list; it lives in
-// docs/design/memory-domain.md.
+// fourteen values below, in the order docs/design/memory-domain.md lists them,
+// and tl_save rejects anything outside it.
 type Type string
 
 const (
@@ -23,6 +22,14 @@ const (
 	TypePreference         Type = "preference"
 	TypeDecision           Type = "decision"      // migrated from Engram; project-scoped
 	TypeArchitecture       Type = "architecture"  // migrated from Engram; project-scoped
+
+	// The three canonical types the vocabulary shares with every agent session
+	// on this stack. They were added after 2,336 observations across 13 projects
+	// showed agents reaching for them constantly and for the game-dev types
+	// almost never: `discovery` alone outweighed all seven of those combined.
+	TypeDiscovery Type = "discovery"
+	TypeConfig    Type = "config"
+	TypePattern   Type = "pattern"
 )
 
 // AllTypes returns the canonical type set in stable order.
@@ -39,11 +46,14 @@ func AllTypes() []Type {
 		TypePreference,
 		TypeDecision,
 		TypeArchitecture,
+		TypeDiscovery,
+		TypeConfig,
+		TypePattern,
 	}
 }
 
-// Valid reports whether t is one of the eleven types this package closes the set
-// to. It says nothing about the live catalogue, which is broader.
+// Valid reports whether t is one of the fourteen types this package closes the
+// set to.
 func (t Type) Valid() bool {
 	for _, allowed := range AllTypes() {
 		if t == allowed {
@@ -54,8 +64,8 @@ func (t Type) Valid() bool {
 }
 
 // Scope governs whether a memory belongs to a specific project or travels
-// with the developer across projects. Only the two values the v0.1.0 server
-// modelled; the live rules also allow `global`.
+// with the developer across projects. Only two values are accepted; the
+// catalogue also documents `global`, which this package does not represent.
 type Scope string
 
 const (
@@ -131,8 +141,13 @@ var (
 const (
 	MaxTitleChars   = 200
 	MaxContentBytes = 64 * 1024
-	MaxTopicKeyLen  = 128
-	MaxTagLen       = 40
+
+	// MaxTopicKeyLen and MaxTagLen are totals, inclusive of the leading
+	// character, and the two patterns in validate.go are built from them. They
+	// used to be 128 and 40 while the patterns allowed 129 and 41, so a caller
+	// reading the constant could be one character over the limit it named.
+	MaxTopicKeyLen = 129
+	MaxTagLen      = 41
 
 	// MaxObservationChars is the maximum number of Unicode code points (runes)
 	// allowed in an observation's Content field. Content exceeding this limit
