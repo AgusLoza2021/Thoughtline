@@ -1,6 +1,6 @@
 # ADR 0007 — This Repository Owns the Vocabulary, Not the Tool Mechanics
 
-**Status**: Accepted
+**Status**: Superseded by [ADR 0008](0008-the-engine-is-the-product.md)
 **Date**: 2026-09-28
 **Evidence revision**: Engram `3ba7df6235f5a58ca0898dc312421881c1fb0acf` (2026-09-28)
 
