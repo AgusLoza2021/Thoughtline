@@ -43,7 +43,17 @@ RDD: off (global) — no native review; ordinary checks only.
   - Why: T5 run 1 on 20 NinjaSurvivor commits (`measure.ps1`): top-hit precision ≈ 20-25% (paths-only and task+paths). Relative normalisation makes the top hit always 1.00, so MinScore never gates; the footer's group/source words are FTS-indexed and add false matches. Explicit tasks ("camera shake when hit") work well.
 - [x] T4 Docs (TOOLS.md, README, protocol, CHANGELOG, memory skill). Route: delegated (mechanical). Evidence: `go test ./...` 13/13 ok; `thoughtline protocol` lists tl_check + "check knowledge before writing code" bullet. protocolVersion left at "1" (also pinned in plugin.json; bump both together if ever).
 - [x] T5 Precision measurement on ~20 recent NinjaSurvivor commits; tune threshold. Route: inline (scratchpad `measure.ps1`, throwaway DB). Run 1: top-hit precision ≈ 20-25%, every commit injected → reopened as T5b/T5c.
-- [ ] T6 Install binary, sync the unity corpus, wire MCP env + PreToolUse hook for NinjaSurvivor (Claude + Pi). Route: inline.
+- [x] T6 Install binary, sync the unity corpus, wire MCP env + PreToolUse hook for NinjaSurvivor (Claude + Pi). Route: inline.
+  - Real DB backed up to `%LOCALAPPDATA%\thoughtline\backup-pre-knowledge-20261017\`; previous binary kept as `~/go/bin/thoughtline.pre-knowledge.exe` (renamed because 6 running servers lock the exe).
+  - Real sync: `created=176`, re-run `unchanged=176`. `check --task "add camera shake…"` returns 3 NinjaSurvivor project rules (FEEL camera feedback system…) then the camera-shake recipe.
+  - Hook (cmd redirect payload): FirstInputGateRules.cs → floating-joystick recipe; LoadingGate.cs → 3 LoadingGate design memories; same file twice → silent. (PowerShell 5.1 piping a string to the exe gives empty stdin — test harness artefact, not a hook bug.)
+  - NinjaSurvivor wiring: `.claude/settings.local.json` env (THOUGHTLINE_PROJECT, THOUGHTLINE_KNOWLEDGE_EXCLUDE) + PreToolUse `thoughtline check --hook`; Claude local MCP env updated; `.pi/mcp.json` env; nan.ps1 allowlists tl_check. nan probe called `mcp__thoughtline__tl_check` successfully.
+
+## Follow-ups (not in scope)
+- Recipe-template hits show a code fence cut mid-block as "Validate" in the hook; prefer the first prose paragraph of Notes/Context.
+- Project ids are case-sensitive (`NinjaSurvivor` 9 rows vs `ninjasurvivor` 2314): normalise in Thoughtline.
+- Re-sync is manual after editing the corpus; a SessionStart `knowledge sync` would be cheap (unchanged = noop).
+- Branch is ~2.5k authored lines (incl. tests) > 400: chain strategy for PRs is the owner's call (ask-on-risk).
 
 ## Acceptance criteria
 - Sync of the 176-entry corpus: 176 memories, re-run = 0 changes, deleting a file soft-deletes its memory.
@@ -58,4 +68,4 @@ RDD: off (global) — no native review; ordinary checks only.
 - Baseline 2026-10-17: build OK, all 12 packages `ok`.
 
 ## Next step
-T2 (in progress).
+All tasks done. Owner decides push / PR slicing; then the follow-ups.
