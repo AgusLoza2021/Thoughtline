@@ -12,6 +12,17 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 > work that was **parked mid-feature** before it was finished, and the decisions that ended
 > the project. Every parked entry says so in its own heading.
 
+### Added — the knowledge corpus, and a check before writing code (2026-10-17)
+
+The owner's hand-written Markdown recipes (176 entries for Unity) used to be reachable only by an agent reading a skill index and deciding to open one. Nothing asked, at the moment of writing code, whether a recipe or a project rule applied. Four pieces close that gap:
+
+- `thoughtline knowledge sync <dir>` parses a corpus directory (`SKILL.md` index + `entries/*.md`), imports each entry as a memory in its own brain (`--project`, default `knowledge-unity`) under `topic_key` `knowledge/<slug>`, and is idempotent: a second run reports `unchanged=176`, and an entry whose file disappeared is soft-deleted (`--no-prune` keeps it). Both hand-written templates are understood — `Guidance / Applies when / Why this works / Procedure / Validate the result / Limits`, and the shorter `Context / Example / Notes`. `thoughtline knowledge list` shows what is in the brain. The `.md` files stay the source of truth; sync is one-way.
+- `tl_check` (MCP) and `thoughtline check` (CLI) answer one question: which corpus entries and which rules of this project apply to this task and these paths? Hits carry `Applies when`, `Validate` and `Limits`, plus the coverage and IDF weight that let them through; project rules are listed first because a saved rule wins over a generic recipe. Read-only, never creates a brain.
+- `thoughtline check --hook` is the Claude Code `PreToolUse` form: it reads the payload from stdin, prints `hookSpecificOutput` JSON or nothing, exits 0 on every path, and reminds at most once per file per session.
+- `storage.SearchOptions.MatchAny` lets a caller join its own multi-token query with OR. Opt-in: the default stays byte-identical for every existing caller, because FTS5's implicit AND is far too strict for "the recipe about this".
+
+**Precision, honestly measured.** The gate is lexical (coverage + IDF weight), not semantic. On 20 recent commits of a Unity codebase the hook injected on 5 and stayed silent on 15, with the right entry first in 3 of those 5; the interactive form with a raw commit subject was weaker still (~1/3). A descriptive task works, a subject line does not. The corpus files remain the source of truth, so a miss costs one extra read rather than a wrong answer.
+
 ### Changed — the engine is the product again (2026-09-29)
 
 The project was retired on 2026-09-28 and this repository spent the following

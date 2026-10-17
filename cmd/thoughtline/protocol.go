@@ -70,7 +70,7 @@ func renderProtocol(project string, postCompaction bool) string {
 	fmt.Fprintf(&b, "Active project: `%s`\n\n", project)
 
 	b.WriteString(`### CORE TOOLS — always available, no ToolSearch needed
-tl_save, tl_search, tl_context, tl_get_observation, tl_session_start, tl_session_summary
+tl_save, tl_search, tl_context, tl_get_observation, tl_session_start, tl_session_summary, tl_check
 
 Other tools via ToolSearch: tl_update, tl_delete, tl_stats
 
@@ -112,6 +112,9 @@ Examples: ` + "`decision/sqlite-wal`" + `, ` + "`architecture/storage-layer`" + 
 ### SEARCH WORKFLOW
 1. tl_search returns id, title, snippet (≤300 chars), score
 2. If a snippet looks promising → tl_get_observation with the id for full untruncated content
+
+### CHECK KNOWLEDGE BEFORE WRITING CODE
+Before building a feature or editing code in an area with known recipes, call tl_check with a descriptive task and the files you will touch; project rules win over generic recipes.
 
 ### SESSION CLOSE — before saying "done"/"listo":
 Call tl_session_summary with: Goal, Discoveries, Accomplished, Next Steps, Relevant Files.

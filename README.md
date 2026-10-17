@@ -111,6 +111,50 @@ They are separate tools with separate stores, so **installing both gives you two
 
 ---
 
+## Knowledge corpus
+
+Memories are what a session *learns*. The corpus is what the owner already *wrote*: a directory of hand-written Markdown recipes (`SKILL.md` index + `entries/*.md`, e.g. the 176 Unity recipes under `~/.claude/skills/unity-knowledge/`). Thoughtline imports them as memories in their own brain and answers one question before an agent writes code — "does anything I already wrote apply to this change?"
+
+```bash
+# Import / re-import a corpus. Idempotent: a second run reports unchanged=N.
+thoughtline knowledge sync ~/.claude/skills/unity-knowledge
+#   --project NAME  brain to write to (default knowledge-unity)
+#   --corpus ID     corpus id used in tags and the footer (default unity)
+#   --dry-run       report what would change without writing
+#   --no-prune      keep entries whose file disappeared (default prunes)
+
+# What is in the corpus brain
+thoughtline knowledge list
+
+# One question, the same one tl_check answers over MCP
+thoughtline check --task "add camera shake when the player gets hit" --path Assets/Scripts/CameraRig.cs
+```
+
+**The `.md` files stay the source of truth.** Sync is one-way: it upserts by `topic_key` (`knowledge/<slug>`) and soft-deletes entries whose file disappeared; editing a memory in Thoughtline does not edit the recipe. Two hand-written templates are understood (`## Guidance / Applies when / Why this works / Procedure / Validate the result / Limits` and the shorter `## Context / Example / Notes`).
+
+### Wire it as a Claude Code hook
+
+`thoughtline check --hook` reads the `PreToolUse` payload from stdin and prints `hookSpecificOutput` JSON, or nothing at all. It exits 0 on every path, so it can never block an edit, and it reminds you at most once per file per session.
+
+```json
+{"hooks":{"PreToolUse":[{"matcher":"Edit|Write|MultiEdit","hooks":[{"type":"command","command":"thoughtline check --hook","timeout":10}]}]}}
+```
+
+Call `tl_check` yourself before writing code for a feature; the hook is the net for when you forget.
+
+### Configuration (knowledge)
+
+| Variable | Purpose | Default |
+|----------|---------|---------|
+| `THOUGHTLINE_KNOWLEDGE_PROJECT` | Brain holding the corpus, read by `tl_check` and `check` | `knowledge-unity` |
+| `THOUGHTLINE_KNOWLEDGE_EXCLUDE` | Comma list of foreign stacks to drop (`svn,fiber,tactile`) | (unset — nothing excluded) |
+| `THOUGHTLINE_KNOWLEDGE_MIN_COVERAGE` | Distinct task terms an entry must match | `2` |
+| `THOUGHTLINE_KNOWLEDGE_MIN_WEIGHT` | Minimum IDF weight of those terms | derived from corpus size (≈ `6.5` at 176 entries) |
+
+The gate is lexical, not semantic, and the honest number matters more than the pitch: measured on 20 recent commits of a Unity codebase, the hook injected on 5 and stayed silent on the other 15, with the right entry first in 3 of those 5. A descriptive task ("camera shake when hit") works; a bare commit subject does not. That is why the corpus `.md` files stay the source of truth and why a miss costs one extra read, not a wrong answer.
+
+---
+
 ## Where the engine stands
 
 The server is in the tree, it builds, and its own test suite passes. Two facts about its state matter before you rely on it:
@@ -227,7 +271,7 @@ Thoughtline stands on the shoulders of [**Engram**](https://github.com/Gentleman
 
 > Curious how Thoughtline lines up against Engram and [claude-mem](https://github.com/thedotmack/claude-mem)? See **[docs/COMPARISON.md](docs/COMPARISON.md)** for an honest side-by-side.
 
-> **Status: M5 done + passive capture.** Twelve tools live: `tl_save`, `tl_search`, `tl_get_observation`, `tl_context`, `tl_update`, `tl_delete`, `tl_session_start`, `tl_session_summary`, `tl_stats`, plus `tl_pending_list`, `tl_pending_get`, `tl_promote` for opt-in passive capture of Claude Code hook events. See [docs/integrations/claude-code-passive-capture.md](docs/integrations/claude-code-passive-capture.md) for the setup guide. M6 (semantic embeddings) remains deferred per [ADR 0002](docs/decisions/0002-search-strategy-fts5-first.md). See [`docs/PROGRESS.md`](docs/PROGRESS.md).
+> **Status: M5 done + passive capture.** Thirteen tools live: `tl_save`, `tl_search`, `tl_get_observation`, `tl_context`, `tl_update`, `tl_delete`, `tl_session_start`, `tl_session_summary`, `tl_stats`, plus `tl_pending_list`, `tl_pending_get`, `tl_promote` for opt-in passive capture of Claude Code hook events, and `tl_check` for the knowledge corpus. See [docs/integrations/claude-code-passive-capture.md](docs/integrations/claude-code-passive-capture.md) for the setup guide. M6 (semantic embeddings) remains deferred per [ADR 0002](docs/decisions/0002-search-strategy-fts5-first.md). See [`docs/PROGRESS.md`](docs/PROGRESS.md).
 
 ---
 
@@ -347,7 +391,7 @@ See [`docs/PROGRESS.md`](docs/PROGRESS.md) for the live milestone status and pre
 
 ## Install
 
-> ✅ As of M5, nine MCP tools + an interactive dashboard ship: `tl_save`, `tl_search`, `tl_get_observation`, `tl_context`, `tl_update`, `tl_delete`, `tl_session_start`, `tl_session_summary`, `tl_stats`, plus `thoughtline ui`.
+> ✅ As of M5, nine MCP tools + an interactive dashboard ship: `tl_save`, `tl_search`, `tl_get_observation`, `tl_context`, `tl_update`, `tl_delete`, `tl_session_start`, `tl_session_summary`, `tl_stats`, plus `thoughtline ui`. Since then `tl_pending_*`/`tl_promote`, `tl_judge`/`tl_link`/`tl_related` and `tl_check` joined them — see the [tool catalogue](#tool-catalogue).
 
 ### From source
 
@@ -415,6 +459,7 @@ All MCP tools share the `tl_` prefix. The full reference — every parameter, ev
 | `tl_session_start`    | Open a session; returns a UUIDv7 you thread through subsequent `tl_save` calls           | ✅ M4  |
 | `tl_session_summary`  | Close a session; persists a structured end-of-session digest. Append-once.               | ✅ M4  |
 | `tl_stats`            | Snapshot of memory + session counts. Optional `project` filter (`*` for all)             | ✅ M5  |
+| `tl_check`            | Which hand-written recipes and project rules apply to a change. Call before writing code  | ✅ knowledge |
 
 ### One concrete example — save & search
 

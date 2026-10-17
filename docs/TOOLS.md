@@ -25,9 +25,10 @@ All MCP tools share the `tl_` prefix.
 | `tl_judge`            | Format a comparison between a stored memory and one you are about to write. Writes nothing. | ✅ M6  |
 | `tl_link`             | Record a typed edge from one memory to another                                           | ✅ M6  |
 | `tl_related`          | Read every edge on a memory, in either direction                                         | ✅ M6  |
+| `tl_check`            | Which hand-written recipes and project rules apply to a change. Call before writing code  | ✅ knowledge |
 
 
-`Status` is the release window a tool first shipped in, not a maturity claim. The pending trio landed with the M5 passive-capture work (2026-05-07); `tl_judge`, `tl_link` and `tl_related` followed in `8f4a6c4` (2026-05-14), which is also when `tl_search` grew its `tags` and `recent_first` arguments.
+`Status` is the release window a tool first shipped in, not a maturity claim. The pending trio landed with the M5 passive-capture work (2026-05-07); `tl_judge`, `tl_link` and `tl_related` followed in `8f4a6c4` (2026-05-14), which is also when `tl_search` grew its `tags` and `recent_first` arguments. `tl_check` arrived with the knowledge corpus, together with `thoughtline knowledge sync`.
 Architecture: [`ARCHITECTURE.md`](ARCHITECTURE.md). Taxonomy: [`design/memory-domain.md`](design/memory-domain.md). Tags: [`design/tag-conventions.md`](design/tag-conventions.md).
 
 ---
@@ -126,6 +127,54 @@ Closes a session **once** — a second `tl_session_summary` on the same id retur
 Returns a text snapshot: counts by type / project / scope, the number of open and closed sessions, the four most recently active projects, and the most recent memories and sessions. `RecentLimit` is a storage option defaulting to 10 and clamped at 50, and it is **not** an MCP argument — there is no way to ask for more over the wire.
 
 ---
+### `tl_check`
+
+| Param              | Required | Notes                                                                                            |
+|--------------------|----------|--------------------------------------------------------------------------------------------------|
+| `task`             | one of these | What you are about to build or fix, in one sentence ("add camera shake when the player gets hit") |
+| `paths`            | one of these | Files the change will touch. Their names are part of the query, so `EnemyHitFlashSystem.cs` finds the hit-flash recipes |
+| `project`          | no       | Project whose saved conventions/decisions/architecture are checked first. Defaults to the working-directory project |
+| `knowledge_project`| no       | Brain holding the recipe corpus. Default `THOUGHTLINE_KNOWLEDGE_PROJECT`, else `knowledge-unity` |
+| `exclude_stacks`   | no       | Foreign stacks to skip (`["svn","fiber"]`). Entries tagged `stack:<name>` are dropped and counted |
+| `limit`            | no       | Max recipe hits. Default 5, hard cap 10. Project rules are separate: at most 3, listed first     |
+
+At least one of `task` or `paths` is required. **Call this before the first edit of a feature, not after it**, and make `task` descriptive: the query is built from its words, and a bare commit subject is measurably weaker than "camera shake when hit".
+
+The answer is compact Markdown, one block per hit:
+
+```
+Knowledge check for "camera shake hit" — 3 hit(s). Project rules come first and override generic recipes.
+
+### [project-rule] Camera feel lives in FeelConfig (convention/camera-feel, score 1.00) — coverage 1 (weight 0.0)
+**Applies when**
+...
+**Validate**
+...
+**Limits**
+...
+
+### [knowledge] Camera shake on hit (knowledge/camera-shake-hit, score 0.87) — coverage 3: camera, shake, hit (weight 12.4)
+**Applies when**
+...
+**Validate**
+...
+**Limits**
+**Stacks**: unity
+
+excluded 9 foreign-stack entries
+```
+
+How to read it: `coverage` is how many distinct task terms the entry's title, tags and gate section actually claim — the absolute gate, default 2. `weight` is the sum of IDF over those terms, so `camera` + `shake` weighs far more than `game` + `state`; the default floor is derived from corpus size (≈ 6.5 for a 176-entry corpus). `score` is relevance **relative to the best hit of the same source**, so the top hit is always 1.00 — it ranks, it does not promise fit. Project rules (`[project-rule]`) are listed first and always win over a generic recipe. Sections the entry does not have are omitted, never shown empty.
+
+An empty answer is normal and means nothing applies:
+
+```
+No applicable knowledge for this task (best candidate had coverage 1: Sub-pixel UI snapping).
+excluded 9 foreign-stack entries
+```
+
+The `best candidate` clause exists so a caller can tell "the corpus was read and nothing applies" from "the corpus was never consulted". Follow a hit's **Applies when**; read the full entry with `tl_get_observation` (the `topic_key` is shown) when the sections are not enough; validate the result the way the hit says, not the way you would have done it.
+
 ### `tl_judge`
 
 | Param             | Required | Notes                                                                                  |

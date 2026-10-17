@@ -16,6 +16,7 @@ Core (always available, no ToolSearch needed):
 - `tl_get_observation` — full untruncated content of one memory
 - `tl_session_start` — open a session
 - `tl_session_summary` — close a session with a structured digest
+- `tl_check` — which hand-written recipes and project rules apply to a change (call it BEFORE writing code)
 
 Via ToolSearch: `tl_update`, `tl_delete`, `tl_stats`.
 
@@ -68,6 +69,10 @@ Call `tl_save` IMMEDIATELY after any of:
 1. `tl_search` returns id, title, snippet (≤300 chars), score, metadata.
 2. A query containing `/` short-circuits to a topic_key GLOB lookup.
 3. If a snippet looks promising → `tl_get_observation` for full content.
+
+## Check knowledge before writing code
+
+Before building a feature or editing code in an area with known recipes, call `tl_check` with a descriptive task and the files you will touch. Project rules come first and win over generic recipes; an empty answer is normal and means proceed.
 
 Search proactively when the user says: "remember", "what did we do", "how did we solve", "acordate", "qué hicimos", or references prior work.
 
