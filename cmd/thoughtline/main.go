@@ -24,6 +24,8 @@
 //	THOUGHTLINE_KNOWLEDGE_EXCLUDE  Comma-separated stack names whose entries a
 //	                   check must skip (e.g. "svn,fiber"): another project's
 //	                   tooling is noise in this one.
+//	THOUGHTLINE_KNOWLEDGE_MIN_COVERAGE  Minimum number of distinct task terms an
+//	                   entry must match to be suggested. Defaults to 2.
 package main
 
 import (
@@ -35,6 +37,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
 	"syscall"
 
@@ -145,6 +148,8 @@ Environment:
   THOUGHTLINE_PROJECT default project identifier (otherwise auto-detected from cwd)
   THOUGHTLINE_KNOWLEDGE_PROJECT corpus brain read by check/tl_check
   THOUGHTLINE_KNOWLEDGE_EXCLUDE comma list of foreign stacks check must skip
+  THOUGHTLINE_KNOWLEDGE_MIN_COVERAGE distinct task terms an entry must match (default 2)
+  THOUGHTLINE_KNOWLEDGE_MIN_WEIGHT   minimum IDF weight of those terms (default scales with corpus size)
 
 See README.md for the full reference and per-tool examples.`)
 }
@@ -166,10 +171,12 @@ func runServer(ctx context.Context) error {
 	}()
 
 	cfg := server.Config{
-		Version:          version,
-		DefaultProject:   resolveDefaultProject(),
-		KnowledgeProject: strings.TrimSpace(os.Getenv("THOUGHTLINE_KNOWLEDGE_PROJECT")),
-		KnowledgeExclude: splitCSV(os.Getenv("THOUGHTLINE_KNOWLEDGE_EXCLUDE")),
+		Version:              version,
+		DefaultProject:       resolveDefaultProject(),
+		KnowledgeProject:     strings.TrimSpace(os.Getenv("THOUGHTLINE_KNOWLEDGE_PROJECT")),
+		KnowledgeExclude:     splitCSV(os.Getenv("THOUGHTLINE_KNOWLEDGE_EXCLUDE")),
+		KnowledgeMinCoverage: envInt("THOUGHTLINE_KNOWLEDGE_MIN_COVERAGE"),
+		KnowledgeMinWeight:   envFloat("THOUGHTLINE_KNOWLEDGE_MIN_WEIGHT"),
 	}
 
 	srv := server.New(st, cfg)
@@ -395,6 +402,36 @@ func resolveDefaultProject() string {
 		return "default"
 	}
 	return base
+}
+
+// envInt reads a positive integer knob. A missing, empty or malformed value is
+// reported as zero ("unset") instead of failing: a typo in one optional env var
+// must not stop the server from booting, and every caller has a default.
+func envInt(name string) int {
+	raw := strings.TrimSpace(os.Getenv(name))
+	if raw == "" {
+		return 0
+	}
+	n, err := strconv.Atoi(raw)
+	if err != nil || n < 0 {
+		return 0
+	}
+	return n
+}
+
+// envFloat reads a positive float knob. Like envInt, a missing, empty or
+// malformed value is reported as zero ("unset") so a typo cannot stop the
+// server from booting: the caller always has a default to fall back to.
+func envFloat(name string) float64 {
+	raw := strings.TrimSpace(os.Getenv(name))
+	if raw == "" {
+		return 0
+	}
+	f, err := strconv.ParseFloat(raw, 64)
+	if err != nil || f < 0 {
+		return 0
+	}
+	return f
 }
 
 // splitCSV splits a comma-separated environment value, dropping blanks so an

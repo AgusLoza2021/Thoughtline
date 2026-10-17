@@ -118,6 +118,8 @@ func doCheck(ctx context.Context, s *storage.Storage, cfg Config, args checkArgs
 		KnowledgeProject: knowledgeProject,
 		ExcludeStacks:    exclude,
 		Limit:            args.Limit,
+		MinCoverage:      cfg.KnowledgeMinCoverage,
+		MinWeight:        cfg.KnowledgeMinWeight,
 	})
 	if err != nil {
 		return mcp.NewToolResultError(fmt.Sprintf("knowledge check failed: %v", err)), nil
@@ -131,7 +133,14 @@ func doCheck(ctx context.Context, s *storage.Storage, cfg Config, args checkArgs
 func formatCheckResult(res knowledge.CheckResult) string {
 	var b strings.Builder
 	if len(res.Hits) == 0 {
-		fmt.Fprintf(&b, "No applicable knowledge for %q.\n", res.Query)
+		// Say how close the corpus came instead of just "nothing": an agent that
+		// knows the corpus was consulted stops re-asking with the same words.
+		if res.Best != nil && res.Best.Coverage > 0 {
+			fmt.Fprintf(&b, "No applicable knowledge for this task (best candidate had coverage %d: %s).\n",
+				res.Best.Coverage, res.Best.Title)
+		} else {
+			b.WriteString("No applicable knowledge for this task.\n")
+		}
 		fmt.Fprintf(&b, "excluded %d foreign-stack entries", res.Excluded)
 		return b.String()
 	}
@@ -139,7 +148,11 @@ func formatCheckResult(res knowledge.CheckResult) string {
 	fmt.Fprintf(&b, "Knowledge check for %q — %d hit(s). Project rules come first and override generic recipes.\n",
 		res.Query, len(res.Hits))
 	for _, h := range res.Hits {
-		fmt.Fprintf(&b, "\n### [%s] %s (%s, score %.2f)\n", h.Source, h.Title, h.TopicKey, h.Score)
+		fmt.Fprintf(&b, "\n### [%s] %s (%s, score %.2f) — coverage %d", h.Source, h.Title, h.TopicKey, h.Score, h.Coverage)
+		if len(h.Matched) > 0 {
+			fmt.Fprintf(&b, ": %s", strings.Join(h.Matched, ", "))
+		}
+		fmt.Fprintf(&b, " (weight %.1f)\n", h.Weight)
 		writeCheckSection(&b, "Applies when", h.AppliesWhen)
 		writeCheckSection(&b, "Validate", h.Validate)
 		writeCheckSection(&b, "Limits", h.Limits)

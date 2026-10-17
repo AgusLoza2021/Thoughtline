@@ -202,11 +202,56 @@ func TestToMemory_FooterPresent(t *testing.T) {
 	e := sampleEntry()
 	m := ToMemory(e, SyncOptions{Corpus: "demo"})
 
-	if !strings.Contains(m.Content, "\n\n---\n_knowledge: demo/camera-shake · group: Camera and feel · source: external-knowledge-2026-09 · hash: 0123456789ab_") {
+	// The footer carries the hash and nothing else: its words used to be indexed
+	// as content, so the group name alone made every entry of a group a match
+	// for any task naming it.
+	if !strings.HasSuffix(m.Content, "\n\n---\n_kh:0123456789ab_") {
 		t.Fatalf("footer missing or malformed:\n%s", m.Content)
+	}
+	footer := m.Content[strings.LastIndex(m.Content, "\n---\n"):]
+	for _, word := range []string{"Camera and feel", "external-knowledge-2026-09", "camera-shake", "demo"} {
+		if strings.Contains(footer, word) {
+			t.Errorf("footer must not carry %q (FTS indexes it as content):\n%s", word, footer)
+		}
 	}
 	if !strings.HasPrefix(m.Content, "## Guidance") {
 		t.Fatalf("content must start with the body:\n%s", m.Content)
+	}
+}
+
+// TestSync_FooterChangeIsNotABodyChange guards the price of the shorter footer:
+// the hash still lives in the content, so re-running the importer is still a
+// no-op and a real body edit is still an update.
+func TestSync_FooterChangeIsNotABodyChange(t *testing.T) {
+	dir := copyCorpus(t, "testdata/corpus")
+	st := newSyncStorage(t)
+	ctx := context.Background()
+
+	if rep, err := Sync(ctx, st, mustScan(t, dir), SyncOptions{}); err != nil || rep.Created != 4 {
+		t.Fatalf("first sync = %+v, err %v", rep, err)
+	}
+	rep, err := Sync(ctx, st, mustScan(t, dir), SyncOptions{})
+	if err != nil {
+		t.Fatalf("second sync: %v", err)
+	}
+	if rep.Unchanged != 4 || rep.Updated != 0 {
+		t.Fatalf("re-run report = %+v, want 4 unchanged", rep)
+	}
+
+	shake := filepath.Join(dir, "entries", "camera-shake.md")
+	raw, err := os.ReadFile(shake)
+	if err != nil {
+		t.Fatalf("read entry: %v", err)
+	}
+	if err := os.WriteFile(shake, append(raw, []byte("\n## Notes\n\nA body edit.\n")...), 0o644); err != nil {
+		t.Fatalf("write entry: %v", err)
+	}
+	rep, err = Sync(ctx, st, mustScan(t, dir), SyncOptions{})
+	if err != nil {
+		t.Fatalf("third sync: %v", err)
+	}
+	if rep.Updated != 1 || rep.Unchanged != 3 {
+		t.Fatalf("body edit report = %+v, want 1 updated", rep)
 	}
 }
 

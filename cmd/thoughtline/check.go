@@ -47,14 +47,19 @@ Reports the hand-written recipes and project rules that apply to a change.
   --path FILE      file involved in the change (repeatable)
   --project NAME   project whose conventions are checked first (default: cwd basename)
   --limit N        max recipe hits (default 5, cap 10)
+  --min-coverage N distinct task terms an entry must match (default 2)
+  --min-weight F   minimum IDF weight of those terms (default: scaled to the
+                   corpus, i.e. two terms that appear in a tenth of it)
   --json           print the query, hits and excluded count as JSON
   --hook           Claude Code PreToolUse mode: read the payload from stdin and
                    emit hookSpecificOutput JSON, or nothing at all
   --ext EXT        hook mode: only check files with this extension (default .cs)
 
 Environment:
-  THOUGHTLINE_KNOWLEDGE_PROJECT   corpus brain (default ` + knowledge.DefaultSyncProject + `)
-  THOUGHTLINE_KNOWLEDGE_EXCLUDE   comma list of foreign stacks to skip (e.g. svn,fiber)`
+  THOUGHTLINE_KNOWLEDGE_PROJECT        corpus brain (default ` + knowledge.DefaultSyncProject + `)
+  THOUGHTLINE_KNOWLEDGE_EXCLUDE        comma list of foreign stacks to skip (e.g. svn,fiber)
+  THOUGHTLINE_KNOWLEDGE_MIN_COVERAGE   default for --min-coverage
+  THOUGHTLINE_KNOWLEDGE_MIN_WEIGHT     default for --min-weight`
 
 // repeatedString collects a flag that may be given many times (--path).
 type repeatedString []string
@@ -85,6 +90,8 @@ func runCheck(ctx context.Context, args []string, stdin io.Reader, out, errW io.
 	fs.Var(&paths, "path", "file involved in the change (repeatable)")
 	project := fs.String("project", "", "project whose rules are checked first")
 	limit := fs.Int("limit", knowledge.DefaultCheckLimit, "max recipe hits")
+	minCoverage := fs.Int("min-coverage", 0, "distinct task terms an entry must match")
+	minWeight := fs.Float64("min-weight", 0, "minimum IDF weight of the matched terms")
 	asJSON := fs.Bool("json", false, "print the result as JSON")
 	hook := fs.Bool("hook", false, "Claude Code PreToolUse mode")
 	ext := fs.String("ext", ".cs", "hook mode: file extension to check")
@@ -104,6 +111,15 @@ func runCheck(ctx context.Context, args []string, stdin io.Reader, out, errW io.
 		KnowledgeProject: os.Getenv("THOUGHTLINE_KNOWLEDGE_PROJECT"),
 		ExcludeStacks:    splitCSV(os.Getenv("THOUGHTLINE_KNOWLEDGE_EXCLUDE")),
 		Limit:            *limit,
+		MinCoverage:      *minCoverage,
+		MinWeight:        *minWeight,
+	}
+	if req.MinCoverage <= 0 {
+		// The flag is the per-run override; the env var is the installed default.
+		req.MinCoverage = envInt("THOUGHTLINE_KNOWLEDGE_MIN_COVERAGE")
+	}
+	if req.MinWeight <= 0 {
+		req.MinWeight = envFloat("THOUGHTLINE_KNOWLEDGE_MIN_WEIGHT")
 	}
 	if req.Project == "" {
 		// Same fallback the MCP server uses, so a hook reports on the same
@@ -112,6 +128,11 @@ func runCheck(ctx context.Context, args []string, stdin io.Reader, out, errW io.
 	}
 
 	if *hook {
+		// A hook has no task text, so its query is a bare file name: it gets at
+		// least the interactive gate, even when the config lowered it.
+		if req.MinCoverage < knowledge.HookMinCoverage {
+			req.MinCoverage = knowledge.HookMinCoverage
+		}
 		return runCheckHook(ctx, req, *ext, stdin, out)
 	}
 	return runCheckOnce(ctx, req, *asJSON, out, errW)
@@ -153,16 +174,25 @@ func runCheckOnce(ctx context.Context, req knowledge.CheckRequest, asJSON bool, 
 }
 
 // formatCheckCLI is the human/script view: one line per hit that carries the
-// title and score, which is what tuning the threshold reads. The sections are
-// left to --json and to the MCP tool, which is what an agent consumes.
+// title, score and coverage, which is what tuning the thresholds reads. The
+// sections are left to --json and to the MCP tool, which is what an agent
+// consumes.
 func formatCheckCLI(res knowledge.CheckResult) string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "query: %s\n", res.Query)
 	if len(res.Hits) == 0 {
-		b.WriteString("no hits\n")
+		b.WriteString("no hits")
+		if res.Best != nil && res.Best.Coverage > 0 {
+			fmt.Fprintf(&b, " (best candidate had coverage %d: %s)", res.Best.Coverage, res.Best.Title)
+		}
+		b.WriteString("\n")
 	}
 	for _, h := range res.Hits {
-		fmt.Fprintf(&b, "[%s] %s (%s) score=%.2f\n", h.Source, h.Title, h.TopicKey, h.Score)
+		fmt.Fprintf(&b, "[%s] %s (%s) score=%.2f coverage=%d", h.Source, h.Title, h.TopicKey, h.Score, h.Coverage)
+		if len(h.Matched) > 0 {
+			fmt.Fprintf(&b, ": %s", strings.Join(h.Matched, ", "))
+		}
+		fmt.Fprintf(&b, " (weight %.1f)\n", h.Weight)
 	}
 	fmt.Fprintf(&b, "excluded %d foreign-stack entries\n", res.Excluded)
 	return b.String()

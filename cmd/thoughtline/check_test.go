@@ -168,6 +168,9 @@ func TestRunCheck_PlainAndJSONOutput(t *testing.T) {
 	if !strings.Contains(stdout, "score=") || !strings.Contains(stdout, "excluded 0 foreign-stack entries") {
 		t.Errorf("plain output should carry score and excluded lines, got:\n%s", stdout)
 	}
+	if !strings.Contains(stdout, "coverage=3: camera, shake, hit") {
+		t.Errorf("plain output should carry coverage and the matched terms, got:\n%s", stdout)
+	}
 
 	code, stdout, stderr = runCheckCLI(t, "", "--task", "add camera shake when the player gets hit", "--json")
 	if code != checkExitOK {
@@ -182,6 +185,61 @@ func TestRunCheck_PlainAndJSONOutput(t *testing.T) {
 	}
 	if res.Hits[0].Validate == "" {
 		t.Error("json hit should carry the Validate section")
+	}
+	if res.Hits[0].Coverage != 3 || len(res.Hits[0].Matched) != 3 {
+		t.Errorf("json hit coverage = %d matched = %v, want 3/camera,shake,hit",
+			res.Hits[0].Coverage, res.Hits[0].Matched)
+	}
+	if res.Hits[0].Weight <= 0 {
+		t.Errorf("json hit should carry its IDF weight, got %.3f", res.Hits[0].Weight)
+	}
+}
+
+func TestRunCheck_MinWeightFlagAndEnv(t *testing.T) {
+	withCheckDB(t)
+	task := []string{"--task", "add camera shake when the player gets hit"}
+
+	// A weight no real match can reach: the corpus was consulted, so the answer
+	// must still name the closest candidate.
+	code, stdout, stderr := runCheckCLI(t, "", append(task, "--min-weight", "99")...)
+	if code != checkExitOK {
+		t.Fatalf("exit = %d, stderr = %s", code, stderr)
+	}
+	if !strings.Contains(stdout, "no hits") || !strings.Contains(stdout, "best candidate had coverage") {
+		t.Errorf("--min-weight 99 should gate everything, got:\n%s", stdout)
+	}
+
+	// The env var is the installed default, and the flag overrides it.
+	t.Setenv("THOUGHTLINE_KNOWLEDGE_MIN_WEIGHT", "99")
+	if _, stdout, _ = runCheckCLI(t, "", task...); !strings.Contains(stdout, "no hits") {
+		t.Errorf("env min-weight not applied, got:\n%s", stdout)
+	}
+	if _, stdout, _ = runCheckCLI(t, "", append(task, "--min-weight", "0.5")...); !strings.Contains(stdout, "knowledge/camera-shake") {
+		t.Errorf("flag should beat the env default, got:\n%s", stdout)
+	}
+}
+
+func TestRunCheck_MinCoverageFlagAndEnv(t *testing.T) {
+	withCheckDB(t)
+	task := []string{"--task", "add camera shake when the player gets hit"}
+
+	// Four terms are needed and the best entry covers three: the answer must
+	// still say the corpus was consulted.
+	code, stdout, stderr := runCheckCLI(t, "", append(task, "--min-coverage", "4")...)
+	if code != checkExitOK {
+		t.Fatalf("exit = %d, stderr = %s", code, stderr)
+	}
+	if !strings.Contains(stdout, "no hits (best candidate had coverage 3: Camera Shake") {
+		t.Errorf("plain output should name the closest candidate, got:\n%s", stdout)
+	}
+
+	// The env var is the installed default, and the flag overrides it.
+	t.Setenv("THOUGHTLINE_KNOWLEDGE_MIN_COVERAGE", "4")
+	if _, stdout, _ = runCheckCLI(t, "", task...); !strings.Contains(stdout, "no hits") {
+		t.Errorf("env min-coverage not applied, got:\n%s", stdout)
+	}
+	if _, stdout, _ = runCheckCLI(t, "", append(task, "--min-coverage", "2")...); !strings.Contains(stdout, "knowledge/camera-shake") {
+		t.Errorf("flag should beat the env default, got:\n%s", stdout)
 	}
 }
 

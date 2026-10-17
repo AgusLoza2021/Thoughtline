@@ -98,6 +98,8 @@ func TestDoCheck_RendersMarkdown(t *testing.T) {
 	for _, want := range []string{
 		"### [project-rule] Camera feel lives in the FeelConfig asset (convention/camera-feel, score 1.00)",
 		"### [knowledge] Camera Shake as an Additive Local Position Offset (knowledge/camera-shake",
+		"— coverage 2: camera, shake",
+		"— coverage 3: camera, shake, hit",
 		"**Applies when**",
 		"**Validate**",
 		"**Limits**",
@@ -145,12 +147,42 @@ func TestDoCheck_KnowledgeProjectFromConfig(t *testing.T) {
 		t.Fatalf("expected no hits from the default corpus brain:\n%s", textContent(empty))
 	}
 
-	res, err := doCheck(ctx, st, Config{KnowledgeProject: "custom-corpus"}, checkArgs{Task: "camera shake"})
+	res, err := doCheck(ctx, st, Config{KnowledgeProject: "custom-corpus", KnowledgeMinWeight: 0.0001}, checkArgs{Task: "camera shake"})
 	if err != nil {
 		t.Fatalf("doCheck: %v", err)
 	}
 	if !strings.Contains(textContent(res), "knowledge/camera-shake") {
 		t.Errorf("configured knowledge project not used:\n%s", textContent(res))
+	}
+}
+
+func TestDoCheck_NoHitsNamesTheClosestCandidate(t *testing.T) {
+	st := newTestStorage(t)
+	seedKnowledgeCorpus(t, st, knowledge.DefaultSyncProject)
+
+	// "camera" is the only shared term: below the default gate of two, so the
+	// answer must say the corpus was consulted and how close it came. Without
+	// that line an agent cannot tell "nothing applies" from "nothing was read".
+	res, err := doCheck(context.Background(), st, Config{}, checkArgs{Task: "camera kubernetes ingress"})
+	if err != nil {
+		t.Fatalf("doCheck: %v", err)
+	}
+	body := textContent(res)
+	if !strings.Contains(body, "No applicable knowledge for this task (best candidate had coverage 1: Camera Shake") {
+		t.Errorf("empty answer should name the closest candidate, got:\n%s", body)
+	}
+}
+
+func TestDoCheck_MinCoverageFromConfig(t *testing.T) {
+	st := newTestStorage(t)
+	seedKnowledgeCorpus(t, st, knowledge.DefaultSyncProject)
+
+	res, err := doCheck(context.Background(), st, Config{KnowledgeMinCoverage: 3}, checkArgs{Task: "camera shake"})
+	if err != nil {
+		t.Fatalf("doCheck: %v", err)
+	}
+	if !strings.Contains(textContent(res), "No applicable knowledge") {
+		t.Errorf("MinCoverage 3 should reject a two-term match, got:\n%s", textContent(res))
 	}
 }
 

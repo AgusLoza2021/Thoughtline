@@ -171,7 +171,7 @@ func ToMemory(e Entry, opt SyncOptions) memory.Memory {
 		Type:     typeFor(e.Template),
 		TopicKey: TopicKey(e.Slug),
 		Title:    truncateRunes(strings.TrimSpace(e.Title), memory.MaxTitleChars),
-		Content:  contentFor(e, corpus),
+		Content:  contentFor(e),
 		Tags:     tagsFor(e, corpus),
 	}
 }
@@ -205,10 +205,16 @@ func typeFor(t Template) memory.Type {
 	}
 }
 
-func contentFor(e Entry, corpus string) string {
+// contentFor builds the stored body plus its provenance footer.
+//
+// The footer carries no words on purpose: FTS indexes it as content, and it
+// used to repeat the topic group ("group: Camera and feel") and the source, so
+// every entry of a group became a lexical match for any task naming the group.
+// Group, source and slug already travel in the tags and the topic_key; the hash
+// stays here because it is what makes a body change detectable on re-sync.
+func contentFor(e Entry) string {
 	body := strings.TrimRight(normalizeText(e.Body), "\n")
-	footer := fmt.Sprintf("---\n_knowledge: %s/%s · group: %s · source: %s · hash: %s_",
-		corpus, e.Slug, e.Group, e.Source, truncateBytes(e.Hash, footerHashChars))
+	footer := fmt.Sprintf("---\n_kh:%s_", truncateBytes(e.Hash, footerHashChars))
 	if body == "" {
 		// A file with frontmatter and no prose is an authoring accident: leave
 		// the content empty so Validate reports it and Sync skips the entry.

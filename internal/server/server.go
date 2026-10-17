@@ -42,6 +42,14 @@ type Config struct {
 	// environment at boot; tl_check uses them when its arguments omit them.
 	KnowledgeProject string
 	KnowledgeExclude []string
+
+	// KnowledgeMinCoverage is the absolute gate for tl_check: the minimum number
+	// of distinct task terms an entry must match in its title/tags/gate section.
+	// KnowledgeMinWeight is the second absolute gate: the minimum IDF weight of
+	// those terms, so two generic words cannot pass where two specific ones do.
+	// Zero means the knowledge package's default, which depends on corpus size.
+	KnowledgeMinCoverage int
+	KnowledgeMinWeight   float64
 }
 
 // New constructs an MCPServer with all Thoughtline tools registered.
