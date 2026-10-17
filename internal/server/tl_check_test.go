@@ -32,6 +32,7 @@ func TestDecodeCheckArgs(t *testing.T) {
 		"knowledge_project": "knowledge-unity",
 		"exclude_stacks":    []any{"svn", "fiber"},
 		"limit":             float64(3),
+		"detail":            true,
 	})
 
 	args := decodeCheckArgs(req)
@@ -53,6 +54,9 @@ func TestDecodeCheckArgs(t *testing.T) {
 	if args.Limit != 3 {
 		t.Errorf("Limit = %d", args.Limit)
 	}
+	if !args.Detail {
+		t.Error("Detail should be decoded from the call arguments")
+	}
 }
 
 func TestDoCheck_RequiresTaskOrPaths(t *testing.T) {
@@ -69,7 +73,7 @@ func TestDoCheck_RequiresTaskOrPaths(t *testing.T) {
 	}
 }
 
-func TestDoCheck_RendersMarkdown(t *testing.T) {
+func TestDoCheck_RendersCompactLinesByDefault(t *testing.T) {
 	st := newTestStorage(t)
 	ctx := context.Background()
 	seedKnowledgeCorpus(t, st, knowledge.DefaultSyncProject)
@@ -95,6 +99,49 @@ func TestDoCheck_RendersMarkdown(t *testing.T) {
 	}
 	body := textContent(res)
 
+	// One line per hit, carrying the id a follow-up call needs and nothing else.
+	if strings.Contains(body, "**Applies when**") {
+		t.Errorf("compact output must not carry sections:\n%s", body)
+	}
+	for _, want := range []string{
+		"[project-rule] Camera feel lives in the FeelConfig asset — id ",
+		"[knowledge] Camera Shake as an Additive Local Position Offset — id ",
+		"(knowledge/camera-shake)",
+		"excluded 0 foreign-stack entries",
+		knowledge.CompactFooter,
+	} {
+		if !strings.Contains(body, want) {
+			t.Errorf("response missing %q:\n%s", want, body)
+		}
+	}
+	if strings.Index(body, "[project-rule]") > strings.Index(body, "[knowledge]") {
+		t.Errorf("project rules must be listed first:\n%s", body)
+	}
+}
+
+func TestDoCheck_DetailReturnsSections(t *testing.T) {
+	st := newTestStorage(t)
+	ctx := context.Background()
+	seedKnowledgeCorpus(t, st, knowledge.DefaultSyncProject)
+
+	seedMemory(t, st, memory.Memory{
+		Project:  "ninjasurvivor",
+		Scope:    memory.ScopeProject,
+		Type:     memory.TypeConvention,
+		TopicKey: "convention/camera-feel",
+		Title:    "Camera feel lives in the FeelConfig asset",
+		Content:  "All camera shake values are authored in the FeelConfig asset.",
+	})
+
+	res, err := doCheck(ctx, st, Config{DefaultProject: "ninjasurvivor"}, checkArgs{
+		Task:   "add camera shake when the player gets hit",
+		Detail: true,
+	})
+	if err != nil {
+		t.Fatalf("doCheck: %v", err)
+	}
+	body := textContent(res)
+
 	for _, want := range []string{
 		"### [project-rule] Camera feel lives in the FeelConfig asset (convention/camera-feel, score 1.00)",
 		"### [knowledge] Camera Shake as an Additive Local Position Offset (knowledge/camera-shake",
@@ -109,8 +156,35 @@ func TestDoCheck_RendersMarkdown(t *testing.T) {
 			t.Errorf("response missing %q:\n%s", want, body)
 		}
 	}
-	if strings.Index(body, "[project-rule]") > strings.Index(body, "[knowledge]") {
-		t.Errorf("project rules must be listed first:\n%s", body)
+	if strings.Contains(body, knowledge.CompactFooter) {
+		t.Errorf("detail output must not ask for a follow-up call:\n%s", body)
+	}
+}
+
+// TestDoCheck_ShowsMatchedKeysWhenCurated pins the visible half of the curated
+// gate: a hit says which key selected it, so an agent can judge it without
+// opening the entry.
+func TestDoCheck_ShowsMatchedKeysWhenCurated(t *testing.T) {
+	st := newTestStorage(t)
+	ctx := context.Background()
+
+	seedMemory(t, st, memory.Memory{
+		Project:  knowledge.DefaultSyncProject,
+		Scope:    memory.ScopeProject,
+		Type:     memory.TypeConvention,
+		TopicKey: "knowledge/camera-shake",
+		Title:    "Camera Shake as an Additive Local Position Offset",
+		Content:  "## Applies when\n\nAn impact shake is needed.",
+		Tags:     []string{knowledge.KindTag, "corpus:unity", "template:procedural", "key:camera-shake", "key:screen-shake"},
+	})
+
+	res, err := doCheck(ctx, st, Config{}, checkArgs{Task: "add camera shake on impact"})
+	if err != nil {
+		t.Fatalf("doCheck: %v", err)
+	}
+	body := textContent(res)
+	if !strings.Contains(body, "— keys: camera-shake — id ") {
+		t.Errorf("compact line should name the matched key:\n%s", body)
 	}
 }
 

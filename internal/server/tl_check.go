@@ -26,6 +26,7 @@ type checkArgs struct {
 	KnowledgeProject string
 	ExcludeStacks    []string
 	Limit            int
+	Detail           bool
 }
 
 func registerTLCheck(srv *server.MCPServer, s *storage.Storage, cfg Config) {
@@ -57,6 +58,9 @@ func registerTLCheck(srv *server.MCPServer, s *storage.Storage, cfg Config) {
 			mcp.WithNumber("limit",
 				mcp.Description(fmt.Sprintf("Max recipe hits (default %d, hard cap %d). Project rules are separate: at most 3 are listed first.", knowledge.DefaultCheckLimit, knowledge.MaxCheckLimit)),
 			),
+			mcp.WithBoolean("detail",
+				mcp.Description("Return each hit's Applies when / Validate / Limits sections. Default false: one line per hit with its id, to be read with tl_get_observation."),
+			),
 		),
 		func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 			args := decodeCheckArgs(req)
@@ -67,14 +71,16 @@ func registerTLCheck(srv *server.MCPServer, s *storage.Storage, cfg Config) {
 
 const tlCheckDescription = `Check what the owner already wrote about this change BEFORE you write or edit code for a feature.
 
-Call this FIRST — before the first edit of a task, not after it — with a one-sentence 'task' and the files you are about to touch. It searches the hand-written recipe corpus (Unity camera/UI/VFX/physics/editor recipes and similar) plus the current project's saved conventions, decisions and architecture, and returns for each hit its 'Applies when', 'Validate' and 'Limits' sections.
+Call this FIRST — before the first edit of a task, not after it — with a one-sentence 'task' and the files you are about to touch. It searches the hand-written recipe corpus (Unity camera/UI/VFX/physics/editor recipes and similar) plus the current project's saved conventions, decisions and architecture.
+
+The default answer is one line per hit: source, title, the curated keys that made it match, the memory id and the topic_key. Read a hit with tl_get_observation(id) only when its title and keys say it applies; pass detail:true when you want the Applies when / Validate / Limits sections inline instead.
 
 Project rules are listed first on purpose: a rule saved for this project always wins over a generic recipe.
 
 Rules for using the answer:
-- If a hit's "Applies when" matches what you are doing, follow its procedure; read the full entry with tl_search/tl_get_observation (topic_key is shown) when the sections are not enough.
-- Validate the result as the hit says, not as you would have done it.
-- Ignore hits whose "Applies when" does not match; the score is relative relevance, not a promise of fit.
+- If a hit's keys or sections match what you are doing, follow its procedure; read the full entry with tl_get_observation(id) when the one line is not enough.
+- Validate the result as the entry says, not as you would have done it.
+- Ignore hits that do not match; a curated key match is intent, not a promise of fit.
 
 An empty answer is normal and means nothing applies: proceed. Entries from foreign stacks (SVN, Fiber, other projects) are excluded and counted on the last line.`
 
@@ -87,6 +93,7 @@ func decodeCheckArgs(req mcp.CallToolRequest) checkArgs {
 		KnowledgeProject: strings.TrimSpace(asString(a, "knowledge_project")),
 		ExcludeStacks:    asStringSlice(a, "exclude_stacks"),
 		Limit:            asInt(a, "limit"),
+		Detail:           asBool(a, "detail"),
 	}
 	return out
 }
@@ -124,13 +131,16 @@ func doCheck(ctx context.Context, s *storage.Storage, cfg Config, args checkArgs
 	if err != nil {
 		return mcp.NewToolResultError(fmt.Sprintf("knowledge check failed: %v", err)), nil
 	}
-	return mcp.NewToolResultText(formatCheckResult(res)), nil
+	return mcp.NewToolResultText(formatCheckResult(res, args.Detail)), nil
 }
 
-// formatCheckResult renders the compact Markdown an agent reads. Sections that
-// the entry does not have are omitted rather than shown empty: an empty
-// "Limits" block reads as "there are no limits", which is a lie.
-func formatCheckResult(res knowledge.CheckResult) string {
+// formatCheckResult renders the Markdown an agent reads.
+//
+// Compact is the default because a check is a pre-flight step, not a reading
+// task: a line names the hit and its id, and the entry itself is one
+// tl_get_observation call away. Detail is today's sectioned form, kept for the
+// cases where re-asking is more expensive than the extra tokens.
+func formatCheckResult(res knowledge.CheckResult, detail bool) string {
 	var b strings.Builder
 	if len(res.Hits) == 0 {
 		// Say how close the corpus came instead of just "nothing": an agent that
@@ -148,26 +158,18 @@ func formatCheckResult(res knowledge.CheckResult) string {
 	fmt.Fprintf(&b, "Knowledge check for %q — %d hit(s). Project rules come first and override generic recipes.\n",
 		res.Query, len(res.Hits))
 	for _, h := range res.Hits {
-		fmt.Fprintf(&b, "\n### [%s] %s (%s, score %.2f) — coverage %d", h.Source, h.Title, h.TopicKey, h.Score, h.Coverage)
-		if len(h.Matched) > 0 {
-			fmt.Fprintf(&b, ": %s", strings.Join(h.Matched, ", "))
+		if !detail {
+			b.WriteString(knowledge.FormatHitLine(h))
+			b.WriteString("\n")
+			continue
 		}
-		fmt.Fprintf(&b, " (weight %.1f)\n", h.Weight)
-		writeCheckSection(&b, "Applies when", h.AppliesWhen)
-		writeCheckSection(&b, "Validate", h.Validate)
-		writeCheckSection(&b, "Limits", h.Limits)
-		if len(h.Stacks) > 0 {
-			fmt.Fprintf(&b, "**Stacks**: %s\n", strings.Join(h.Stacks, ", "))
-		}
+		b.WriteString("\n")
+		b.WriteString(knowledge.FormatHitDetail(h))
 	}
 	fmt.Fprintf(&b, "\nexcluded %d foreign-stack entries", res.Excluded)
-	return b.String()
-}
-
-func writeCheckSection(b *strings.Builder, label, body string) {
-	body = strings.TrimSpace(body)
-	if body == "" {
-		return
+	if !detail {
+		b.WriteString("\n")
+		b.WriteString(knowledge.CompactFooter)
 	}
-	fmt.Fprintf(b, "**%s**\n%s\n", label, body)
+	return b.String()
 }
