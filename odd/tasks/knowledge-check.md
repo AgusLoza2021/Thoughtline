@@ -33,7 +33,7 @@ any PR; work-unit commits on `feat/knowledge-check`. Push/PR/merge are the owner
 RDD: off (global) — no native review; ordinary checks only.
 
 ## Tasks
-- [ ] T1 `internal/knowledge` parser + scanner + group index + stack detection, with tests. Route: delegated (nan writer; new package, 2+ files).
+- [x] T1 `internal/knowledge` parser + scanner + group index + stack detection, with tests. Route: delegated (nan writer; new package, 2+ files). Commit `aaf131d`. Evidence: `go test ./...` all ok; real corpus 176 entries, 176 grouped, procedural 111 / recipe 65; stacks tactile 13, fiber 9, svn 7, level-editor 7, belt 6, spine 2.
 - [ ] T2 `thoughtline knowledge sync` CLI (upsert by topic_key, soft-delete removed, tags, type mapping), with tests. Route: delegated.
 - [ ] T3 `tl_check` MCP tool + `thoughtline check [--hook]` CLI, with tests. Route: delegated.
 - [ ] T4 Docs (TOOLS.md, README, protocol, CHANGELOG). Route: delegated (mechanical).
@@ -53,4 +53,4 @@ RDD: off (global) — no native review; ordinary checks only.
 - Baseline 2026-10-17: build OK, all 12 packages `ok`.
 
 ## Next step
-T1.
+T2 (in progress).

@@ -65,6 +65,10 @@ func main() {
 		err = runHook(ctx, os.Args[2:], os.Stdin, os.Stderr)
 	case "worker":
 		err = runWorker(ctx, os.Args[2:], os.Stderr)
+	case "knowledge":
+		// runKnowledge owns its exit codes (0 ok, 1 fatal, 2 usage), which the
+		// err-returning path below cannot express.
+		os.Exit(runKnowledge(os.Args[2:]))
 	case "version", "-v", "--version":
 		fmt.Printf("thoughtline %s\n", version)
 		return
@@ -118,6 +122,8 @@ Usage:
   thoughtline protocol     emit the active-protocol markdown to stdout
                            flags: --event {session-start|post-compaction},
                                   --project NAME, -o FILE
+  thoughtline knowledge    import or inspect a Markdown recipe corpus
+                           actions: sync <dir>, list
   thoughtline version      print the binary version and exit
   thoughtline help         print this help and exit
 
