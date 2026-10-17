@@ -224,7 +224,7 @@ func contentFor(e Entry) string {
 }
 
 func tagsFor(e Entry, corpus string) []string {
-	candidates := make([]string, 0, 6+len(e.Stacks)+len(e.Tags))
+	candidates := make([]string, 0, 6+len(e.Stacks)+len(e.Tags)+len(e.Keys)+len(e.NegKeys))
 	candidates = append(candidates,
 		"kind:knowledge",
 		"corpus:"+corpus,
@@ -232,6 +232,15 @@ func tagsFor(e Entry, corpus string) []string {
 	)
 	if group := strings.TrimSpace(e.Group); group != "" {
 		candidates = append(candidates, fitTag("group:", slugify(group)))
+	}
+	// Curated keys travel as tags so a check can decide an entry by intent
+	// without a second table. A key that would fail memory.Validate is dropped
+	// by the shared filter below instead of failing the entry.
+	for _, k := range e.Keys {
+		candidates = append(candidates, KeyTagPrefix+k)
+	}
+	for _, k := range e.NegKeys {
+		candidates = append(candidates, NegKeyTagPrefix+k)
 	}
 	for _, stack := range e.Stacks {
 		candidates = append(candidates, "stack:"+stack)

@@ -37,8 +37,10 @@ var (
 )
 
 // Scan reads a corpus directory. Recipe files live in <dir>/entries when that
-// folder exists, otherwise directly in <dir>; the index file, when present,
-// supplies each entry's topic Group.
+// folder exists, otherwise directly in <dir>; the index file (SKILL.md or
+// INDEX.md), when present, supplies each entry's topic Group; keys.yaml, when
+// present, supplies each entry's curated keys. Neither is an entry, so both
+// stay out of the corpus.
 func Scan(dir string) (Corpus, error) {
 	corpus := Corpus{Dir: dir}
 
@@ -82,6 +84,10 @@ func Scan(dir string) (Corpus, error) {
 			corpus.Entries[i].Group = groups[corpus.Entries[i].Slug]
 		}
 	}
+
+	// Curated keys live next to the index, not inside the entries. A missing
+	// keys.yaml leaves every entry uncurated, which is a supported corpus too.
+	applyKeys(dir, corpus.Entries)
 
 	sort.Slice(corpus.Entries, func(i, j int) bool {
 		if corpus.Entries[i].Slug != corpus.Entries[j].Slug {

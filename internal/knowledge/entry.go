@@ -39,6 +39,8 @@ type Entry struct {
 	Tags     []string  // frontmatter tags, normalized and deduped
 	Source   string    // frontmatter source
 	Group    string    // topic group from the index file; "" if not indexed
+	Keys     []string  // curated search keys from keys.yaml; nil when uncurated
+	NegKeys  []string  // curated keys that veto this entry (keys.yaml "!key")
 	Template Template  // body shape
 	Sections []Section // in file order
 	Stacks   []string  // foreign-stack markers detected in title+body
