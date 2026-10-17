@@ -128,9 +128,22 @@ thoughtline knowledge list
 
 # One question, the same one tl_check answers over MCP
 thoughtline check --task "add camera shake when the player gets hit" --path Assets/Scripts/CameraRig.cs
+#   --detail        print each hit's sections instead of one line per hit
+#   --json          structured result for scripts and tuning
 ```
 
-**The `.md` files stay the source of truth.** Sync is one-way: it upserts by `topic_key` (`knowledge/<slug>`) and soft-deletes entries whose file disappeared; editing a memory in Thoughtline does not edit the recipe. Two hand-written templates are understood (`## Guidance / Applies when / Why this works / Procedure / Validate the result / Limits` and the shorter `## Context / Example / Notes`).
+By default `check` prints one line per hit plus the id a follow-up call needs, so a caller can decide what to open instead of reading five recipes it will not use:
+
+```
+query: camera shake player hit
+[knowledge] Camera Shake as an Additive Local Position Offset — keys: camera-shake — id 19 (knowledge/camera-shake-as-an-additive-local-position-offset)
+excluded 9 foreign-stack entries
+Call tl_get_observation(id) for the full recipe.
+```
+
+A hit either matches a **curated key** from the corpus's optional `keys.yaml` (one line per entry: `slug: [key, key, !negative-key]`) or, for entries nobody curated, passes the coverage + IDF gates described in [`docs/TOOLS.md`](docs/TOOLS.md). Curated keys are a claim about intent — "this entry is what you want when you type `progress-bar`" — and a `!`-prefixed key vetoes an entry that the words would otherwise pull in.
+
+**The `.md` files stay the source of truth.** Sync is one-way: it upserts by `topic_key` (`knowledge/<slug>`) and soft-deletes entries whose file disappeared; editing a memory in Thoughtline does not edit the recipe. Two hand-written templates are understood (`## Guidance / Applies when / Why this works / Procedure / Validate the result / Limits` and the shorter `## Context / Example / Notes`). An optional `keys.yaml` next to the index curates the words each entry answers to; `INDEX.md` is read as the group index when `SKILL.md` does not carry one. Neither file is imported as an entry.
 
 ### Wire it as a Claude Code hook
 

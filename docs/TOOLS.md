@@ -137,43 +137,43 @@ Returns a text snapshot: counts by type / project / scope, the number of open an
 | `knowledge_project`| no       | Brain holding the recipe corpus. Default `THOUGHTLINE_KNOWLEDGE_PROJECT`, else `knowledge-unity` |
 | `exclude_stacks`   | no       | Foreign stacks to skip (`["svn","fiber"]`). Entries tagged `stack:<name>` are dropped and counted |
 | `limit`            | no       | Max recipe hits. Default 5, hard cap 10. Project rules are separate: at most 3, listed first     |
+| `detail`           | no       | `true` returns each hit's Applies when / Validate / Limits sections instead of one line per hit  |
 
 At least one of `task` or `paths` is required. **Call this before the first edit of a feature, not after it**, and make `task` descriptive: the query is built from its words, and a bare commit subject is measurably weaker than "camera shake when hit".
 
-The answer is compact Markdown, one block per hit:
+The default answer is compact — one line per hit, carrying the id you need next:
 
 ```
-Knowledge check for "camera shake hit" — 3 hit(s). Project rules come first and override generic recipes.
+Knowledge check for "camera shake hit" — 2 hit(s). Project rules come first and override generic recipes.
+[project-rule] Camera feel lives in FeelConfig — id 5 (convention/camera-feel)
+[knowledge] Camera Shake as an Additive Local Position Offset — keys: camera-shake — id 19 (knowledge/camera-shake-as-an-additive-local-position-offset)
+excluded 9 foreign-stack entries
+Call tl_get_observation(id) for the full recipe.
+```
 
-### [project-rule] Camera feel lives in FeelConfig (convention/camera-feel, score 1.00) — coverage 1 (weight 0.0)
-**Applies when**
-...
-**Validate**
-...
-**Limits**
-...
+With `detail: true` each hit is a sectioned block instead:
 
-### [knowledge] Camera shake on hit (knowledge/camera-shake-hit, score 0.87) — coverage 3: camera, shake, hit (weight 12.4)
+```
+### [knowledge] Camera Shake as an Additive Local Position Offset (knowledge/camera-shake-as-an-additive-local-position-offset, score 1.00) — coverage 3: camera, shake, hit (weight 12.4)
+**Keys**: camera-shake
 **Applies when**
 ...
 **Validate**
 ...
 **Limits**
 **Stacks**: unity
-
-excluded 9 foreign-stack entries
 ```
 
-How to read it: `coverage` is how many distinct task terms the entry's title, tags and gate section actually claim — the absolute gate, default 2. `weight` is the sum of IDF over those terms, so `camera` + `shake` weighs far more than `game` + `state`; the default floor is derived from corpus size (≈ 6.5 for a 176-entry corpus). `score` is relevance **relative to the best hit of the same source**, so the top hit is always 1.00 — it ranks, it does not promise fit. Project rules (`[project-rule]`) are listed first and always win over a generic recipe. Sections the entry does not have are omitted, never shown empty.
+How to read it: a hit needs either a **curated key** (the corpus's `keys.yaml`; a key matches when all of its words appear in the query) or, for entries nobody curated, the coverage and weight gates. `keys:` names the key that selected the hit. `coverage` is how many distinct task terms the entry's title, tags and gate section claim — the absolute gate, default 2. `weight` is the sum of IDF over those terms, so `camera` + `shake` weighs far more than `game` + `state`; the default floor is derived from corpus size (≈ 6.5 for a 176-entry corpus). `score` is relevance **relative to the best hit of the same source**, so the top hit is always 1.00 — it ranks, it does not promise fit. Project rules (`[project-rule]`) are listed first and always win over a generic recipe. Sections the entry does not have are omitted, never shown empty.
 
 An empty answer is normal and means nothing applies:
 
 ```
-No applicable knowledge for this task (best candidate had coverage 1: Sub-pixel UI snapping).
+Knowledge check for "sub-pixel snapping" — 0 hit(s). Project rules come first and override generic recipes.
 excluded 9 foreign-stack entries
 ```
 
-The `best candidate` clause exists so a caller can tell "the corpus was read and nothing applies" from "the corpus was never consulted". Follow a hit's **Applies when**; read the full entry with `tl_get_observation` (the `topic_key` is shown) when the sections are not enough; validate the result the way the hit says, not the way you would have done it.
+The CLI's `--detail` is the same switch, and its empty answer keeps the `best candidate` clause (`no hits (best candidate had coverage 1: Sub-pixel UI snapping)`) so a caller can tell "the corpus was read and nothing applies" from "the corpus was never consulted". Follow a hit's **Applies when**; read the full entry with `tl_get_observation` (the `topic_key` is shown) when the line is not enough; validate the result the way the hit says, not the way you would have done it.
 
 ### `tl_judge`
 
