@@ -105,6 +105,10 @@ type CheckHit struct {
 	Weight      float64  `json:"weight"` // sum of IDF over the matched terms: specific terms weigh more
 	Coverage    int      `json:"coverage"`
 	Matched     []string `json:"matched,omitempty"` // distinct query terms found in the anchor
+	// MatchedKeys lists the curated keys (keys.yaml) that fired. A non-empty
+	// list is why this hit was kept, which also makes the compact answer
+	// explain itself: "keys: camera-shake" says what the entry claimed.
+	MatchedKeys []string `json:"matched_keys,omitempty"`
 	AppliesWhen string   `json:"applies_when,omitempty"`
 	Validate    string   `json:"validate,omitempty"`
 	Limits      string   `json:"limits,omitempty"`
@@ -163,8 +167,8 @@ func Check(ctx context.Context, st *storage.Storage, req CheckRequest) (CheckRes
 		return res, err
 	}
 	res.Excluded = excluded
-	res.Hits = append(finishCandidates(rules, req, projectRuleLimit, false),
-		finishCandidates(knowledge, req, req.Limit, true)...)
+	res.Hits = append(finishCandidates(rules, req, projectRuleLimit, false, false),
+		finishCandidates(knowledge, req, req.Limit, true, true)...)
 	if len(res.Hits) == 0 {
 		res.Best = bestCandidate(rules, knowledge)
 	}
@@ -365,9 +369,11 @@ func splitWords(s string) []string {
 // and the section extractor need. The body is read once per candidate: reading
 // it in two passes doubled the queries on every check.
 type candidate struct {
-	hit   CheckHit
-	entry Entry
-	valid bool // the body was readable, so its gate section can be used
+	hit     CheckHit
+	entry   Entry
+	valid   bool // the body was readable, so its gate section can be used
+	keyed   bool // the entry is curated, so its keys decide it instead of coverage
+	blocked bool // a negative curated key fired
 }
 
 // knowledgeCandidates searches the corpus brain for entries that mention any
@@ -455,6 +461,9 @@ func loadCandidates(ctx context.Context, st *storage.Storage, brainID int64, sou
 		c.entry, c.valid = entry, valid
 		c.hit.Coverage, c.hit.Matched = coverageOf(tokens, anchor)
 		c.hit.Weight = table.weightOf(c.hit.Matched)
+		// The curated gate is only computed here; whether it is applied is the
+		// caller's call, because a project rule is never decided by a key.
+		c.hit.MatchedKeys, c.blocked, c.keyed = keyGate(r.Tags, tokens)
 		out = append(out, c)
 	}
 	return out
@@ -589,6 +598,11 @@ func hasTag(tags []string, want string) bool {
 func tagWords(tags []string) string {
 	parts := make([]string, 0, len(tags))
 	for _, t := range tags {
+		if strings.HasPrefix(t, NegKeyTagPrefix) {
+			// A negative key exists to VETO a hit; letting its words into the
+			// anchor would credit the entry with the very match it refuses.
+			continue
+		}
 		if _, value, ok := strings.Cut(t, ":"); ok {
 			t = value
 		}
@@ -634,8 +648,9 @@ func coverageOf(tokens []string, anchor string) (int, []string) {
 	return len(matched), matched
 }
 
-// finishCandidates applies the gates in order: the absolute coverage gate, the
-// IDF weight gate, the per-source limit, then the relative MinScore gate on the
+// finishCandidates applies the gates in order: the curated key gate for
+// knowledge entries, the absolute coverage gate and the IDF weight gate for
+// everything else, the per-source limit, then the relative MinScore gate on the
 // survivors.
 //
 // Order matters. Coverage runs first because it is the only gate that can
@@ -649,15 +664,25 @@ func coverageOf(tokens []string, anchor string) (int, []string) {
 // for this project. Gating them on it silently dropped the rule that mattered
 // ("camera feel lives in FeelConfig") on any corpus where "camera" is common,
 // and the corpus holds at most three of them anyway.
-func finishCandidates(cands []candidate, req CheckRequest, limit int, applyWeight bool) []CheckHit {
+func finishCandidates(cands []candidate, req CheckRequest, limit int, applyWeight, applyKeys bool) []CheckHit {
 	rankCandidates(cands, applyWeight)
 	kept := cands[:0]
 	for _, c := range cands {
-		if c.hit.Coverage < req.MinCoverage {
-			continue
-		}
-		if applyWeight && c.hit.Weight < req.MinWeight {
-			continue
+		if applyKeys && c.keyed {
+			// A curated entry is decided by its keys alone: coverage and IDF
+			// weight are the fallback for corpora nobody curated, and mixing
+			// them in here would re-admit exactly the tangents keys exist to
+			// remove. A negative key vetoes the entry outright.
+			if c.blocked || len(c.hit.MatchedKeys) == 0 {
+				continue
+			}
+		} else {
+			if c.hit.Coverage < req.MinCoverage {
+				continue
+			}
+			if applyWeight && c.hit.Weight < req.MinWeight {
+				continue
+			}
 		}
 		kept = append(kept, c)
 	}
@@ -809,7 +834,7 @@ func normaliseAndGate(hits []CheckHit, minScore float64) []CheckHit {
 		} else {
 			h.Score = h.Score / best
 		}
-		if h.Score >= minScore {
+		if h.Score >= minScore || len(h.MatchedKeys) > 0 {
 			out = append(out, h)
 		}
 	}
