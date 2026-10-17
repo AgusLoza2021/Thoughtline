@@ -162,14 +162,33 @@ func TestRunCheck_PlainAndJSONOutput(t *testing.T) {
 	if !strings.Contains(stdout, `query: camera shake player hit`) {
 		t.Errorf("plain output should echo the query, got:\n%s", stdout)
 	}
-	if !strings.Contains(stdout, "knowledge/camera-shake") {
-		t.Errorf("plain output should name the matching entry, got:\n%s", stdout)
+	// Compact by default: one line per hit, an id to follow up with, no sections.
+	if !strings.Contains(stdout, "[knowledge] Camera Shake as an Additive Local Position Offset — id ") ||
+		!strings.Contains(stdout, "(knowledge/camera-shake)") {
+		t.Errorf("plain output should carry the hit line, got:\n%s", stdout)
 	}
-	if !strings.Contains(stdout, "score=") || !strings.Contains(stdout, "excluded 0 foreign-stack entries") {
-		t.Errorf("plain output should carry score and excluded lines, got:\n%s", stdout)
+	if !strings.Contains(stdout, knowledge.CompactFooter) {
+		t.Errorf("compact output should close with the follow-up call, got:\n%s", stdout)
 	}
-	if !strings.Contains(stdout, "coverage=3: camera, shake, hit") {
-		t.Errorf("plain output should carry coverage and the matched terms, got:\n%s", stdout)
+	if strings.Contains(stdout, "score=") || strings.Contains(stdout, "**Applies when**") {
+		t.Errorf("compact output must stay one line per hit, got:\n%s", stdout)
+	}
+	if !strings.Contains(stdout, "excluded 0 foreign-stack entries") {
+		t.Errorf("plain output should carry the excluded line, got:\n%s", stdout)
+	}
+
+	// --detail is today's sectioned answer, which is what tuning reads.
+	code, stdout, stderr = runCheckCLI(t, "", "--task", "add camera shake when the player gets hit", "--detail")
+	if code != checkExitOK {
+		t.Fatalf("detail exit = %d, stderr = %s", code, stderr)
+	}
+	for _, want := range []string{"score 1.00", "coverage 3: camera, shake, hit", "**Applies when**", "**Validate**"} {
+		if !strings.Contains(stdout, want) {
+			t.Errorf("detail output missing %q:\n%s", want, stdout)
+		}
+	}
+	if strings.Contains(stdout, knowledge.CompactFooter) {
+		t.Errorf("detail output must not ask for a follow-up call, got:\n%s", stdout)
 	}
 
 	code, stdout, stderr = runCheckCLI(t, "", "--task", "add camera shake when the player gets hit", "--json")

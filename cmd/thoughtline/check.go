@@ -31,14 +31,15 @@ var hookEditTools = map[string]bool{"Edit": true, "Write": true, "MultiEdit": tr
 
 const (
 	// hookMaxHits / hookMaxChars keep the additionalContext small enough to
-	// ride along on every edit without eating the agent's prompt budget.
-	hookMaxHits  = 3
+	// ride along on every edit without eating the agent's prompt budget. Two is
+	// the cap because a hook that lists five recipes is noise the agent skips.
+	hookMaxHits  = 2
 	hookMaxChars = 2500
 )
 
 // checkUsage is short on purpose; the README carries the full reference.
 const checkUsage = `Usage:
-  thoughtline check --task "..." [--path FILE]... [--project NAME] [--limit N] [--json]
+  thoughtline check --task "..." [--path FILE]... [--project NAME] [--limit N] [--json] [--detail]
   thoughtline check --hook [--ext .cs]
 
 Reports the hand-written recipes and project rules that apply to a change.
@@ -50,6 +51,8 @@ Reports the hand-written recipes and project rules that apply to a change.
   --min-coverage N distinct task terms an entry must match (default 2)
   --min-weight F   minimum IDF weight of those terms (default: scaled to the
                    corpus, i.e. two terms that appear in a tenth of it)
+  --detail         print each hit's Applies when / Validate / Limits sections;
+                   the default is one line per hit with its id
   --json           print the query, hits and excluded count as JSON
   --hook           Claude Code PreToolUse mode: read the payload from stdin and
                    emit hookSpecificOutput JSON, or nothing at all
@@ -93,6 +96,7 @@ func runCheck(ctx context.Context, args []string, stdin io.Reader, out, errW io.
 	minCoverage := fs.Int("min-coverage", 0, "distinct task terms an entry must match")
 	minWeight := fs.Float64("min-weight", 0, "minimum IDF weight of the matched terms")
 	asJSON := fs.Bool("json", false, "print the result as JSON")
+	detail := fs.Bool("detail", false, "print each hit's sections instead of one line")
 	hook := fs.Bool("hook", false, "Claude Code PreToolUse mode")
 	ext := fs.String("ext", ".cs", "hook mode: file extension to check")
 
@@ -135,12 +139,12 @@ func runCheck(ctx context.Context, args []string, stdin io.Reader, out, errW io.
 		}
 		return runCheckHook(ctx, req, *ext, stdin, out)
 	}
-	return runCheckOnce(ctx, req, *asJSON, out, errW)
+	return runCheckOnce(ctx, req, *asJSON, *detail, out, errW)
 }
 
 // runCheckOnce is the interactive form: open the database, run one check and
 // print it. A missing database is an empty corpus, never an error.
-func runCheckOnce(ctx context.Context, req knowledge.CheckRequest, asJSON bool, out, errW io.Writer) int {
+func runCheckOnce(ctx context.Context, req knowledge.CheckRequest, asJSON, detail bool, out, errW io.Writer) int {
 	if req.Task == "" && len(req.Paths) == 0 {
 		fmt.Fprintf(errW, "thoughtline check: --task or --path is required\n\n%s\n", checkUsage)
 		return checkExitUsage
@@ -169,15 +173,14 @@ func runCheckOnce(ctx context.Context, req knowledge.CheckRequest, asJSON bool, 
 		return checkExitOK
 	}
 
-	fmt.Fprint(out, formatCheckCLI(res))
+	fmt.Fprint(out, formatCheckCLI(res, detail))
 	return checkExitOK
 }
 
-// formatCheckCLI is the human/script view: one line per hit that carries the
-// title, score and coverage, which is what tuning the thresholds reads. The
-// sections are left to --json and to the MCP tool, which is what an agent
-// consumes.
-func formatCheckCLI(res knowledge.CheckResult) string {
+// formatCheckCLI is the human/script view. The default is compact: one line per
+// hit with the id a follow-up call needs, which is also what tuning reads.
+// --detail adds the sections, --json keeps its structured form.
+func formatCheckCLI(res knowledge.CheckResult, detail bool) string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "query: %s\n", res.Query)
 	if len(res.Hits) == 0 {
@@ -188,13 +191,18 @@ func formatCheckCLI(res knowledge.CheckResult) string {
 		b.WriteString("\n")
 	}
 	for _, h := range res.Hits {
-		fmt.Fprintf(&b, "[%s] %s (%s) score=%.2f coverage=%d", h.Source, h.Title, h.TopicKey, h.Score, h.Coverage)
-		if len(h.Matched) > 0 {
-			fmt.Fprintf(&b, ": %s", strings.Join(h.Matched, ", "))
+		if !detail {
+			b.WriteString(knowledge.FormatHitLine(h))
+			b.WriteString("\n")
+			continue
 		}
-		fmt.Fprintf(&b, " (weight %.1f)\n", h.Weight)
+		b.WriteString(knowledge.FormatHitDetail(h))
 	}
 	fmt.Fprintf(&b, "excluded %d foreign-stack entries\n", res.Excluded)
+	if !detail && len(res.Hits) > 0 {
+		b.WriteString(knowledge.CompactFooter)
+		b.WriteString("\n")
+	}
 	return b.String()
 }
 
