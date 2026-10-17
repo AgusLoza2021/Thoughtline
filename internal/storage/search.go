@@ -35,8 +35,14 @@ type SearchOptions struct {
 	TopicKey   string   // GLOB pattern (e.g. "design/*"); exact when no wildcard
 	Tags       []string // AND filter: every tag must be present in the memory's tags JSON array
 	RecentFirst bool    // when true, sort by updated_at DESC instead of BM25 score
-	Limit      int
-	Offset     int
+	// MatchAny joins the sanitized query tokens with OR instead of FTS5's
+	// implicit AND. Callers that assemble their own multi-token query (a
+	// knowledge check built from a task description) need it: requiring every
+	// token to appear in one row is far too strict to find "the recipe about
+	// this". The default keeps every existing caller byte-identical.
+	MatchAny bool
+	Limit    int
+	Offset   int
 }
 
 // SearchResult is a single hit from Search. Snippet is at most SnippetMaxChars.
@@ -180,7 +186,7 @@ func (s *Storage) searchByTopicKey(ctx context.Context, brainID int64, glob stri
 // searchByFTS runs the FTS5 + BM25 path. The query is sanitized so each token
 // is a literal-quoted phrase; FTS5 special chars in user input become inert.
 func (s *Storage) searchByFTS(ctx context.Context, brainID int64, raw string, opts SearchOptions, limit, offset int) ([]SearchResult, error) {
-	q := sanitizeFTSQuery(raw)
+	q := sanitizeFTSQueryMode(raw, opts.MatchAny)
 	if q == "" {
 		// Nothing left after sanitization (e.g. all whitespace) — empty result.
 		return nil, nil
@@ -311,6 +317,14 @@ func addCommonFiltersAliased(where *[]string, args *[]any, opts SearchOptions, a
 //
 // Empty input or input made entirely of quotes returns "".
 func sanitizeFTSQuery(raw string) string {
+	return sanitizeFTSQueryMode(raw, false)
+}
+
+// sanitizeFTSQueryMode is sanitizeFTSQuery with a choice of joiner: a single
+// space (FTS5 implicit AND, the historical behaviour) or " OR " when the
+// caller wants any token to match. Everything else about sanitization is
+// unchanged, so OR mode cannot smuggle an FTS5 operator through user input.
+func sanitizeFTSQueryMode(raw string, matchAny bool) string {
 	tokens := strings.Fields(raw)
 	out := make([]string, 0, len(tokens))
 	for _, w := range tokens {
@@ -320,7 +334,11 @@ func sanitizeFTSQuery(raw string) string {
 		}
 		out = append(out, `"`+w+`"`)
 	}
-	return strings.Join(out, " ")
+	joiner := " "
+	if matchAny {
+		joiner = " OR "
+	}
+	return strings.Join(out, joiner)
 }
 
 // truncateRunes returns s truncated to at most n runes (not bytes), preserving

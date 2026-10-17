@@ -35,6 +35,13 @@ var typeNames = func() string {
 type Config struct {
 	Version        string
 	DefaultProject string
+
+	// KnowledgeProject is the brain holding the hand-written recipe corpus and
+	// KnowledgeExclude the technology stacks that must never be suggested
+	// (another project's tooling, not this one's). Both default from the
+	// environment at boot; tl_check uses them when its arguments omit them.
+	KnowledgeProject string
+	KnowledgeExclude []string
 }
 
 // New constructs an MCPServer with all Thoughtline tools registered.
@@ -58,6 +65,7 @@ func New(s *storage.Storage, cfg Config) *server.MCPServer {
 	registerTLJudge(srv, s, cfg)
 	registerTLLink(srv, s, cfg)
 	registerTLRelated(srv, s, cfg)
+	registerTLCheck(srv, s, cfg)
 	// Passive capture tools (v3).
 	registerTLPendingList(srv, s, cfg)
 	registerTLPendingGet(srv, s, cfg)

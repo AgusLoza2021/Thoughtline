@@ -18,6 +18,12 @@
 //	                   THOUGHTLINE_HOME if set. Useful for tests.
 //	THOUGHTLINE_PROJECT  Override the default project identifier. Defaults to
 //	                   the basename of the working directory at startup.
+//	THOUGHTLINE_KNOWLEDGE_PROJECT  Brain holding the hand-written recipe corpus
+//	                   that tl_check and `thoughtline check` read. Defaults to
+//	                   the knowledge package's own default (knowledge-unity).
+//	THOUGHTLINE_KNOWLEDGE_EXCLUDE  Comma-separated stack names whose entries a
+//	                   check must skip (e.g. "svn,fiber"): another project's
+//	                   tooling is noise in this one.
 package main
 
 import (
@@ -69,6 +75,9 @@ func main() {
 		// runKnowledge owns its exit codes (0 ok, 1 fatal, 2 usage), which the
 		// err-returning path below cannot express.
 		os.Exit(runKnowledge(os.Args[2:]))
+	case "check":
+		// Same reason: hook mode must exit 0 whatever happens.
+		os.Exit(runCheck(ctx, os.Args[2:], os.Stdin, os.Stdout, os.Stderr))
 	case "version", "-v", "--version":
 		fmt.Printf("thoughtline %s\n", version)
 		return
@@ -124,6 +133,9 @@ Usage:
                                   --project NAME, -o FILE
   thoughtline knowledge    import or inspect a Markdown recipe corpus
                            actions: sync <dir>, list
+  thoughtline check        report the recipes and project rules a change must follow
+                           flags: --task TEXT, --path FILE (repeatable),
+                                  --project NAME, --limit N, --json, --hook
   thoughtline version      print the binary version and exit
   thoughtline help         print this help and exit
 
@@ -131,6 +143,8 @@ Environment:
   THOUGHTLINE_HOME    directory for the SQLite database
   THOUGHTLINE_DB      override the database file path entirely
   THOUGHTLINE_PROJECT default project identifier (otherwise auto-detected from cwd)
+  THOUGHTLINE_KNOWLEDGE_PROJECT corpus brain read by check/tl_check
+  THOUGHTLINE_KNOWLEDGE_EXCLUDE comma list of foreign stacks check must skip
 
 See README.md for the full reference and per-tool examples.`)
 }
@@ -152,8 +166,10 @@ func runServer(ctx context.Context) error {
 	}()
 
 	cfg := server.Config{
-		Version:        version,
-		DefaultProject: resolveDefaultProject(),
+		Version:          version,
+		DefaultProject:   resolveDefaultProject(),
+		KnowledgeProject: strings.TrimSpace(os.Getenv("THOUGHTLINE_KNOWLEDGE_PROJECT")),
+		KnowledgeExclude: splitCSV(os.Getenv("THOUGHTLINE_KNOWLEDGE_EXCLUDE")),
 	}
 
 	srv := server.New(st, cfg)
@@ -379,6 +395,25 @@ func resolveDefaultProject() string {
 		return "default"
 	}
 	return base
+}
+
+// splitCSV splits a comma-separated environment value, dropping blanks so an
+// unset or trailing comma does not produce an empty list item.
+func splitCSV(raw string) []string {
+	if strings.TrimSpace(raw) == "" {
+		return nil
+	}
+	parts := strings.Split(raw, ",")
+	out := make([]string, 0, len(parts))
+	for _, p := range parts {
+		if p = strings.TrimSpace(p); p != "" {
+			out = append(out, p)
+		}
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
 }
 
 // isCleanShutdown reports whether err corresponds to the MCP client closing
